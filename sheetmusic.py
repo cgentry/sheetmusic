@@ -16,6 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+    SheetMusic is a program to display music on a monitor. It uses
+    PNGs (normally) and flips pages. A simple program in Python and QT
+"""
 __version__ = "0.1.5"
 __author__ = "Charles Gentry"
 
