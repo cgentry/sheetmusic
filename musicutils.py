@@ -4,9 +4,11 @@
 # This file is part of SheetMusic
 # Copyright: 2022 by Chrles Gentry
 #
-# This program is free software; you can redistribute it and/or modify
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -18,27 +20,23 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 def toInt( value, default=0, ignore=True) -> int:
-    if isinstance(value, int):
-        return value
-    if isinstance(value, float ):
-        return int(value)
-    if isinstance(value, str ):
-        if value:
+    rtn = default
+    if value is not None and value != "":
+        if isinstance( value, bool ):
+            rtn =  ( 1 if value else 0)
+        else: 
             try:
-                return int(value)
+                rtn= int(value)
             except ValueError as err:
-                if ignore:
-                    return default
-                else:
+                if not ignore:
                     raise err
+    return rtn
 
-    return default
-
-def toBool(v):
+def toBool(v,default=False):
     if isinstance(v,bool):
         return v
     if v is None:
-        return False
+        return default
     if isinstance( v , int ):
         return v != 0
     return v.lower() in ("yes", "true", "t", "1","ok")

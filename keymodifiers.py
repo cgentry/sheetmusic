@@ -3,9 +3,11 @@
 # This file is part of SheetMusic
 # Copyright: 2022 by Chrles Gentry
 #
-# This program is free software; you can redistribute it and/or modify
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -38,17 +40,17 @@ class KeyModifiers:
     def __init__(self) -> None:
         self.native = QKeySequence.SequenceFormat.NativeText
         self.mods = {
-            "page-back"        : self.__pageBack(),
-            "page-forward"     : self._pageForward(),
-            "first-page-book"  : self._firstBookPage(),
-            "first-page-shown" : self._firstPageShown(),
-            "last-page-book"   : self._lastBookPage(),
-            "last-page-shown"  : self._lastPageShown(),
-            "previous-bookmark": self._previousBookmark(),
-            "next-bookmark"    : self._nextBookmark(),
+            "page-back"        : self.pageBack(),
+            "page-forward"     : self.pageForward(),
+            "first-page-book"  : self.firstBookPage(),
+            "first-page-shown" : self.firstPageShown(),
+            "last-page-book"   : self.lastBookPage(),
+            "last-page-shown"  : self.lastPageShown(),
+            "previous-bookmark": self.previousBookmark(),
+            "next-bookmark"    : self.nextBookmark(),
         }
         
-    def __pageBack(self)->dict:
+    def pageBack(self)->dict:
         return {
              QKeySequence( QKeySequence.MoveToPreviousPage).toString() : QKeySequence( QKeySequence.MoveToPreviousPage).toString(),
             "Up-cursor key": QKeySequence(u"Up").toString(),
@@ -56,7 +58,7 @@ class KeyModifiers:
             "i": QKeySequence(u"i")
         }
     
-    def _pageForward(self)->dict:
+    def pageForward(self)->dict:
         return {
             QKeySequence( QKeySequence.MoveToNextPage).toString() : QKeySequence( QKeySequence.MoveToNextPage).toString(),
             "Down-cursor key": QKeySequence(u'Down').toString(),
@@ -64,38 +66,38 @@ class KeyModifiers:
             "k": QKeySequence(u"k")
         }
        
-    def _firstPageShown(self)->dict:
+    def firstPageShown(self)->dict:
         return {
             QKeySequence( QKeySequence.MoveToStartOfDocument).toString(format=self.native) : QKeySequence( QKeySequence.MoveToStartOfDocument).toString(),
             QKeySequence( QKeySequence(u'Ctrl+Left') ).toString(format=self.native): QKeySequence(u'Ctrl+Left').toString(),
         }
 
-    def _lastPageShown(self)->dict:
+    def lastPageShown(self)->dict:
         return {
             QKeySequence( QKeySequence.MoveToEndOfDocument).toString(format=self.native) : QKeySequence(QKeySequence.MoveToEndOfDocument).toString(),
             QKeySequence( QKeySequence(u'Ctrl+Right') ).toString(format=self.native): QKeySequence(u'Ctrl+Right').toString()
         }
 
-    def _firstBookPage(self)->dict:
+    def firstBookPage(self)->dict:
         return {
             QKeySequence( QKeySequence.Back).toString(format=self.native) : QKeySequence( QKeySequence.Back).toString(),
             QKeySequence( QKeySequence(u'Ctrl+Alt+Left') ).toString(format=self.native): QKeySequence(u'Ctrl+Alt+Left').toString() 
         }
 
-    def _lastBookPage(self)->dict:
+    def lastBookPage(self)->dict:
         return {
             QKeySequence( QKeySequence.Forward).toString(format=self.native) : QKeySequence( QKeySequence.Forward).toString(),
             QKeySequence( QKeySequence(u'Ctrl+Alt+Right') ).toString(format=self.native): QKeySequence(u'Ctrl+Alt+Right').toString(),
         }
 
-    def _previousBookmark(self)->dict:
+    def previousBookmark(self)->dict:
         return {
             QKeySequence( QKeySequence(u'Alt+Up') ).toString(format=self.native): QKeySequence(u'Alt+Up').toString() ,
             QKeySequence( QKeySequence(u'Alt+Left') ).toString(format=self.native): QKeySequence(u'Alt+Left').toString() ,
             "j": QKeySequence(u"j"),
         }
 
-    def _nextBookmark(self)->dict:
+    def nextBookmark(self)->dict:
         return {
             QKeySequence( QKeySequence(u'Alt+Down') ).toString(format=self.native): QKeySequence(u'Alt+Down').toString() ,
             QKeySequence( QKeySequence(u'Alt+Right') ).toString(format=self.native): QKeySequence(u'Alt+Right').toString() ,

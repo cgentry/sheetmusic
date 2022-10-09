@@ -3,9 +3,11 @@
 # This file is part of SheetMusic
 # Copyright: 2022 by Chrles Gentry
 #
-# This program is free software; you can redistribute it and/or modify
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -17,6 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from re import M
+from db.keys import DbKeys
 from PySide6.QtCore import (QCoreApplication, QRect,QSize)
 from PySide6.QtGui import (QAction, Qt )
 from PySide6.QtWidgets import (
@@ -64,7 +67,24 @@ class UiMain(object):
         self.actionOpen.setObjectName(u"actionOpen")
         self.actionOpen_Recent = QAction(MainWindow)
         self.actionOpen_Recent.setObjectName(u"actionOpen_Recent")
+        self.actionDelete = QAction(MainWindow)
+        self.actionDelete.setObjectName(u'actionDelete')
 
+        # Import Files: PDF, Check Incomplete, 
+        self.actionImport = QAction( MainWindow )
+
+        self.actionImportPDF = QAction(MainWindow)
+        self.actionImportPDF.setObjectName(u'actionImportPDF')
+
+        self.actionImportDirectory = QAction(MainWindow)
+        self.actionImportDirectory.setObjectName(u"actionImportDirectory")
+
+        self.actionReimportPDF = QAction(MainWindow)
+        self.actionReimportPDF.setObjectName(u'actionReimportPDF')
+
+        self.actionCheckIncomplete = QAction(MainWindow)
+        self.actionCheckIncomplete.setObjectName( u"actionCheckIncomplete")
+        
         # Action Properties
         self.actionProperties = QAction(MainWindow)
         self.actionProperties.setObjectName(u"actionProperties")
@@ -101,6 +121,8 @@ class UiMain(object):
         # Action About
         self.actionAbout = QAction(MainWindow)
         self.actionAbout.setObjectName(u"actionAbout")
+        self.actionAbout.setMenuRole( QAction.AboutRole)
+
         self.actionHelp = QAction(MainWindow)
         self.actionHelp.setObjectName(u"actionHelp")
 
@@ -136,12 +158,14 @@ class UiMain(object):
         self.actionAdd_Bookmark = QAction(MainWindow)
         self.actionAdd_Bookmark.setObjectName(u"actionAdd_Bookmark")
 
+        self.actionCleanDB = QAction(MainWindow)
+        self.actionCleanDB.setObjectName( u'actionCleanDB')
+
+        self.actionDumpDB = QAction(MainWindow)
+        self.actionDumpDB.setObjectName( u'actionDumpDB')
+
         self.actionShowBookmarks = QAction(MainWindow)
         self.actionShowBookmarks.setObjectName(u"actionShowBookmarks")
-
-        # Import PDF
-        self.actionImportPDF = QAction(MainWindow)
-        self.actionImportPDF.setObjectName(u'actionImportPDF')
 
     def addStatus(self, MainWindow):
         self.statusbar = QStatusBar(MainWindow)
@@ -178,6 +202,7 @@ class UiMain(object):
         self.setAddBookmark = self.actionAdd_Bookmark.triggered.connect
         self.setShowBookmarks = self.actionShowBookmarks.triggered.connect
         self.setImportPDF = self.actionImportPDF.triggered.connect
+        self.setReimportPDF = self.actionReimportPDF.triggered.connect
 
 # Create Menus
     def createMenus(self, MainWindow)->bool:
@@ -218,15 +243,33 @@ class UiMain(object):
         # File actions
         self.menuOpen_Recent = QMenu()
         self.menuOpen_Recent.setTitle('Open Recent...')
+        self.menuDelete = QMenu()
+        self.menuDelete.setTitle("Delete")
+
+        
+        self.menuImportPDF = QMenu()
+        self.menuImportPDF.setTitle( 'Import Book from PDF')
+        self.menuReimportPDF = QMenu()
+        self.menuReimportPDF.setTitle( 'Reimport Book from PDF')
+        self.menuImportDirectory = QMenu()
+        self.menuImportDirectory.setTitle('Scan and import books from directory')
+
 
     def addActions(self, MainWindow):
         self.menubar.addAction(self.menuFile.menuAction())
         self.menuFile.addAction(self.actionOpen)
-        self.actionOpen_Recent = self.menuFile.addMenu(self.menuOpen_Recent )
+        self.actionOpen_Recent = self.menuFile.addMenu( self.menuOpen_Recent )
 
         self.menuFile.addAction(self.actionClose)
+        self.menuFile.addAction( self.actionDelete )
+
         self.menuFile.addSeparator()
-        self.menuFile.addAction(self.actionImportPDF)
+        self.menuImport = self.menuFile.addMenu( "Import")
+        self.menuImport.setTitle('Import music')
+        self.menuImport.addAction( self.actionImportPDF )
+        self.menuImport.addAction( self.actionReimportPDF)
+        self.menuImport.addAction( self.actionImportDirectory)
+        self.menuImport.addAction( self.actionCheckIncomplete)
 
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionPreferences)
@@ -248,7 +291,7 @@ class UiMain(object):
         self.menuGo.addAction(self.actionLastPage)
         self.menuGo.addAction(self.actionGo_to_Page)
         
-        # Tool aations
+        # Tool actions
         self.menubar.addAction(self.menuTools.menuAction())
         
         # Help actions
@@ -282,6 +325,9 @@ class UiMain(object):
         self.menuEdit.addSeparator()
         self.menuTools.addAction(self.actionBookmarkCurrentPage)
         self.menuTools.addAction(self.actionAdd_Bookmark)
+        self.menuTools.addSeparator()
+        self.menuTools.addAction( self.actionCleanDB )
+        self.menuTools.addAction( self.actionDumpDB )
 
         
 
@@ -291,7 +337,7 @@ class UiMain(object):
             "MainWindow", u"MainWindow", None))
 
         self.actionOpen.setText(
-            QCoreApplication.translate("MainWindow", u"Open", None))
+            QCoreApplication.translate("MainWindow", u"Open...", None))
         self.actionOpen.setShortcut(
             QCoreApplication.translate("MainWindow", u"Ctrl+O", None))
 
@@ -305,6 +351,9 @@ class UiMain(object):
 
         self.actionOpen_Recent.setText(
             QCoreApplication.translate("MainWindow", u"Open Recent", None))
+        self.actionDelete.setText(
+            QCoreApplication.translate("MainWindow", u"Delete...", None))
+
         self.actionClose.setText(
             QCoreApplication.translate("MainWindow", u"Close", None))
 
@@ -331,12 +380,6 @@ class UiMain(object):
         self.actionViewStatus.setText(
             QCoreApplication.translate("MainWindow", u"View Status Bar", None))
 
-        #self.actionSide_by_side.setText(
-        #    QCoreApplication.translate("MainWindow", u"Side-by-side", None))
-        #self.actionStack.setText(
-        #    QCoreApplication.translate("MainWindow", u"Stack", None))
-        #self.actionPartial_Page_Flow.setText(
-        #    QCoreApplication.translate("MainWindow", u"Partial Page Flow", None))
         self.actionAbout.setText(
             QCoreApplication.translate("MainWindow", u"About", None))
         self.actionHelp.setText(
@@ -372,9 +415,19 @@ class UiMain(object):
         # Tools
         #########
         
+        self.actionImport.setText(QCoreApplication.translate(
+            "MainWindow", u"Import ...", None))
+        self.actionImportDirectory.setText(QCoreApplication.translate(
+            "MainWindow", u"Import Directory of books ...", None))
 
         self.actionImportPDF.setText(QCoreApplication.translate(
             "MainWindow", u"Import PDF ...", None))
+
+        self.actionReimportPDF.setText(QCoreApplication.translate(
+            "MainWindow", u"Reimport PDF ...", None))
+
+        self.actionCheckIncomplete.setText(QCoreApplication.translate(
+            "MainWindow", u"Check for incomplete entries ...", None))
 
         self.menuFile.setTitle(
             QCoreApplication.translate("MainWindow", u"File", None))
@@ -390,43 +443,75 @@ class UiMain(object):
             QCoreApplication.translate("MainWindow", u"Help", None))
         # retranslateUi
 
-        self.translateBookmarkOptions(MainWindow)
+        self.translateBookmarkOptions()
+        self.setNavigationShortcuts()
+        self.setBookmarkShortcuts()
 # End retranslateUi
 
-    def translateBookmarkOptions(self, MainWindow):
-        bookmarkShortcut = {
-            'markBookmark' :    u'Ctrl+D',
-            'showBookmark' :    u'Shift+Ctrl+D',
-            'previousBookmark': u'Alt+Up',
-            'nextBookmark':     u'Alt+Down',
-            'addBookmark':      u'Alt+B',
+    def setNavigationShortcuts(self, overrides:dict=None):
+        """
+            Set the navigation shortcut. You can pass a dictionary of values
+            in and those setting will override the defaults. Th dictionary
+            can contain other entries - that won't affect the operation.
+        """
+        navigationShortcut = {
+            DbKeys.SETTING_PAGE_PREVIOUS :      u'Up',
+            DbKeys.SETTING_BOOKMARK_PREVIOUS:   u'Alt+Up',
+            DbKeys.SETTING_PAGE_NEXT:           u'Down',
+            DbKeys.SETTING_BOOKMARK_NEXT:       u'Alt+Down',
+            DbKeys.SETTING_FIRST_PAGE_SHOWN:    u"Alt+Ctrl+Left",
+            DbKeys.SETTING_LAST_PAGE_SHOWN:     u"Alt+Ctrl+Right",
         }
+        if overrides is not None:
+            navigationShortcut.update( overrides )
+
+        def shortcut( name:str, action:QAction):
+            action.setShortcut( 
+                QCoreApplication.translate("MainWindow", navigationShortcut[name], None)
+            )
+
+        shortcut( DbKeys.SETTING_PAGE_PREVIOUS,         self.actionUp)
+        shortcut( DbKeys.SETTING_BOOKMARK_PREVIOUS,     self.actionPreviousBookmark)
+        shortcut( DbKeys.SETTING_PAGE_NEXT,             self.actionDown)
+        shortcut( DbKeys.SETTING_BOOKMARK_NEXT,         self.actionNextBookmark)
+        shortcut( DbKeys.SETTING_FIRST_PAGE_SHOWN,      self.actionFirstPage)
+        shortcut( DbKeys.SETTING_LAST_PAGE_SHOWN,       self.actionLastPage)              
+
+    def translateBookmarkOptions(self):
         def xlate( newLabel, action:QAction):
             action.setText(
                 QCoreApplication.translate("MainWindow",newLabel, None)
             )
-        def shortcut( name, action:QAction):
-            action.setShortcut( 
-                QCoreApplication.translate("MainWindow", bookmarkShortcut[name], None)
-            )
-
         # Labels
         xlate( u'Previous Bookmark',     self.actionPreviousBookmark)
         xlate( u'Next Bookmark',         self.actionNextBookmark)
         xlate( u'Bookmarks ...',         self.actionShowBookmarks)
         xlate( u'Bookmark current page', self.actionBookmarkCurrentPage)
         xlate( u'Add Bookmark',          self.actionAdd_Bookmark)
+        xlate( u'Clean DB',              self.actionCleanDB )
+        xlate( u'Backup DB to file...' ,   self.actionDumpDB )
+    ## end translateBookmarkOptions
+
+    def setBookmarkShortcuts(self, overrides:dict=None):
+        bookmarkShortcut = {
+            'markBookmark' :    u'Ctrl+D',
+            'showBookmark' :    u'Shift+Ctrl+D',
+            'addBookmark':      u'Alt+B',
+        }
+        if overrides is not None:
+            bookmarkShortcut.update( overrides )
+            
+        def shortcut( name, action:QAction):
+            action.setShortcut( 
+                QCoreApplication.translate("MainWindow", bookmarkShortcut[name], None)
+            )
 
         # Shortcuts
-        shortcut( 'previousBookmark',    self.actionPreviousBookmark)
-        shortcut( 'nextBookmark',        self.actionNextBookmark)
         shortcut( 'showBookmark',        self.actionShowBookmarks)
         shortcut( 'markBookmark',        self.actionBookmarkCurrentPage)
         shortcut( 'addBookmark',         self.actionAdd_Bookmark)
-
+    ## end setBookmarkShortcuts
         
-    ## end translateBookmarkOptions
-
     def addPageWidgets(self, MainWindow):
         sizePolicy = QSizePolicy(
             QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)

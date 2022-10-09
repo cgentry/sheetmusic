@@ -1,133 +1,348 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+
+import shutil
+from select import select
+from tkinter import dialog
+from db.dbconn import DbConn
+from db.dbbook import DbGenre, DbComposer, DbBook
+from db.keys import BOOK
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QApplication, QButtonGroup,  QCheckBox,
+    QComboBox,    QDialog,       QDialogButtonBox,
+    QFileDialog,  QGridLayout,   QHBoxLayout,
+    QLabel,       QLineEdit,     QMessageBox,
+    QPlainTextEdit, QPushButton, QRadioButton,
+    QTabWidget,   QTextEdit,     QVBoxLayout,
+    QWidget, QFrame, QSplitter, QStyleFactory, QTreeView, QTreeWidget, QTreeWidgetItem,
+    QTableWidget, QTableWidgetItem, QHeaderView, QInputDialog
+)
 
 
-from musicfile import MusicFile
-from functools import lru_cache
-from PySide6.QtWidgets import (QMessageBox)
-from PySide6.QtGui import QPixmap
+class FileBase(QDialog):
 
-class UiFile (MusicFile):
-    '''
-    Class will handle the file functions and configuration.
-    '''
-    CACHE_SIZE = 5
-
+    bookFilterLabel = 'Filter book name'
     def __init__(self):
         super().__init__()
 
-    def clearSettings(self):
-        """ Clear the pixel map and all settings for a music config"""
-        self.getPixmap.cache_clear()
-        return super().clearSettings()
+        (_, self.cursor) = DbConn().handles()
+        self.dbook = DbBook()
+        
+        self.lastSortOrder = ""
+        self.selectedLabel('Name')
+        self.sortOrder = 'ASC'
+        self.bookSelected = None
+        self.bookName = None
 
+        layout = self.createWindowLayout()
+        #layout.addLayout(self.createGridLayout())
+        self.allBooksLoaded = False
+        self.loadGenre()
+        self.loadComposer()
+        self.loadBookFilter()
+        self.loadBook()
+        self.setLayout(layout)
+        self.setModal( True )
 
-# we need to save layout in appropriate section
-    def setOrientaton(self, layout: str):
-        """ Set the orientation. This should be defined in MusicFile"""
-        self.layout = str
+    def loadBookFilter(self):
+        item = QTreeWidgetItem(self.itemName, [ self.bookFilterLabel ])
+        item.setFlags( Qt.ItemIsEnabled|Qt.ItemIsSelectable)
 
-    def deleteBookmark(self, 
-            section,
-            bookName=None,
-            bookmark=None,
-            pageShown=None,
-            bookPage=None
-            ):
-        """ Delete the bookmark indicated from the config.ini file """
-        try:
-            self.config.remove_section(section)
-        except Exception as err:
-            expandedFormat="{}:    {}\n"
-            expandedInfo=""
-            if bookName:
-                expandedInfo=expandedFormat.format("Book", bookName)
-            if bookmark:
-                expandedInfo = expandedInfo + expandedFormat.format("Bookmark",bookmark)
-            if pageShown:
-                expandedInfo = expandedInfo + expandedFormat.format("Page Shown",pageShown)
-            if bookPage:
-                expandedInfo = expandedInfo + expandedFormat.format("Book Page",bookPage)
+    def loadGenre(self):
+        for name in DbGenre().getall():
+            item = QTreeWidgetItem( self.itemGenre , [name])
             
-            dlg = QMessageBox()
-            dlg.setIcon(QMessageBox.Warning)
-            dlg.setWindowTitle("SheetMusic")
-            dlg.setCheckBox(None)
-            dlg.setStandardButton(QMessageBox.Ok)
+    def loadComposer(self):
+        for name in DbComposer().getall():
+            item = QTreeWidgetItem( self.itemComposer , [name])
 
-            dlg.setText("Could not delete bookmark.")
-            if hasattr(err, "message"):
-                dlg.setInformativeText(err.message)
-            else:
-                dlg.setInfomativeText(bookmark)
-            if expandedInfo:
-                dlg.setDetailedText( expandedInfo )
-            dlg.exec()
-        finally:
-            self.writeBookConfig()
+    def bookItem(self,name:str )->QTableWidgetItem:
+        item = QTableWidgetItem()
+        item.setText( name )
+        item.setFlags( Qt.ItemIsEnabled|Qt.ItemIsSelectable)
+        return item
 
-
-    def getAllBookmarks(self):
-        """ fetch a list of all bookmarks in the config.ini """
-        bookmarkList = []
-        for section in self.config.sectionsSorted():
-            name = self.config.getConfig(self.config.KEY_NAME, section , '?' )
-            pname = name
-            if name == '?':
-                name = section
-                pname = self._formatPrettyName(name)
-            configPage = self.config[section][self.config.KEY_PAGE_CONTENT]
-            relativePage = str(self.getBookPageNumberRelative(configPage))
-            bookmarkList.append({
-                self.config.KEY_NAME:          name,
-                self.config.KEY_PAGE_CONTENT:  configPage,
-                self.config.KEY_PNAME:         pname,
-                self.config.KEY_PAGES_START:   relativePage})
-        return bookmarkList
-
- 
-    @lru_cache(5)
-    def getPixmap(self, pageNum):
-        """ read the file and conver it into a pixal map.
+    def fillTable( self, books ):
+        self.bookSelected = None
+        self.bookName = None
+        self.fileList.clear()
+        self.fileList.setHorizontalHeaderLabels(["Name","Genre","Composer"])
+        row = 0
+        for book in books:
+            self.fileList.insertRow(row)
+            self.fileList.setItem( row , 0 , self.bookItem( book[BOOK.name]))
+            self.fileList.setItem( row , 1 , self.bookItem( book[BOOK.genre]))
+            self.fileList.setItem( row , 2 , self.bookItem( book[BOOK.composer]))
+            self.fileList.setItem( row , 3 , self.bookItem( book[BOOK.location]))
         
-            This will cache entries to help speedup pixmap conversion
-        """
-        imagePath = self.getBookPagePath(pageNum)
-        return QPixmap(imagePath)
-        
+            row += 1
 
-    def writeBookConfig(self):
-        """ Save the books config.ini """
-        try:
-            super().writeBookConfig()        
-        except Exception as err:
-            dlg = QMessageBox()
-            dlg.setWindowTitle("Error " + self.fileBaseName +
-                                   "configuration file")
-            if hasattr(err, "message"):
-                dlg.setText(err.message)
-            else:
-                dlg.setText(
-                    "Could not write configuration file " + self.fileBaseName)
-                dlg.setStandardButtons(QMessageBox.Cancel)
-                dlg.setDefaultButton(QMessageBox.Cancel)
-                dlg.setIcon(QMessageBox.Warning)
-                dlg.exec()
-                return False
-        return True
+    def buttonAccepted(self):
+        if self.bookSelected is not None:
+            self.reject()
+        self.accept()
+
+    def buttonRejected(self):
+        self.bookSelected = None
+        self.bookName = None
+        self.reject()
+
+    def loadBookOrder(self, filterName:str, filter:str, sortOrder:list):
+        """ Load books by sort order """
+        self.allBooksLoaded = False
+        self.bookSelected = None
+        self.bookName = None
+        self.fillTable( self.dbook.getFilterBooks( filterName, filter, sortOrder ) )
+
+    def loadBook(self):
+        """ Load all books into table """
+        self.bookSelected = None
+        self.bookName = None
+        if not self.allBooksLoaded:
+            self.allBooksLoaded = True
+            self.fillTable( self.dbook.getAll() )
+
+    def translateClass( self, className:str )->str :
+        if className == 'Book names':
+            return 'book'
+        if className == 'Genre' :
+            return 'genre'
+        return 'composer'
+    
+    def translateOrder( self, className:str )->list:
+        if className == 'genre':
+            return ['genre', 'book', 'composer']
+        return ['composer', 'book', 'genre']
+
+    def inputFilterName(self):
+        txt,rtn = QInputDialog.getText( self, "Filter names", "Enter name" )
+        if rtn :
+            self.allBooksLoaded = False
+            self.fillTable( self.dbook.getLike( txt ) )
+
+    def treeSelectionChanged(self):
+        item = self.treeSelection.currentItem()
+
+        # Filter by name input
+        if item.text(0) == self.bookFilterLabel:
+            return self.inputFilterName()
+
+        # Load all the books
+        if item.text(0) == 'Book names' or item.childCount() > 0 :
+            self.filterName.clear()
+            return self.loadBook()
+
+        # Load only filter books
+        filterName = self.translateClass( item.parent().text(0))
+        filter = item.text(0)
+        sortOrder = self.translateOrder( filterName )
+        self.loadBookOrder( filterName, filter, sortOrder )
+
+    def sectionClicked( self, index ):
+        pass
+
+    def fileSelected(self , item:QTableWidgetItem ):
+        self.bookSelected = self.fileList.item( item.row(), 3 ).text()
+        self.bookName     = self.fileList.item( item.row(), 0 ).text()
+    
+    def fileOpen( self, item:QTableWidgetItem ):
+        self.fileSelected( item )
+        self.accept()
+
+    def actionLineFilter( self , value:str ):
+        if len( value ) == 0 :
+            self.loadBook()
+        if len(value) > 3:
+            sortOrder = ['book','genre','composer']
+            self.loadBookOrder( 'book', value , sortOrder )
+
+    def createTreeView( self ):
+        self.treeSelection = QTreeWidget()
+        self.treeSelection.setItemsExpandable(True)
+        self.treeSelection.setColumnCount(1)
+        self.treeSelection.setHeaderLabels(['Filters'])
+        self.itemName = QTreeWidgetItem(self.treeSelection,['Book names'])
+        self.itemGenre = QTreeWidgetItem(self.treeSelection,['Genre'])
+        self.itemComposer = QTreeWidgetItem(self.treeSelection,['Composer'])
+
+        self.treeSelection.itemSelectionChanged.connect(self.treeSelectionChanged )
+        return self.treeSelection
+
+    def createFileList( self ):
+        self.fileList = QTableWidget()
+        self.fileList.setColumnCount( 4 )
+        self.fileList.setSortingEnabled(True)
+
+        head = self.fileList.horizontalHeader()
+        head.setSectionHidden( 3 , True )
+        head.setSectionResizeMode(0, QHeaderView.Stretch)
+
+        head.setSortIndicator( 0 , Qt.AscendingOrder)
+        head.setSortIndicatorShown(True)
+        head.setHighlightSections(False)
+
+        head.sectionClicked.connect(self.sectionClicked )
+        self.fileList.itemClicked.connect(self.fileSelected )
+        self.fileList.itemDoubleClicked.connect( self.fileOpen )
+        return self.fileList
+
+    def createNameFilter( self )->QWidget:
+        box = QHBoxLayout()
+        lbl = QLabel()
+        lbl.setText('Filter book names')
+        self.nameFilter = QLineEdit()
+        self.nameFilter.textChanged( self.actionLineFilter )
+        box.addWidget( lbl )
+        box.addWidget( self.nameFilter )
+
+        return box
+
+    def createWindowLayout(self):
+        windowLayout = QVBoxLayout(self)  
+
+        left_right = QSplitter(Qt.Horizontal)
+        top_bottom = QSplitter(Qt.Vertical)
+      
+        left_right.addWidget(self.createTreeView())
+        left_right.addWidget(self.createFileList())
+        left_right.setSizes([200,800])
+
+        top_bottom.addWidget(left_right)
+        top_bottom.addWidget( self.createNameFilter() )
+        #top_bottom.addWidget(self.createInfoView())
+        top_bottom.setSizes([600])
+		
+        windowLayout.addWidget(top_bottom)
+        windowLayout.addWidget( self.createButtons() )
+        
+        self.setMinimumSize(900, 600)
+        self.setLayout( windowLayout )
+
+    def loadTypes(self):
+        self.treeSelection.add
+
+    def selectedLabel(self, sortOrder:str ):
+        if self.lastSortOrder == sortOrder:
+            self.sortOrder = ( 'DESC' if self.sortOrder == 'ASC' else 'ASC')
+        self.lastSortOrder = sortOrder
+        if sortOrder == 'Name':
+            self.sortFields = [BOOK.name, BOOK.dateRead, BOOK.genre, BOOK.composer]
+        elif sortOrder == 'Genre':
+            self.sortFields = [BOOK.genre, BOOK.name, BOOK.dateRead, BOOK.composer]
+        elif sortOrder == 'Composer':
+            self.sortFields = [BOOK.composer, BOOK.name, BOOK.dateRead, BOOK.genre]
+
+    def createLinkLabel(self, name:str )->QLabel:
+        lbl = QLabel( "<a href='{}'>{}</a>".format(name,name ) )
+        lbl.setTextInteractionFlags( Qt.LinksAccessibleByMouse )
+        lbl.setToolTip("Click to sort by {}".format( name ))
+        lbl.linkActivated.connect( self.selectedLabel )
+        return lbl
+
+    def createGridLayout( self)->QGridLayout:
+        self.layoutGrid = QGridLayout()
+        self.layoutGrid.addWidget( self.createLinkLabel('Name'),     0 , 0 )
+        self.layoutGrid.addWidget( self.createLinkLabel('Genre'),    0 , 1 )
+        self.layoutGrid.addWidget( self.createLinkLabel('Composer'), 0 , 2 )
+        self.layoutGrid.addWidget( self.createLinkLabel(''),         0 , 3 )
+        self.layoutGrid.addWidget( self.createNameFilter(),    1, 0 )
+        self.layoutGrid.addWidget( self.createComboGenre(),    1, 1 )
+        self.layoutGrid.addWidget( self.createComboComposer(), 1, 2)
+        return self.layoutGrid
+
+    def createComboGenre(self)->QComboBox:
+        self.comboGenre = QComboBox()
+        self.comboGenre.addItem( '*All', userData="*")
+        for entry in DbGenre().getAll():
+            self.comboGenre.addItem( entry, userData=entry )
+        self.comboGenre.setCurrentIndex(0)
+        return self.comboGenre
+
+    def createComboComposer(self)->QComboBox:
+        self.comboComposer = QComboBox()
+        self.comboComposer.addItem( '*All', userData="*")
+        for entry in DbComposer().getAllComposers():
+            self.comboComposer.addItem( entry, userData=entry )
+        self.comboComposer.setCurrentIndex(0)
+        return self.comboComposer
+    
+    def createNameFilter(self):
+        self.filterName = QLineEdit()
+        return self.filterName
+
+
+class Openfile( FileBase ):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Open Book")
+
+    def createButtons(self):
+        self.buttons = QDialogButtonBox()
+        self.buttons.addButton(QDialogButtonBox.Open   )
+        self.buttons.addButton( QDialogButtonBox.Cancel )
+        
+        self.buttons.accepted.connect( self.buttonAccepted )
+        self.buttons.rejected.connect( self.buttonRejected )
+        return self.buttons
+
+    def info(self):
+        pass
+
+class Deletefile( FileBase ):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Delete Book")
+
+    def createButtons(self):
+        self.buttons = QDialogButtonBox()
+        self.buttons.addButton('Delete', QDialogButtonBox.AcceptRole  )
+        self.buttons.addButton( QDialogButtonBox.Cancel )
+        
+        self.buttons.accepted.connect( self.buttonAccepted )
+        self.buttons.rejected.connect( self.buttonRejected )
+        return self.buttons
+
+class Reimportfile( FileBase ):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Select Book for Reimport")
+
+    def createButtons(self):
+        self.buttons = QDialogButtonBox()
+        self.buttons.addButton('Reimport', QDialogButtonBox.AcceptRole  )
+        self.buttons.addButton( QDialogButtonBox.Cancel )
+        
+        self.buttons.accepted.connect( self.buttonAccepted )
+        self.buttons.rejected.connect( self.buttonRejected )
+        return self.buttons
+
+class DeletefileAction( ):
+    def __init__( self , name:str ):
+        ans = QMessageBox.question(
+            None,
+            "File Delete",
+            "OK to delete {} and all files?".format( name ),
+            QMessageBox.Yes | QMessageBox.No 
+        )
+        if ans == QMessageBox.Yes :
+            dbb = DbBook()
+            book = dbb.getBook( book=name)
+            if book is not None:
+                try:
+                    if dbb.delBook( book=name):
+                        shutil.rmtree( book[ BOOK.location ], onerror=self.showError )
+                    else:
+                        self.showError( None, name, FileNotFoundError("No book was removed from database") )
+                except Exception as err:
+                    self.showError( None, name, err )
+        
+    def showError( self , func, path, errinfo ):
+        if isinstance( errinfo, tuple ):
+            emsg = str( errinfo[1] ) 
+        else:
+            emsg = str(esg)
+        QMessageBox.critical( 
+            None,
+            "File Deletion Error",
+            "Error deleteing {}\n{}".format( path, emsg ),
+            QMessageBox.Cancel
+        )
