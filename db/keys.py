@@ -85,6 +85,7 @@ class DbKeys():
     VALUE_NAME_IMPORT_FILE_0    = 0           # Minimal cleanup only (bad chars)
     VALUE_NAME_IMPORT_FILE_1    = 1           # Just use filename but get rid of characters
     VALUE_NAME_IMPORT_FILE_2    = 2           # Try and tidy up the filename more
+    SETTING_LOGGING_ENABLED     = 'logging_enabled'
 
     
 

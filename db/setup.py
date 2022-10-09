@@ -204,6 +204,7 @@ class Setup():
             DbKeys.SETTING_FILE_PREFIX:         DbKeys.VALUE_FILE_PREFIX,
             DbKeys.SETTING_LAST_IMPORT_DIR:     DbKeys.VALUE_LAST_IMPORT_DIR,
             DbKeys.SETTING_NAME_IMPORT:         DbKeys.VALUE_NAME_IMPORT_FILE_1,
+            DbKeys.SETTING_LOGGING_ENABLED:     False,
             
             # DbKeys.SETTING_PAGE_PREVIOUS:     mods["page-back"].items(),
             # DbKeys.SETTING_PAGE_NEXT:         mods["page-forward"].items(),
