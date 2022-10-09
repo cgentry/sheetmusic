@@ -27,7 +27,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui  import QIntValidator
 
 from db.keys import BOOKMARK
-from musicutils import toInt
+from util.convert import toInt
 
 class TableItem( QTableWidgetItem):
     def __init__(self, name , protected:bool=False):

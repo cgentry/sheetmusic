@@ -26,7 +26,7 @@
 import os
 import fnmatch
 from pickle import GET
-from musicutils    import toInt
+from util.convert    import toInt
 from db.dbconn     import DbConn
 from db.dbsql      import _forceDictionary, _sqlInsert, _sqlUpsert, SqlInsert,SqlUpdate, SqlColumnNames
 from db.dbsystem   import DbSystem

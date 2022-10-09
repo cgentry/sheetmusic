@@ -21,9 +21,9 @@
 import unittest
 import os.path
 
-from .dbconn import DbConn
-from .setup import Setup
-from .dbsystem import DbSystem
+from db.dbconn import DbConn
+from db.setup import Setup
+from db.dbsystem import DbSystem
 from db.keys   import DbKeys
 
 class TestSetup( unittest.TestCase):

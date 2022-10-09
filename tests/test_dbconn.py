@@ -67,11 +67,11 @@ class TestDbConn( unittest.TestCase ):
         import os
         dbname = './dummy.tdb'
         dh = DbConn()
-        (conn1, curr1) = dh.dbHandle( dbname )
+        (conn1, curr1) = dh.openDB( dbname)
         self.assertEqual( dh.name() , dbname )
         (conn2, curr2) = dh.openDB(":memory:", trace=True)
         self.assertEqual( dh.name() , ':memory:')
-        dh.dbHandle( close=True)
+        dh.closeDB( )
 
         try:
             os.remove( dbname )

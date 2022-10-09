@@ -23,12 +23,11 @@ from tkinter import W
 import unittest
 import sqlite3
 
-
 sys.path.append("../")
-from .dbconn import DbConn
-from .dbbooksettings import DbBookSettings
-from .dbsql import SqlRowString
-from .setup import Setup
+from db.dbconn import DbConn
+from db.dbbooksettings import DbBookSettings
+from db.dbsql import SqlRowString
+from db.setup import Setup
 
 
 class TestDbBookSettings(unittest.TestCase):
@@ -99,8 +98,8 @@ class TestDbBookSettings(unittest.TestCase):
         row = self.settings.getValue('test2','key9')
         self.assertIsNone( row )
 
-    def test_getAllBookSettings_nobook(self):
-        self.assertRaises( ValueError, self.settings.getAllBookSettings)
+    def test_getAll_nobook(self):
+        self.assertRaises( ValueError, self.settings.getAll)
 
     def test_getBookSetting_found(self):
         for i in range(1,5):
@@ -109,7 +108,7 @@ class TestDbBookSettings(unittest.TestCase):
             self.assertEqual( row['value'], 'value{}'.format(i))
 
     def test_getBookSetting_nokeys(self):
-        self.assertRaises( ValueError, self.settings.getBookSetting)
+        self.assertRaises( ValueError, self.settings.getValue)
 
     def test_getInt(self):
         ok = self.settings.setValue( 'test1', 'Key42', 42)
@@ -152,17 +151,17 @@ class TestDbBookSettings(unittest.TestCase):
         ok = self.settings.setValue('test1', 'keyadd', 'valueadd2', ignore=True )
         self.assertFalse( ok ,"Did not have error on duplicate key")
 
-        self.assertRaises(sqlite3.IntegrityError, self.settings.addBookSetting, 'test1','keyadd', 'valueadd2')
+        self.assertRaises(sqlite3.IntegrityError, self.settings.setValue, 'test1','keyadd', 'valueadd2')
 
         row = self.settings.getValue('test1', 'keyadd')
         self.assertEqual( row['value'], 'valueadd')
         self.assertEqual( row['key'], 'keyadd')
         self.assertEqual( row['book'], 'test1')
 
-        self.assertRaises( sqlite3.OperationalError, self.settings.addBookSetting, 'title5', 'key5', 'value5')
+        self.assertRaises( sqlite3.OperationalError, self.settings.setValue, 'title5', 'key5', 'value5')
         
-    def test_addBookSetting_nokeys(self):    
-        self.assertRaises( ValueError, self.settings.addBookSetting, None)
+    def test_setValue_nokeys(self):    
+        self.assertRaises( ValueError, self.settings.setValue, None)
         self.assertFalse( self.settings.setValue( ignore=True))
 
     def test_setValue(self):
@@ -195,8 +194,8 @@ class TestDbBookSettings(unittest.TestCase):
         self.assertEqual( len(row), self.test1_count-1)
 
     def test_delone_badcall(self):
-        self.assertRaises(ValueError, self.settings.delBookSetting,None, None )
-        self.assertRaises(sqlite3.OperationalError, self.settings.delBookSetting,'test5', 'key1' )
+        self.assertRaises(ValueError, self.settings.deleteValue,None, None )
+        self.assertRaises(sqlite3.OperationalError, self.settings.deleteValue,'test5', 'key1' )
 
         ok=self.settings.deleteValue(book=None, key='', ignore=True)
         self.assertEqual(ok, 0 )
@@ -212,8 +211,8 @@ class TestDbBookSettings(unittest.TestCase):
         self.assertEqual( len(row), 0)  
 
     def test_delall_badcall(self):
-        self.assertRaises(ValueError, self.settings.delAllBookSettings,None)
-        self.assertRaises(sqlite3.OperationalError, self.settings.delAllBookSettings,'test5')
+        self.assertRaises(ValueError, self.settings.deleteAllValues,None)
+        self.assertRaises(sqlite3.OperationalError, self.settings.deleteAllValues,'test5')
 
         ok=self.settings.deleteAllValues(book=None, ignore=True)
         self.assertEqual(ok, 0 )

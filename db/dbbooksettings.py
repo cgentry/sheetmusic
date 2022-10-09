@@ -63,6 +63,7 @@ class DbBookSettings():
         self.cursor = DbConn().cursor()
 
     def _setBook(self, book:str )->str:
+        """ Get book id, either one passed or fallback to current value """
         if book is None:
             if self.book is None:
                 raise ValueError("No book name supplied")
@@ -84,10 +85,11 @@ class DbBookSettings():
         result = self.cursor.execute( self.SQL_BOOKSETTING_ALL, [self._setBook(book)])
         return result.fetchall()
         
-    def getValue( self, book=None, key=None, fallback=True):
+    def getValue( self, book:str=None, key:str=None, fallback=True):
         """ Fetch setting for Book or fallback to the system setting """
-        book = self._setBook[book]
-        parms = {'book':book, 'key':key}
+        if not key:
+            raise ValueError( "No lookup key")
+        parms = {'book': self._setBook(book), 'key':key}
         result = self.cursor.execute( self.SQL_BOOKSETTING_GET, parms)
         rows = result.fetchone()
         if fallback and rows is None:
@@ -114,6 +116,7 @@ class DbBookSettings():
         return default
 
     def setValueById( self, id:int=None, key=None, value=None, ignore=False)->bool:
+        rtn = True
         try:
             if id is None:
                 raise ValueError("Book ID is required")
@@ -124,14 +127,18 @@ class DbBookSettings():
             (_, cursor) = DbConn().openDB()
             self.cursor.execute( sql, parms)
         except Exception as err:
-            if ignore:
-                return False
-            raise err
-        return True
+            rtn = False
+            if not ignore:
+                raise err
+        return rtn
 
     def setValue(self, book=None, key=None, value=None, ignore=False )->bool:
-        id = self._bookID(book=book, ignore=ignore)
-        return self.setValueById( id, key, value, ignore=ignore )
+        try:
+            return self.setValueById( self._bookID(book=book, ignore=ignore),  key, value, ignore=ignore )
+        except Exception as err:
+            if not ignore:
+                raise err
+            return False
         
     def upsertBookSetting(self, book:str=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
 

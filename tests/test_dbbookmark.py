@@ -22,10 +22,10 @@ import sys
 import unittest
 
 sys.path.append("../")
-from .dbconn import DbConn
-from .dbbookmark import DbBookmark
-from .dbsql import SqlRowString
-from .setup import Setup
+from db.dbconn import DbConn
+from db.dbbookmark import DbBookmark
+from db.dbsql import SqlRowString
+from db.setup import Setup
 from db.keys import BOOKMARK
 
 

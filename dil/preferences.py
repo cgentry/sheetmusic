@@ -21,7 +21,7 @@
 import os
 import base64
 import pickle
-from musicutils     import toBool, toInt
+from util.convert     import toBool, toInt
 from db.keys        import DbKeys
 from db.dbconn      import DbConn
 from db.dbsystem    import DbSystem

@@ -84,7 +84,7 @@ class TestSql( unittest.TestCase):
             with self.subTest(i=i):
                 name="test{}".format(i)        
                 rtn = SqlInsert('Genre', name=name, ignore=True, commit=True)
-                self.assertEqual( rtn , i, name)
+                self.assertEqual( rtn , i ,name)
     
     def test_insert_no_parms(self):
         flag = False

@@ -22,9 +22,9 @@ import sys
 import sqlite3
 import unittest
 
-from .dbconn import DbConn
-from .setup import Setup
-from .dbsystem import DbSystem
+from db.dbconn import DbConn
+from db.setup import Setup
+from db.dbsystem import DbSystem
 
 class TestSystem( unittest.TestCase):
     def setUp(self):

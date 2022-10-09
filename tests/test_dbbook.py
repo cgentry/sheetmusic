@@ -23,7 +23,8 @@ import sys
 import sqlite3
 import tempfile
 import unittest
-sys.path.append("../")
+#sys.path.append("../")
+
 from db.dbconn import DbConn
 from db.dbbook import DbBook, DbGenre, DbComposer
 from db.dbgeneric import DbTransform

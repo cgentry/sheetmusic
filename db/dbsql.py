@@ -84,19 +84,24 @@ def _sqlInsert(table, fields, ignore=False, commit=True )->int:
         If false, it will re-raise the error
     """
     (conn, cursor ) = DbConn().handles()
-    sql = _insertStatment( table, fields, ignore=ignore)
     originalFields = fields.copy()
     try:
-        cursor.execute( sql , fields)
-        if commit:
-            conn.commit()
-    except Exception as err:
-        if ignore:
-            return None
+        sql = _insertStatment( table, fields, ignore=False)
+        cursor.execute( sql , list( fields.values() ) )
+        recordID = int(cursor.lastrowid)
+    except sqlite3.OperationalError as err:
         logging.error("Exception: '{}' SQL: '{}', Fields: '{}'".format( err , sql, fields ))
         raise err
-
-    return cursor.lastrowid
+    except sqlite3.IntegrityError as err:
+        if ignore:
+            recordID = _sqlGetID( table, originalFields )
+        else:
+            raise err
+    finally:
+        if commit:
+            conn.commit()
+    del originalFields
+    return recordID
 
 def SqlCleanDB( ):
     (con, cursor) = DbConn().handles()
@@ -104,16 +109,23 @@ def SqlCleanDB( ):
         cursor.execute( "REINDEX {};".format( table ))
     cursor.execute("vacuum;")
 
-def SqlInsert( table, ignore=False ,commit=True, **kwargs )->int:
+def _checkParms(  table, args, kwargs ):
+    if not table:
+        raise ValueError("No table name passed")
+    if len( args ) == 0 and len( kwargs ) == 0:
+        raise ValueError("No parameters passed ")
+
+def SqlInsert( table, ignore=False ,commit=True, *args, **kwargs )->int:
     """
         Insert a record into the database. If you set 'ignore' as True
         then it will get the current record ID for the existing record.
         If false, it will re-raise the error
         Return is the record ID for the key
     """
-    return _sqlInsert(table, kwargs, ignore=ignore, commit=commit)
+    _checkParms( table, args, kwargs )
+    return _sqlInsert(table, _forceDictionary(args, kwargs, DbKeys.primaryKeys[table][0]), ignore=ignore, commit=commit )
 
-def _generateKeys( table ):
+def _generateKeys( table , useName=False):
     """
         generate keys takes a table name, looks up the keys and builds a 
         key list from the keyvalues. 
@@ -122,7 +134,10 @@ def _generateKeys( table ):
     keys = DbKeys.primaryKeys[ table ]
     kvlist = []
     for i in range(len( keys ) ):
-        kvlist.append( "{}=?".format( keys[i] ))
+        if useName:
+            kvlist.append( "{}=:{}".format( keys[i] , keys[i]))
+        else:
+            kvlist.append( "{}=?".format( keys[i] ))
     return "{}".format( " AND ".join( kvlist) )
 
 def _generateSetValues( table, fields ):
@@ -181,9 +196,11 @@ def _sqlGetID( table, fields ):
     """
     if table is None or table == "":
         raise ValueError("No table specified")
+
     keyvalues = []
-    for kv in DbKeys.primaryKeys[ table ]:
-        keyvalues.append(fields.pop( kv , None ) )
+    keyList = DbKeys.primaryKeys[ table ]
+    for kv in keyList:
+        keyvalues.append(fields[kv]) 
     sql = "SELECT id FROM {} WHERE {}".format(
         table,
         _generateKeys(table ) )
@@ -203,14 +220,16 @@ def SqlGetID( table,  *args, **kwargs)->int:
         If the keyvalues are passed as args the sequence must match
         the order listed in DbKeys. Mainly good for single key tables.
     """
+    _checkParms( table, args, kwargs )
     fields = _forceDictionary( args, kwargs , DbKeys.primaryKeys[ table ] )
-    return _sqlGetID( table, fields )
+    return _sqlGetID( table, kwargs )
 
 def SqlUpdate( table,  commit=True, *args, **kwargs)->int:
     """
         Update the database from the data passed.
         The number of records changed is returned.
     """
+    _checkParms( table, args, kwargs )
     (conn, cursor ) = DbConn().handles()
     ## key value must be last
     keyedArgs = _forceDictionary( args , kwargs, 'book')
@@ -229,6 +248,7 @@ def _sqlUpsert( table, fields, commit=True )->int:
         contain all fields. This allows a similar action and won't
         replace everything.
     """
+    
     (conn, cursor ) = DbConn().handles()
     originalFields = fields.copy()
     try:
@@ -236,6 +256,7 @@ def _sqlUpsert( table, fields, commit=True )->int:
         cursor.execute( sql , list( fields.values() ) )
         recordID = int(cursor.lastrowid)
     except sqlite3.OperationalError as err:
+        logging.error("Exception: '{}' SQL: '{}', Fields: '{}'".format( err , sql, fields ))
         raise err
     except sqlite3.IntegrityError as err:
         qArgs = _resequenceValues( table, originalFields )
@@ -248,13 +269,13 @@ def _sqlUpsert( table, fields, commit=True )->int:
     del originalFields
     return recordID
 
-def SqlUpsert( table, commit=True,*args, **kwargs ):
+def SqlUpsert( table, commit=True, *args, **kwargs ):
     """
         Construct the INSERT ... ON CONFLICT statement
         Two keys are allowed. They will be removed from the CONFLICT
         statement (otherwise you get errors)
     """
-
+    _checkParms( table, args, kwargs )
     return _sqlUpsert( table, _forceDictionary(args, kwargs, DbKeys.primaryKeys[table][0]), commit=commit )
 
 def SqlRowString( result )->str:

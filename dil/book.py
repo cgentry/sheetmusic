@@ -29,7 +29,7 @@ from db.dbsystem       import DbSystem
 from db.keys           import DbKeys, BOOK, BOOKPROPERTY
 from dil.preferences   import DilPreferences
 from functools         import lru_cache
-from musicutils        import toInt
+from util.convert        import toInt
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtGui     import QPixmap
 from PySide6.QtCore    import Qt

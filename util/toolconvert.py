@@ -3,9 +3,11 @@
 # This file is part of SheetMusic
 # Copyright: 2022 by Chrles Gentry
 #
-# This program is free software; you can redistribute it and/or modify
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -16,27 +18,43 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#
+# ToolConvert contains routines that take PDF files and convert to
+# scripts. It relies on conversion program (ghostscript) to do the
+# conversion. A GUI is written that allows full display and status
+# of the process.
+
 from fileinput import filename
+import shutil
 from os import path, chmod
-import tempfile
-import sys
-import re
-import time
+import fnmatch
 import os
+import re
+import sys
+import tempfile
+import time
+
 from pathlib import PurePath
-from functools import singledispatchmethod
-from musicsettings import MusicSettings, MSet
+from dil.preferences import DilPreferences
+from db.keys import  DbKeys
 from PySide6.QtWidgets import (
-        QApplication, QFileDialog, 
-        QDialog, QVBoxLayout, QMessageBox,
-        QPlainTextEdit, QDialog,QTabWidget, QDialog,
-        QLabel, QDialogButtonBox , QCheckBox, QLineEdit )
+        QApplication,       QDialog, 
+        QDialogButtonBox ,  QFileDialog,
+        QMessageBox,        QPlainTextEdit, 
+        QTabWidget,         QVBoxLayout
+    )
 from PySide6.QtCore import QProcess
+from db.keys    import BOOK, DbKeys, ImportNameSetting
+from db.dbbook  import DbBook
 
 
 class ToolConvert():
     _script = 'convert-pdf.smc'
     
+    def __init__(self):
+        self.pref = DilPreferences()
+        self.path = self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
+
     def _scriptPath( self, file ):
         if file is None:
             return path.expanduser(
@@ -47,53 +65,39 @@ class ToolConvert():
             )
         return path.expanduser( file )
 
-    @singledispatchmethod
-    def setPath(self, value ):
-        raise NotImplementedError(f"Cannot set path from type {type(arg)}")
-
-    @setPath.register
-    def _( self, settings: MusicSettings ):
-        self.path = settings.value( MSet.byDefault( MSet.SETTING_DEFAULT_PATH))
-    
-    @setPath.register
-    def _( self, path:str):
+    def setPath( self, path:str):
         self.path = path
 
     def default(self):
-        return self._defaultPdfCmd
+        return self.readRaw()
 
     def scriptExists( self, file:str=None )->bool:
         return path.exists( self._scriptPath( file ) )
 
-    def readRaw(self, file:str=None, default:bool=True) -> str:
-        file = self._scriptPath( file )
-        if not path.exists( file ):
-            if default :
-                return self._defaultPdfCmd
-            else:
-                return ""
-        with open(self._scriptPath(file), 'r') as scriptFile:
-            return scriptFile.read()
-
-    def readExpanded( self, settings:MusicSettings, sourceFile:str, file=None, name=None, debug=False, default=True):
+    def readRaw(self, file:str=None ) -> str:
+        """
+            Read and return the raw script from the database
+        """
+        return self.pref.getValue( DbKeys.SETTING_PDF_SCRIPT )
+        
+    def readExpanded( self, sourceFile:str, file=None, name=None, debug=False):
         """ Read and expand the conversion template
         
-        settings: the preferences settings
         sourceFile: the PDF filename
         name: The name you want to output to be called
         debug: the debug flag. True to make this file not really be run.
         
         """
-        script = self.readRaw( file, default)
-        return self.expandScript( settings, script, sourceFile, name, debug=debug )
+        return self.expandScript(  self.readRaw( file ), sourceFile, name, debug=debug )
 
     def writeRaw( self, script, file=None ):
         file = self._scriptPath( file )
         with open(file, 'w') as scriptFile:
             scriptFile.writelines(script)
 
-    def expandScript( self, settings:MusicSettings, script:str, sourceFile:str, name=None, debug=False ):
-        """ expand the conversion template passed to us
+    def expandScript( self, script:str, sourceFile:str, name=None, debug=False )->str:
+        """ 
+        expand the conversion template passed to us
         
         settings: the preferences settings
         script: the template script
@@ -114,79 +118,57 @@ class ToolConvert():
 
         if script != "" and sourceFile != "":
             debugReplace = ""
+            debugState = ""
             if debug:
                 debugReplace = "echo "
-            if name is None or not name:
-                nameReplace = PurePath( sourceFile).stem
-            else:
-                nameReplace = name
-            if debug:
                 debugState = '(Running in Debug mode)'
-            else:
-                debugState = ''
+            if name is None or not name:
+                name = PurePath( sourceFile).stem
             script = script.replace("{{debug}}" , debugReplace)
             script = script.replace("{{debug-state}}", debugState )
-            script = script.replace("{{device}}", settings.value(MSet.byDefault(MSet.SETTING_DEFAULT_GSDEVICE),"png16m")   )  
-            script = script.replace("{{name}}"  , nameReplace)
+            script = script.replace("{{device}}", self.pref.getValue(DbKeys.SETTING_DEFAULT_GSDEVICE,"png16m") )
+            script = script.replace("{{name}}"  , name)
             script = script.replace("{{source}}", sourceFile )
-            script = script.replace("{{target}}", settings.value(MSet.byDefault(MSet.SETTING_DEFAULT_PATH), MSet.VALUE_DEFAULT_DIR) )
-            script = script.replace("{{type}}"  , settings.value(MSet.byDefault(MSet.SETTING_DEFAULT_TYPE),"png") )
+            script = script.replace("{{target}}", self.pref.getValue(DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR) ) 
+            script = script.replace("{{type}}"  , self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE) )
             self.bookPath = os.path.join( 
-                settings.value(MSet.byDefault(MSet.SETTING_DEFAULT_PATH), MSet.VALUE_DEFAULT_DIR) ,
-                nameReplace 
+                self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC ),
+                name 
             )
         return script
     
-    _defaultPdfCmd='''#!/bin/bash
-#
-# Conversion script from PDF to pages
-# version 0.1
-#
-# This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
-#
-trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
+class UiBaseConvert():
+    """
+        UiBaseConvert contains code to process a list of PDF files and store them
+        in the sheetmusic directory. Directory prompts should occur in the derived classes
+    """
+    # The following are only used to give labels to our return status
+    RETURN_CANCEL=False
+    RETURN_CONTINUE=True
 
-EndScript()
-{
-    echo "Conversion ending."
-}
 
-########################################################
-# Command to run
-# This command uses GHOSTSCRIPT, which is a free utility
-########################################################
-echo \"Conversion starting {{debug-state}}\"
-echo \"Source file is {{source}}\"
-echo .
-{{debug}}cd       '{{target}}'  || exit 1
-{{debug}}mkdir -p '{{name}}'    || exit 2
-echo Input is \"{{source}}\"
-
-{{debug}}gs -dSAFER -dBATCH -dNOPAUSE -r300 -dDeskew -sDEVICE="{{device}}" -sOutputFile="{{name}}/page-%03d.{{type}}" "{{source}}"  || exit 3
-
-'''
-
-class UiConvert():
-    # The following codes are used for 'self.status' to expand on 
-    # signals from dialogs.
-    RETURN_CANCEL=0
-    RETURN_CONTINUE=1
-    RETURN_SKIP=2
-
-    def __init__(self, settings:MusicSettings)->None:
-        if not isinstance(settings, MusicSettings):
-            sys.exit("Invalid call to RunConvert. Now settings passed.")
-        self.settings = settings
-        self.status  = False
+    def __init__(self)->None:
+        self.pref = DilPreferences()
+        self.status  = self.RETURN_CANCEL
         self._process = None
         self.rawScript = ""
         self.script = ""
         self.debugFlag = False
+        self.bookType = self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE)
+        self.baseDir = '~'
+        self.data = []
+        self.duplicateList = []
+
+    def setBaseDirectory(self, dir:str):
+        if dir is not None:
+            self.baseDir = dir
+
+    def baseDirectory(self)->str:
+        return ( self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR )
 
     def getScript(self, inputFile: str, outputName: str, debugFlag=False) -> str:
         toolConvert = ToolConvert()
-        toolConvert.setPath(self.settings)
+        ##toolConvert.setPath(self.settings)
         if not self.rawScript:
             if not toolConvert.scriptExists():
                 rtn = QMessageBox.question(
@@ -197,114 +179,152 @@ class UiConvert():
                     QMessageBox.StandardButton.No)
                 if rtn == QMessageBox.No:
                     return None
-            self.rawScript = toolConvert.readRaw(default=True)
+            self.rawScript = toolConvert.readRaw()
 
         self.script = toolConvert.expandScript(
-            self.settings, self.rawScript, inputFile, outputName, debug=debugFlag)
+            self.rawScript, inputFile, outputName, debug=debugFlag)
         self.bookPath = toolConvert.bookPath
         del toolConvert
         return self.script
 
-    def getPDF(self)->str:
-        self.fileName,filter = QFileDialog.getOpenFileNames(
-            None,
-            "Select PDF File",
-            dir=path.expanduser('~'),
-            filter="(*.pdf *.PDF)",
-        )
+    def isBookDirectory( self, bookDir:str )->bool:
+        """
+            Pass a directory and a type for the books.
+        """
+        pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix))
+        return pages > 0   
+
+    def _cleanupName(self, bookName:str, level:int )->str:
+        ## first ALWAYS replace invalid characters
+        bookName = re.sub(r'[\n\t\r]+', '', bookName )          # No newline, returns or tabs
+        bookName = re.sub(r'[#%{}<>*?$!\'":@+\\|=/]+', ' ' , bookName)      ## bad characters
+        bookName = re.sub(r'\s+',       ' ' , bookName)         ## Only one space when multiples
+        bookName = re.sub(r'^[^a-zA-Z\d]+', '' , bookName)      ## Leading char must be Alphanumeric
         
-        return self.fileName
+        if level == DbKeys.VALUE_NAME_IMPORT_FILE_1:
+            bookName = re.sub( r'[_]*', ' ', bookName )
+        if level == DbKeys.VALUE_NAME_IMPORT_FILE_2:
+            bookName = re.sub( r'[_]*', ' ', bookName )
+            bookName = bookName.title()
 
-    def getOutputName(self, filename:str, showSkipButton:bool=False):
-        badMatch = re.compile( '[^ \-\w]')
-        def buttonClicked( button ):
-            txt = button.text().strip()
-            if txt == 'Cancel':
-                txtOutput.setText("")
-                self.status = self.RETURN_CANCEL
-                dlg.reject()
-            elif txt == 'Skip':
-                self.status = self.RETURN_SKIP
-                dlg.reject()
-            else: # continue
-                self.status = self.RETURN_CONTINUE
-                dlg.accept()
-        
-        def textChanged(txt:str):
-            err = ""
-            if txt.startswith('../'):
-                err = "Name cannot start with a period '../'"
-            elif "../" in txt :
-                err = "Name cannont contain ../"
-            elif txt.endswith('.'):
-                err = "Name cannot end with a period"
-            else:
-                if badMatch.search(txt):
-                    err = "Name can only contain letters, numbers, blanks, '-' and '_'"
-            if err != "":
-                txtError.setText( "<h3>{}</h3>".format(err) )
-                btnList['Ok'].setDisabled(True)
-            else:
-                txtError.clear()
-                btnList['Ok'].setDisabled( False )
-
-
-        btnBox = QDialogButtonBox()
-        btnBox.addButton( u'Skip', QDialogButtonBox.ActionRole)
-        btnBox.addButton( QDialogButtonBox.Cancel)
-        btnBox.addButton( QDialogButtonBox.Ok )
-        btnBox.clicked.connect(buttonClicked )
-        btnList = self._getButtonList( btnBox )
-        if not showSkipButton :
-            btnList['Skip'].hide()
-
-        self.lblOutputName = QLabel("Bookname for {}".format( path.basename(filename)) )
-
-        self.outputName = PurePath( filename ).stem
-        txtOutput = QLineEdit()
-        txtOutput.setText( self.outputName)
-        txtOutput.textChanged.connect(textChanged)
-        txtOutput.setMinimumWidth(50)
-        txtOutput.setMaxLength(127)
-
-        txtError = QLabel()
-
-        self.checkDebug = QCheckBox()
-        self.checkDebug.setText("Run in debug mode")
-        self.checkDebug.setCheckable(True)
-        self.checkDebug.setChecked(self.debugFlag) # this will persist
-
-
-        dlg = QDialog()
-        dlg.setWindowTitle("Output Bookname")
-        dlg.setMinimumWidth(500)
-        dlg.setMinimumHeight( 250 )
-        
-        dlgLayout = QVBoxLayout()
-        dlgLayout.addWidget( self.lblOutputName )
-        dlgLayout.addWidget( txtOutput )
-        dlgLayout.addWidget( txtError )
-        dlgLayout.addWidget( self.checkDebug )
-        dlgLayout.addWidget( btnBox )
-
-        dlg.setLayout( dlgLayout )
-        dlg.exec()
-        if self.status == self.RETURN_CONTINUE :   
-            self.outputName = txtOutput.text().strip()
-            self.debugFlag = self.checkDebug.isChecked()
-        return self.status
-
-    def exec_(self)->bool:
-        fileList = self.getPDF()
-        showSkipButton = ( len(fileList) > 1 )
-        for self.fileName in fileList:
-            self.getOutputName(self.fileName, showSkipButton)
-            if self.status == self.RETURN_CANCEL:
-                break
-            if  self.status == self.RETURN_CONTINUE :
-                self._run( self.getScript( self.fileName, self.outputName, self.debugFlag ) )
-        return self.status
+        return bookName.strip()
     
+    def _getInfoPDF(self, sourceFile , default:int=1):
+        endPage = default
+        bookName = PurePath( sourceFile ).stem
+        importNameSetting = ImportNameSetting()
+        cleanupLevel = self.pref.getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
+        if importNameSetting.useInfoPDF and cleanupLevel == DbKeys.VALUE_NAME_IMPORT_PDF:
+            import PyPDF2
+            pdf_file = open( sourceFile, 'rb')
+            pdf_read = PyPDF2.PdfFileReader(pdf_file)
+            endPage =  pdf_read.numPages
+            meta     = pdf_read.metadata
+            if meta.title is not None:
+                bookName = meta.title
+            
+        bookName = self._cleanupName( bookName , cleanupLevel )
+        return { BOOK.numberEnds: endPage , BOOK.name: bookName }
+
+    def _fillInDefaults( self, filelist:list ):
+        for sourceFile in filelist :
+            ## Simple 'transform' of filename to bookname
+            bookName = PurePath( sourceFile ).stem
+            bookName = bookName.replace('_', ' ')
+            currentFile = { 
+                BOOK.source:        sourceFile , 
+                BOOK.numberStarts:  1, 
+            }
+            currentFile.update( self._getInfoPDF( sourceFile ))
+            self.data.append( currentFile )
+
+    def getFileInfo(self, fileList:list )->bool:
+        """
+            This will go through all of the files and prompt the user
+            for properties. If then fills in the information in the data array
+        """
+        from ui.properties import UiProperties
+        fileInfo = UiProperties()
+        self.status = self.RETURN_CONTINUE
+        self._fillInDefaults(fileList )
+        for index, currentFile in enumerate( self.data ) :
+            fileInfo.setPropertyList( currentFile )
+            if fileInfo.exec() == QDialog.Accepted:
+                if len( fileInfo.changes ) > 0:
+                    currentFile.update( fileInfo.changes )
+                    self.data[index] = currentFile  
+            else:
+                self.status = self.RETURN_CANCEL
+                self.data = []
+                break
+        return self.status
+
+    def checkForProcessedFiles( self, fileList:list)->list:
+        '''
+            Check for processed files and present list to user
+        '''
+        duplist = DbBook().sourcesExist( fileList )
+        self.duplicateList = []
+
+        if len( duplist ) > 0 :
+            ## First, remove duplicates from filelist
+            fileList = [src for src in fileList if src not in duplist ]
+            from ui.selectitems import SelectItems 
+            sim = SelectItems("Books already processed", "Select files to reprocess" )
+            dupDictionary = { os.path.basename( var ) : var for var in duplist }
+            sim.setData( dupDictionary )
+            sim.setButtonText( "Include files", "Skip All" )
+            rtn = sim.exec()
+            ## Now, merge in selected IF they clicked 'Include'
+            if rtn == QMessageBox.Accepted :
+                dupDictionary = sim.getCheckedList()
+                if len( dupDictionary) > 0:
+                    self.duplicateList = list( dupDictionary.values() )
+                    fileList.extend( list( self.duplicateList ) )
+                    
+        return fileList
+
+    def fixDuplicateNames(self):
+        """
+            Each entry in the list contains a book name and a location.
+            If the location doesn't exist but the name does then we need to
+            fix the names.    
+        """
+        dbb = DbBook()
+        musicPath = self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
+        for index, entry in enumerate( self.data ):
+
+            ## Is this location already encoded? If so, we delete the old files
+            ## and the database entry.
+            if dbb.isSource( entry[ BOOK.source ] ):
+                book = dbb.getBookByColumn( 'source', entry[ BOOK.source ])
+                dbb.delBook( book=book[ BOOK.book ])
+                shutil.rmtree( book[ BOOK.location ], ignore_errors=True  )
+
+            ## Is the source wasn't encoded but the name is the same
+            ## ... if so, we need a different name
+            if dbb.isBook( entry[ BOOK.name ]) :
+                self.data[ index ][ BOOK.name ] = dbb.getUniqueName( entry[ BOOK.name ] )
+
+    def processDirectoryList(self, fileList:list )->bool:
+        if fileList is None or len( fileList ) == 0 :
+            return self.RETURN_CANCEL
+
+        fileList = self.checkForProcessedFiles( fileList )
+        if self.getFileInfo( fileList ) == self.RETURN_CONTINUE:
+            self.fixDuplicateNames()
+            for index, entry in enumerate( self.data ):
+                baseName = os.path.basename( entry[ BOOK.source ] )
+                startMsg = "{}\n{}{}\n{}".format( "="*50 , " "*3 , baseName , "="*50 )
+                self._run( startMsg , self.getScript( entry[ BOOK.source ], entry[ BOOK.name ], False) ) 
+                if self.status == self.RETURN_CANCEL :
+                    break
+                self.data[ index ].update( { BOOK.location: self.bookPath} )
+                self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
+                if 'debug' in self.data[ index ] :
+                    self.data[ index ].pop( 'debug')
+        return self.status
+   
     def _processMessage(self, msgText:str)->None:
         self.text.appendPlainText(msgText)
 
@@ -332,7 +352,7 @@ class UiConvert():
         self._process= None
         self.scriptFile.close()
         del self.scriptFile
-
+        
     def _processError(self, error)->None:
         self.scriptFile.close()
         del self.scriptFile
@@ -354,7 +374,6 @@ class UiConvert():
             "",
              "Error running script\n" + msg, 
              QMessageBox.StandardButton.Cancel )
-
 
     def _getButtonList( self, btnBox:QDialogButtonBox ):
         btnList = {}
@@ -381,7 +400,7 @@ class UiConvert():
         tabLayout.setTabText(1 , "Script")
         return tabLayout
 
-    def _run(self, script ):
+    def _run(self, startMsg:str, script )->bool:
         """
         _run is the interface between the dialog box displaying information and the
         actual process that will be executed.
@@ -403,6 +422,7 @@ class UiConvert():
 
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
+        self._processMessage( startMsg  )
 
         self.textScript = QPlainTextEdit()
         self.textScript.setPlainText( script)
@@ -422,6 +442,21 @@ class UiConvert():
         dlgRun.exec()
         return self.status
 
+    def scriptVars( self , scriptFilename: str ):
+        varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
+        if varString is None:
+            raise RuntimeError("No script variables found")
+        vars = varString.split( DbKeys.VALUE_SCRIPT_SPLIT )
+        ## fun 'macro' expansion. This can take a keyname and fill in from database
+        for index, var in enumerate( vars ):
+            if var.startswith('::'):
+                if var == '::script':
+                    vars[ index ] = scriptFilename
+                else: ## fill in from database
+                    vars[ index ] = self.pref.getValue( var[2:], '' )
+
+        return vars
+
     def start_process(self):
         """
         start_process will setup and execute the shell script that is in the 'script' text box.
@@ -440,26 +475,97 @@ class UiConvert():
             script = self.textScript.toPlainText().strip()
             self.scriptFile = tempfile.NamedTemporaryFile(mode="w+")
             try:
-                shell = self.settings.value( 
-                    MSet.byDefault( MSet.SETTING_DEFAULT_SCRIPT), 
-                    MSet.VALUE_DEFAULT_SCRIPT)
-                vars = MSet.scriptVarSplit( 
-                    self.settings.value( 
-                        MSet.byDefault( MSet.SETTING_DEFAULT_SCRIPT_VAR), 
-                        MSet.VALUE_DEFAULT_SCRIPT_VAR) , 
-                    self.scriptFile.name 
-                )
+                shell = self.pref.getValue( DbKeys.SETTING_DEFAULT_SCRIPT , None )
+                if shell is None or shell == "":
+                    raise RuntimeError("No script found")
+                vars = self.scriptVars( self.scriptFile.name )
                 self.scriptFile.write( script  )
                 self.scriptFile.flush()
                 chmod( self.scriptFile.name , 0o550  )
+                ### Command should be 'shell vars scriptfilename'
+                ###         /bin/bash -c tmp_file
                 self._process.start(shell, vars)
+
             except Exception as err:
+                QMessageBox.critical(None,
+                "Runtime Error",
+                str(err) , 
+                QMessageBox.StandardButton.Cancel )
                 self.scriptFile.close()
 
+    def getDuplicateList(self)->list:
+        """
+            This gets a complete list of files that have been 'reprocessed'
+        """
+        return self.duplicateList
+
+
+class UiConvertFilenames( UiBaseConvert):
+    def __init__(self, location=None ):
+        super().__init__()
+        if location is not None:
+            self.processFile( location )
+
+    def processFile(self, location)->bool:
+        """ Pass in either a string or a list for PDF conversion """
+        if isinstance( location, list ):
+            return self.processDirectoryList( location )
+        
+        return self.processDirectoryList( [ location ])
+
+
+class UiConvert(UiBaseConvert):
+    
+    def __init__(self):
+        super().__init__()
+    
+    def getListOfPdfFiles(self)->str:
+        (self.fileName,_) = QFileDialog.getOpenFileNames(
+            None,
+            "Select PDF File",
+            dir=path.expanduser( self.baseDirectory() ),
+            filter="(*.pdf *.PDF)",
+        )
+        if len( self.fileName ) > 0 :
+            self.setBaseDirectory( PurePath( self.fileName[0] ).parents[0] )
+        return self.fileName
+                
+    def exec_(self)->bool:
+        return self.processDirectoryList( self.getListOfPdfFiles() )
+
+class UiConvertDirectory(UiBaseConvert):
+    def __init__(self):
+        super().__init__()
+
+    def getDirectory(self)->str:
+        self.dirname = QFileDialog.getExistingDirectory(
+            None,
+            "Select PDF Directory",
+            dir=path.expanduser( self.baseDir )
+        )
+        self.baseDir = self.dirname 
+        return self.dirname
+               
+    def exec_(self)->bool:  
+        return self.processDirectoryList( self.getListOfDirs() )
+
+    def getListOfDirs(self ):
+        """
+            get a list of all files within the directories passed
+            
+        """
+        self.fileName = []
+        for path, _ , files in os.walk( self.getDirectory() ):
+                for name in files:
+                        if name.endswith( '.pdf' ) or name.endswith( '.PDF' ):
+                            self.fileName.append( os.path.join( path, name ) )
+        return  self.fileName 
+        
+ 
         
 if __name__ == "__main__":
     app = QApplication()
-    converter = UiConvert( MusicSettings())
+    converter = UiConvert()
     converter.exec_()
     app.quit()
     sys.exit(0)

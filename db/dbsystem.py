@@ -45,8 +45,8 @@ class DbSystem():
                 [ {key:..., value:...}, {key:..., value:...}]
             You should set them one-by-one, but this is used by the UI interface
         """
-        for key,value in newData.items() :
-            self.setValue( key, value )
+        for item in newData:
+            self.setValue( item['key'], item['value'] )
 
     def getValue( self, key:str, default:str=None)->str:
         if key is None or key == '':

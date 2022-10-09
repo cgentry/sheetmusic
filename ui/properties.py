@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from db.keys import BOOK, DbKeys
 from ui.editItem import UiGenericCombo
 from db.dbbook import DbComposer, DbGenre
-from musicutils import toInt
+from util.convert import toInt
 from dil.preferences import DilPreferences
 
 class simpleValidator( QValidator ):
