@@ -18,19 +18,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from db.dbbookmark  import DbBookmark
-from db.keys        import BOOKMARK
-from ui.bookmark    import UiBookmark
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QInputDialog, QMessageBox, QDialog
-from db.dbgeneric   import DbTransform
+from qdb.dbbookmark     import DbBookmark
+from qdb.keys           import BOOKMARK
+from ui.bookmark        import UiBookmark
+from PySide6.QtCore     import Qt
+from PySide6.QtWidgets  import QInputDialog, QMessageBox, QDialog
 
 class DilBookmark( DbBookmark):
-    def __init__(self, book=None):
+    def __init__(self, book:str=None):
         super().__init__()
         self.open( book )
 
-    def open(self, book ):
+    def open(self, book:str ):
         self.bookmark = None
         self.bookName = book
 
@@ -53,8 +52,10 @@ class DilBookmark( DbBookmark):
     def getList(self )->list:
         """
             This returns just the names of bookmarks as a name list
+            (Other bookmark fields are ignored )
         """
-        return DbTransform().toList( super().getAll( book=self.bookName ) )
+        bmk = super().getAll( book=self.bookName )
+        return [ bookmark[ BOOKMARK.name ] for bookmark in bmk ]
 
     def getBookmarkPage( self, page:int)->dict:
         return super().getBookmarkForPage( book=self.bookName, page=page )
@@ -97,7 +98,7 @@ class DilBookmark( DbBookmark):
             bookmarkName = 'Page-{}'.format( pageNumber )
         super().addBookmark( self.bookName, bookmarkName, pageNumber )
 
-    def addBookmark(self , book:str, relativePage:int, absolutePage:int ):
+    def thisBook(self , book:str, relativePage:int, absolutePage:int ):
         prompt = "Name for bookmark at "
         if relativePage != absolutePage :
             prompt = prompt + "Book Page {:d} / Page Shown {:d}:".format( absolutePage, relativePage )

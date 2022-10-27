@@ -18,15 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-import base64
-import pickle
-from util.convert     import toBool, toInt
-from db.keys        import DbKeys
-from db.dbconn      import DbConn
-from db.dbsystem    import DbSystem
-from PySide6.QtCore import QSettings, QByteArray
-from PySide6.QtGui  import QKeySequence
+import  os
+import  base64
+import  pickle
+from    util.convert    import toBool, toInt
+from    qdb.keys        import DbKeys
+from    qdb.dbconn      import DbConn
+from    qdb.dbsystem    import DbSystem
+from    PySide6.QtCore  import QSettings
+from    PySide6.QtGui   import QKeySequence
 
 class SystemPreferences(QSettings):
     DEFAULT_ORG = 'OrganMonkey project'
@@ -97,6 +97,10 @@ class SystemPreferences(QSettings):
         )
         return os.path.expanduser( path)
 
+    def getDirectory(self)->str:
+        """ Return the path to main directory (~/sheetmusic) """
+        return os.path.expanduser( self.getDirectoryDB() )
+
 
 class DilPreferences( ):
     """
@@ -104,7 +108,7 @@ class DilPreferences( ):
         Note that you can pass the dbsystem and systempref in order to do unit testing. 
         (Normally, I'd do an inheritence but decided not to in this case)
      """
-    def __init__(self, dbsystem=None, systempref=None ):
+    def __init__(self, dbsystem:DbSystem=None, systempref:SystemPreferences=None ):
         super().__init__()
         if dbsystem:
             self.dbsystem = dbsystem
@@ -116,7 +120,7 @@ class DilPreferences( ):
             self.sy = SystemPreferences()
 
     def __del__(self):
-        DbConn().connection().commit()
+        DbConn.commit()
 
     def getPathDB(self)->str:
         return self.sy.getPathDB()
@@ -124,11 +128,16 @@ class DilPreferences( ):
     def getDirectoryDB(self)->str:
         return self.sy.getDirectoryDB()
 
+    def getHelpDir(self)->str:
+        """ Return the path to the help documents (~/sheetmusic/sheetmusic_doc) """
+        return self.sy.getHelpDir()
+
+
     def getValue( self, key:str, default:str=None)->str:
         """
             Get the value from the DbSystem table or, if not found, get the value from the system preferences
         """
-        return self.dbsystem.getValue( key , self.sy.value( key , defaultValue=default))
+        return self.dbsystem.getValue( key , default=self.sy.value( key , defaultValue=default))
 
     def getValue64( self, key:str, default:str=None)->bytes:
         b64=self.getValue(key, default=default)
@@ -152,30 +161,32 @@ class DilPreferences( ):
             return None
         return pickle.loads( base64.b64decode( pkl ) )
 
-    def setValuePickle( self, key:str, value:any, conflict:str='OR REPLACE '):
+    def setValuePickle( self, key:str, value:any, replace:bool=True, ignore:bool=False):
         """
             Save any internal field into the databse by using pickle dump
             and then encoding to ascii
         """
         pval = base64.b64encode( pickle.dumps( value )  ).decode('ascii')
-        return self.setValue( key, pval, conflict=conflict )
+        return self.setValue( key, pval, replace=replace, ignore=ignore)
 
-    def setValue( self, key:str, value:str=None , conflict:str='OR REPLACE ')->str:
+    def setValue( self, key:str, value:str=None , replace:bool=True, ignore:bool=False )->str:
         if self.sy.contains(key):
             self.sy.setValue( key , value )
         else:
-            self.dbsystem.setValue( key, value, conflict )
+            self.dbsystem.setValue( key, value, replace=replace, ignore=ignore )
         return value 
 
-    def setValue64( self, key:str, value:str=None , conflict:str='OR REPLACE ')->str:
+    def setValue64( self, key:str, value:str=None , replace:bool=True, ignore:bool=False)->str:
         b64 = base64.b64encode( value )
-        return self.setValue( self, key, b64, conflict=conflict )
+        return self.setValue( self, key, b64, replace=replace , ignore=ignore )
 
-    def setValueBool( self, key:str, value:any , conflict:str='OR REPLACE ')->bool:
-        return self.setValue( key, str( value ), conflict=conflict )
+    def setValueBool( self, key:str, value:any , replace:bool=True, ignore:bool=False )->bool:
+        return self.setValue( key, str( value ), replace=replace, ignore=ignore )
 
     def getAll(self)->dict:
-        return self.sy.getAll() | self.dbsystem.getAll()
+        s = self.sy.getAll()
+        d = self.dbsystem.getAll()
+        return ( s | d )
 
     def saveAll(self, changes:dict ):
         """
@@ -186,7 +197,7 @@ class DilPreferences( ):
         for key in self.sy.getKeys():
             if key in changes:
                 changes.pop( key )
-        self.dbsystem.saveAll( changes )
+        self.dbsystem.saveAll( changes , replace=True )
 
     def update(self, ui):
         ui.format( self.fetchData() )

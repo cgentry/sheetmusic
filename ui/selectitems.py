@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import (
         QDialog, 
         QDialogButtonBox ,  QPushButton, QLabel,
-        QListWidget ,       QListWidgetItem,  QLayoutItem, QPlainTextEdit, 
-        QTabWidget,         QVBoxLayout, QWidget
+        QListWidget ,       QListWidgetItem,  QVBoxLayout
     )
 from PySide6.QtCore import Qt
 
@@ -70,7 +69,6 @@ class SelectItems( QDialog ):
 
     def _fromDict( self,dictionary:dict ):
         index = 0
-        print( dictionary )
         for key,value in dictionary.items():
             self.data[index]=value
             self.checkList.addItem( self._widgetFromDatum( key))

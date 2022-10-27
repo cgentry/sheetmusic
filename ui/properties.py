@@ -26,11 +26,11 @@ from PySide6.QtWidgets import (
     QDialog, QGridLayout, QDialogButtonBox, QLineEdit, QMessageBox,
     QTableWidget, QAbstractItemView, QTableWidgetItem, QHeaderView, QPushButton )
 
-from db.keys import BOOK, DbKeys
-from ui.editItem import UiGenericCombo
-from db.dbbook import DbComposer, DbGenre
-from util.convert import toInt
-from dil.preferences import DilPreferences
+from qdb.keys         import BOOK, DbKeys
+from ui.editItem      import UiGenericCombo
+from qdb.dbbook       import DbComposer, DbGenre
+from qdil.preferences import DilPreferences
+from util.convert     import toInt
 
 class simpleValidator( QValidator ):
     badChars = r'[?%\\|/\n\t\r]+'
@@ -222,7 +222,7 @@ class UiProperties(QDialog):
         combo.currentTextChanged.connect( changeFunction )
         self._insertPropertyEntry( [ QTableWidgetItem( label ) , combo ])
 
-    def setPropertyList(self, musicbook):
+    def setPropertyList(self, musicbook:dict ):
         """
         musicbook is the database row for the book which can be indexed
         by name. We pick out the names and put them into the table.

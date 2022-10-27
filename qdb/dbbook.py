@@ -26,83 +26,96 @@
 import os
 import fnmatch
 from pickle import GET
-from util.convert    import toInt
-from db.dbconn     import DbConn
-from db.dbsql      import _forceDictionary, _sqlInsert, _sqlUpsert, SqlInsert,SqlUpdate, SqlColumnNames
-from db.dbsystem   import DbSystem
-from db.keys       import DbKeys, BOOK
-from db.dbgeneric  import DbGenericName, DbTransform
+from util.convert   import toInt
+from qdb.dbconn     import DbConn
+from qdb.dbsystem   import DbSystem
+from qdb.keys       import DbKeys, BOOK
+from qdb.dbgeneric  import DbGenericName
+from qdb.util       import DbHelper
+from qdb.base       import DbBase
+from PySide6.QtSql  import QSqlQuery
 
 class DbGenre( DbGenericName ):
     def __init__(self):
         super().__init__()
-        self.tableName='Genre'
+        self.tableName = 'Genre'
+        self.setupLogger()
     
 class DbComposer( DbGenericName ):
     def __init__(self):
         super().__init__()
-        self.tableName='Composer'
+        self.tableName = 'Composer'
+        self.setupLogger()
     
-class DbBook():
+class DbBook(DbBase):
     SQL_DELETE="""
             DELETE FROM Book 
-            WHERE book=:book;
+            WHERE book=?;
         """
     SQL_DELETE_ALL = """DELETE FROM Book"""
-    SQL_EDIT_COMPOSER="UPDATE Book SET composer_id=:newValue WHERE composer_id = :oldValue"
-    SQL_EDIT_GENRE="UPDATE Book SET genre_id=:newValue WHERE genre_id = :oldValue"
-    SQL_GET_BOOK="""
-            SELECT * 
-            FROM BookView 
-            WHERE book = :book
-            LIMIT 1"""
-    SQL_GET_BOOK_BY="""
-            SELECT * 
-            FROM BookView 
-            WHERE ::column = :value
-            LIMIT 1
-    """
-    SQL_GET_BOOK_SETTINGS_BY_ID="SELECT key, value FROM BookSetting WHERE book_id = :id"
+    SQL_EDIT_COMPOSER="UPDATE Book SET composer_id=? WHERE composer_id = ?"
+    SQL_EDIT_GENRE="UPDATE Book SET genre_id=? WHERE genre_id = ?"
+    SQL_GET_BOOK_SETTINGS_BY_ID="SELECT key, value FROM BookSetting WHERE book_id = ?"
     SQL_GET_COUNT="SELECT count(*) FROM Book"
-    SQL_IS_BOOK_FIELD='SELECT EXISTS ( SELECT 1 FROM Book WHERE ::field=:replace ) as Bool'
-    SQL_SELECT_ALL="""
-        SELECT * From BookView 
-        ORDER BY :order 
-        COLLATE NOCASE ASC"""  
-    SQL_SELECT_FILTER="""
-        SELECT * 
-        FROM   BookView
-        WHERE  :filterName = ?
-        ORDER BY :order
-    """
-    SQL_SELECT_BOOK_LIKE="""
-        SELECT  *
-        FROM    BookView
-        WHERE   book like '%:filter%'
-        ORDER BY book, genre, composer
-    """
+    SQL_IS_BOOK_FIELD='SELECT EXISTS ( SELECT 1 FROM Book WHERE ::key = ? ) as Bool'
+    SQL_INSERT_BOOK="""INSERT INTO Book ( book, total_pages, location, name_default ) VALUES (? , ? , ? , '1')"""
     SQL_SELECT_RECENT="""
         SELECT book, location, last_read
         FROM   Book
         WHERE  date_read IS NOT NULL
         ORDER  BY date_read DESC
         LIMIT  :limit
+        """
+    SQL_UPDATE_READ_DATE="UPDATE Book SET date_read = datetime('now') WHERE book = ?"
+
+    # The following have field substitutions
+    SQL_SELECT_BOOKVIEW_ALL="""
+        SELECT * From BookView 
+        ORDER BY :order 
+        COLLATE NOCASE ASC"""  
+    SQL_GET_BOOKVIEW="""
+            SELECT * 
+            FROM BookView 
+            WHERE book = ?
+            LIMIT 1"""
+    SQL_GET_BOOKVIEW_BY="""SELECT * FROM BookView WHERE ::column = ? LIMIT 1"""
+    SQL_SELECT_BOOKVIEW_FILTER="""
+        SELECT * 
+        FROM   BookView
+        WHERE  :filterName = ?
+        ORDER BY :order
     """
+    SQL_SELECT_BOOKVIEW_LIKE="""
+        SELECT  *
+        FROM    BookView
+        WHERE   book like '%:filter%'
+        ORDER BY book, genre, composer"""
+    COL_SELECT_RECENT = ['book', 'location', 'last_read']
     SQL_BOOK_INCOMPLETE="""
-        SELECT * FROM Book 
+        SELECT * 
+        FROM Book 
         WHERE  name_default=1 
             OR genre_id is NULL 
             OR composer_id is NULL 
             OR numbering_starts = numbering_ends"""   
-    SQL_UPDATE_READ_DATE="UPDATE Book SET date_read = datetime('now') WHERE book = ?"
+    SQL_IS_EXPANDED=False
     
     def __init__(self):
         super().__init__()
-        self.columnNames = SqlColumnNames( 'Book')
-        self.columnView  = SqlColumnNames( 'BookView')
+        self.setupLogger()
+        self.columnBook  = DbConn.getColumnNames( 'Book')
+        self.columnView  = DbConn.getColumnNames( 'BookView')
+        if not DbBook.SQL_IS_EXPANDED:
+            DbBook.SQL_SELECT_BOOKVIEW_ALL      = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_ALL,self.columnBook)
+            DbBook.SQL_GET_BOOKVIEW             = DbHelper.addColumnNames( DbBook.SQL_GET_BOOKVIEW,self.columnView)
+            DbBook.SQL_GET_BOOKVIEW_BY          = DbHelper.addColumnNames( DbBook.SQL_GET_BOOKVIEW_BY, self.columnView)
+            DbBook.SQL_BOOK_INCOMPLETE          = DbHelper.addColumnNames( DbBook.SQL_BOOK_INCOMPLETE, self.columnBook)
+            DbBook.SQL_SELECT_BOOKVIEW_FILTER   = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_FILTER, self.columnView)
+            DbBook.SQL_SELECT_BOOKVIEW_LIKE     = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_LIKE, self.columnView)
+            DbBook.SQL_IS_EXPANDED = True  
 
     def _checkColumn( self, colname ):
-        if colname not in self.columnNames:
+        if colname not in self.columnBook:
             msg = "Invalid column name {}".format( colname )
             raise ValueError(msg)
 
@@ -111,77 +124,87 @@ class DbBook():
             msg = "Invalid column name {} in view".format( colname )
             raise ValueError(msg)
 
-    def _addSettings( self, cursor, bookRow , id ):
-        result = cursor.execute( self.SQL_GET_BOOK_SETTINGS_BY_ID , {"id": id })
-        row = result.fetchone()
-        while row is not None:
-            bookRow[ row['key']] = row['value']
-            row = result.fetchone()
-        return bookRow
-
     def getId( self , book:str )->int:
-        result = DbConn().cursor().execute( "SELECT id FROM Book WHERE book=?", [book]).fetchone()
-        if result is not None:
-            return int( result['id'])
-        return None
-
+        return DbHelper.fetchone( "SELECT id FROM Book WHERE book=?", book )
+    
     def getBookByColumn( self, column:str, value:str)->dict:
         self._checkColumnView( column)
-        sql = self.SQL_GET_BOOK_BY.replace('::column', column )
-        result = DbConn().cursor().execute( sql ,{"value": value} )
-        return DbTransform().rowToDictionary( result.fetchone() )
+        sql = DbBook.SQL_GET_BOOKVIEW_BY.replace('::column', column )
+        return DbHelper.fetchrow( sql ,  value , self.columnView)
 
     def getBookById( self, id:int )->dict:
         return self.getBookByColumn( BOOK.id , id )
         
-    def getBook( self, *argv, order='DESC', **kwargs ):
-        argsToPass = _forceDictionary( argv, kwargs, ['book'])
-        result = DbConn().cursor().execute( self.SQL_GET_BOOK ,argsToPass )
-        return DbTransform().rowToDictionary( result.fetchone() )
+    def getBook( self, book:str )->dict:
+        return DbHelper.fetchrow( DbBook.SQL_GET_BOOKVIEW , book , self.columnView )
         
-    def getFilterBooks( self, filterName, filter, orderList , fetch='all'):
+    def getFilterBooks( self, filterName, filter, orderList:list=['book'] , fetch='all'):
+        """
+            Retrieve all the books, ordered by 'order' and filtered by a column.
+            This allows searches for queries.
+            You can ask for all entries and get a list or book dictionaries
+            Or you can get a 'query' returned so you can retrieve them one-by-one
+        """
         self._checkColumnView( filterName )
-        sql = self.SQL_SELECT_FILTER.replace( ':filterName', filterName )
+        sql = DbBook.SQL_SELECT_BOOKVIEW_FILTER.replace( ':filterName', filterName )
         sql = sql.replace( ':order' , ','.join( orderList ) )
-        result = DbConn().cursor().execute( sql , [ filter ])
+        
+        query = DbHelper.prep( sql )
         if fetch == 'all':
-            return result.fetchall()
-        return result
+            return DbHelper.fetchrows( query , filter, self.columnView )
+        return query.exec()
 
-    def getLike( self, filterName ):
-        sql = self.SQL_SELECT_BOOK_LIKE.replace( ':filter', filterName )
-        return DbConn().cursor().execute( sql )
+    def getLike( self, filter:str , fetchall=True ):
+        sql = DbBook.SQL_SELECT_BOOKVIEW_LIKE.replace( ':filter', filter )
+        query = DbHelper.prep( sql )
+        if fetchall:
+            return DbHelper.fetchrows( query , None, self.columnView )
+        return query.exec()
 
-    def getAll(self, *argv, order:str='book',fetch='all', **kwargs):
+    def getAll(self, order:str='book', fetchall=True):
         """
-            Retrieve a list of all the books
-            Pass either 'bookname' or book='title'. 
-            Order can by any field but default is by book title
-            by using 'fetch' you can return the cursor OR a full list
+            Retrieve all the books, ordered by 'order'.
+            You can ask for all entries and get a list or book dictionaries
+            Or you can get a 'query' returned so you can retrieve them one-by-one
         """
-        sql = self.SQL_SELECT_ALL.replace(':order', order)
-        result = DbConn().cursor().execute(sql)
-        return ( result.fetchall() if fetch == 'all' else result )
+        sql = DbBook.SQL_SELECT_BOOKVIEW_ALL.replace(':order', order)
+        if fetchall:
+            return DbHelper.fetchrows( sql , None, self.columnView )
 
-    def getRecent( self, fetch='all', limit:int=10 ):
+        query = DbHelper.prep( sql )
+        query.exec()
+        return query
+
+    def getAllNext( self, query:QSqlQuery )->dict:
+        """
+            This will return a dictionary, or none, of the next record
+            started with getAll.  It is a simple wrapper to DbHelper.record
+        """
+        return DbHelper.record( query , self.columnView )
+
+    def getRecent( self, fetchall=True, limit:int=10 ):
         """
             Retrieve records from the books in date order (descending)
             limit is between 5 and 20. If you pass a non-int value, it will default to 10.
         """
         limit = toInt( limit , 10 )
         limit = str( min( 20, max(limit, 5 )) ) # must be between 5 and 20
-        result = DbConn().cursor().execute( self.SQL_SELECT_RECENT.replace(':limit', limit ) )
-        return ( result.fetchall() if fetch == 'all' else result )
+        sql = DbBook.SQL_SELECT_RECENT.replace(':limit', limit )
+        if fetchall:
+            return DbHelper.fetchrows( sql , None, DbBook.COL_SELECT_RECENT )
+        else:
+            query = DbHelper.prep( sql  )
+            return query.exec()
 
-    def getTotal( self, *argv, **kwargs)->int:
+    def getRecentNext( self, query:QSqlQuery )->dict:
+        return DbHelper.record( query , DbBook.COL_SELECT_RECENT )
 
+    def getTotal( self  )->int:
         """
             How many books?
-            Pass either 'title' or book='title'.
         """
-        rows = DbConn().cursor().execute(self.SQL_GET_COUNT, _forceDictionary(argv, kwargs, 'book') )
-        result = rows.fetchone()
-        return int( result[0])
+        return int( DbHelper.fetchone( DbBook.SQL_GET_COUNT, default=0  ) )
+
 
     def cleanupArguments( self, kwargs )->dict:
         convertEntries = {}
@@ -189,9 +212,9 @@ class DbBook():
         genreName = kwargs.pop( 'genre', None)
 
         if composerName is not None:
-            convertEntries['composer_id'] = DbComposer().getorsetId( composerName )
+            convertEntries['composer_id'] = DbComposer().getID( composerName , create=True)
         if genreName is not None:
-            convertEntries['genre_id'] = DbGenre().getorsetId( genreName )
+            convertEntries['genre_id'] = DbGenre().getID( genreName, create=True )
         return convertEntries
 
     def updateName( self, oldName, newName ):
@@ -203,21 +226,34 @@ class DbBook():
         changeList = {"book": oldName , "*book": newName.strip() }
         self.update( **changeList )
 
-    def updateReadDate(self, bookName ):
-        DbConn().cursor().execute( self.SQL_UPDATE_READ_DATE , [bookName])
+    def updateReadDate(self, bookName )->bool:
+        query = DbHelper.prep( DbBook.SQL_UPDATE_READ_DATE )
+        query.addBindValue( bookName )
+        return query.exec()
 
     def update( self, **kwargs ):
         newAdditions = self.cleanupArguments( kwargs )
         kwargs.update( newAdditions )
-        return SqlUpdate( 'Book', **kwargs )
+        book = kwargs.pop( BOOK.name )
+        id = self.getId( book )
+        sql = self._formatUpdateVariable( 'Book', BOOK.name, book, kwargs)
+        query = DbHelper.prep( sql )
+        values = list( kwargs.values() ) 
+        values.append( book )
+        query = DbHelper.bind( query, values )
+        if query.exec() :
+            return id
+        return -1
 
     def upsertBook( self, **kwargs ):
         '''
             Update or insert a book into the database.
             This requires keyword parms (book="", pages="", etc)
         '''
-        kwargs.update( self.cleanupArguments( kwargs ))
-        return _sqlUpsert( 'Book', kwargs )
+        id = self.addBook( **kwargs )
+        if id < 1:
+            id = self.update( **kwargs )
+        return id
 
     def addBook(self, **kwargs)->int:
         """
@@ -236,28 +272,37 @@ class DbBook():
         if BOOK.nameDefault not in kwargs:
             kwargs[BOOK.nameDefault] = 0
         kwargs.update( self.cleanupArguments( kwargs ) )
-        return _sqlInsert( 'Book', kwargs )
+        sql = self._formatInsertVariable( 'Book', kwargs)
+        query = DbHelper.prep( sql )
+        DbHelper.bind( query, list( kwargs.values() ))
+        id = ( query.lastInsertId() if query.exec() else -1 )
+        self._checkError( query )
+        query.finish()
+        return id
 
-    def delBook(self, *argv, **kwargs ):
+
+    def delBook(self, bookname:str )->int:
         """
             Delete a book from the database by book
             Pass either book name or by named parameters
         """
-        (conn, cursor) = DbConn().openDB()
-        argsToPass = _forceDictionary( argv, kwargs, 'book')
-        cursor.execute( self.SQL_DELETE, argsToPass )
-        conn.commit()
-        return cursor.rowcount > 0
+        query = DbHelper.bind( DbHelper.prep( DbBook.SQL_DELETE ) , bookname )
+        rtn =  ( query.numRowsAffected() if query.exec() else 0 )
+        self._checkError( query )
+        query.finish()
+        return rtn
 
-    def delAllBooks(self, *argv, **kwargs ):
+    def delAllBooks(self)->int:
         """
             Delete every book in the book table. Don't do this unless you are really sure
             as it cannot be undone
         """
-        (conn, cursor) = DbConn().openDB()
-        cursor.execute( self.SQL_DELETE_ALL, _forceDictionary(argv, kwargs, 'book'))
-        conn.commit()
-        return cursor.rowcount > 0
+        query = QSqlQuery( DbConn.db() )
+        rtn =  ( query.numRowsAffected() if query.exec( DbBook.SQL_DELETE_ALL) else 0 )
+        self._checkError( query )
+        query.finish()
+        del query
+        return rtn
 
     def addBookDirectory(self, location=dir ):
         """
@@ -269,16 +314,18 @@ class DbBook():
             return (False,"Location is empty")
         if not os.path.isdir( location ):
             return (False, "Location '{}' is not a directory".format( location ))
-        sys = DbSystem()
-        keys = DbKeys()
-        type = sys.getValue(keys.SETTING_FILE_TYPE, 'png')
+        sys    = DbSystem()
+        type   = sys.getValue(DbKeys.SETTING_FILE_TYPE, 'png')
+        query = DbHelper.prep( DbBook.SQL_INSERT_BOOK )
+
         for bookDir in [f.path for f in os.scandir(location) if f.is_dir()] :
             if not self.isLocation(bookDir ):
-                pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + type))
-                name = os.path.basename( bookDir )
-                recordID = SqlInsert("Book", book=name, total_pages=pages, location=bookDir, name_default=1)
-                addedRecords = addedRecords or ( recordID >= 0 )
+                pages     = len(fnmatch.filter(os.listdir(bookDir), '*.' + type))
+                name      = os.path.basename( bookDir )
+                if DbHelper.bind( query, [name, pages, bookDir] ).exec() :
+                    addedRecords = True
         addedMessage = "Records added" if addedRecords else "No new records found"
+        query.finish()
         return (addedRecords, addedMessage )
 
     def getIncompleteBooks( self ):
@@ -288,8 +335,7 @@ class DbBook():
         A list of reasons will be passed back. the field with a problem will be 'field:'
         """
         bookList={}
-        result=DbConn().cursor().execute(self.SQL_BOOK_INCOMPLETE)
-        rows = result.fetchall()
+        rows = DbHelper.fetchrows( DbBook.SQL_BOOK_INCOMPLETE , None, self.columnBook )
         if rows is not None:
             for row in rows:
                 reasons = []
@@ -305,12 +351,13 @@ class DbBook():
                 bookList[ row['book'] ] = reasons
         return bookList
 
-    def _checkIfExists( self, fieldName:str, replace:str)->bool:
-        if fieldName is None or replace is None or replace=='':
+    def _checkIfExists( self, key:str=None, value:str=None)->bool:
+        if not key or not value :
             return False
-        sql = self.SQL_IS_BOOK_FIELD.replace('::field', fieldName )
-        row = DbConn().cursor().execute( sql, {'replace': replace }).fetchone()
-        return ( int( row[0] ) > 0 )
+
+        sql = DbBook.SQL_IS_BOOK_FIELD.replace('::key', key )
+        returnID = DbHelper.fetchone( sql, value, default=0 )
+        return ( int( returnID ) > 0 )
 
     def isBook( self, bookName:str )->bool:
         return self._checkIfExists( BOOK.book , bookName )
@@ -358,18 +405,20 @@ class DbBook():
             This acts to MIGRATE book records from one composer to another.
             It will create a new composer if needed.
         """
-        if oldvalue is None or newvalue is None:
+        if not oldvalue or not newvalue :
             return 0
         composer = DbComposer()
-        oldID = composer.getID( oldvalue )
+        oldID = composer.getID( oldvalue , create=False)
         if oldID is None:
             return 0
-        newID = composer.getorsetId( newvalue , create=True)
-        (conn, cursor) = DbConn().openDB()
-        cursor.execute(self.SQL_EDIT_COMPOSER, {'newValue' : newID, 'oldValue': oldID })
-        if commit:
-            conn.commit()
-        return cursor.rowcount 
+        newID = composer.getID( newvalue , create=True)
+    
+        query = DbHelper.bind( DbHelper.prep( DbBook.SQL_EDIT_COMPOSER ), [newID, oldID] )
+        rtn = ( query.numRowsAffected() if query.exec() else 0 )
+        self._checkError( query )
+        query.finish()
+        del query
+        return rtn
 
     def editAllGenres( self, oldvalue:str=None, newvalue:str=None, commit=True)->int:
         """
@@ -377,19 +426,17 @@ class DbBook():
             It will create a new genre if needed.
             (If you want to rename a genre, you need to use the DbGenre class)
         """
-        if oldvalue is None or newvalue is None:
+        if not oldvalue or not newvalue :
             return 0
-        composer = DbGenre()
-        oldID = composer.getID( oldvalue )
+        genre = DbGenre()
+        oldID = genre.getID( oldvalue )
         if oldID is None:
             return 0
-        newID = composer.getorsetId( newvalue , create=True)
-        (conn, cursor) = DbConn().openDB()
-        cursor.execute(self.SQL_EDIT_GENRE, {'newValue' : newID, 'oldValue': oldID })
-        if commit:
-            conn.commit()
-        return cursor.rowcount 
-
-    
-    #def isComposer( self, composer:str )->bool:
+        newID = genre.getID( newvalue , create=True)
+        query = DbHelper.bind( DbHelper.prep( DbBook.SQL_EDIT_GENRE ), [newID, oldID])
+        rtn = ( query.numRowsAffected() if query.exec() else 0 )
+        self._checkError(query)
+        query.finish()
+        del query
+        return rtn
    

@@ -28,10 +28,11 @@
 # 22-Sep-2022: Convert to use database
 
 import sys
+import logging
 from os.path import expanduser
 from util.toolconvert   import ToolConvert
-from dil.preferences    import DilPreferences
-from db.keys            import DbKeys, ImportNameSetting
+from qdil.preferences    import DilPreferences
+from qdb.keys            import DbKeys, ImportNameSetting
 from PySide6.QtCore     import Qt
 from PySide6.QtGui      import QImageReader,QFont, QIntValidator
 from PySide6.QtWidgets  import (
@@ -47,7 +48,7 @@ from ui.editItem import UiGenericCombo
 
 class UiPreferences(QDialog):
     '''
-    This creates a simple grid and populates it with info from the dil/preferences.
+    This creates a simple grid and populates it with info from the qdil/preferences.
     '''
 
     _tool_script_pdf = "convert-pdf.smc"
@@ -67,6 +68,11 @@ class UiPreferences(QDialog):
         "tif":  "Tagged Information Format",
         "png":  "Portable Network Graphic",
         }
+    _resolution = {
+        "300":  "High resolution; largest size and best resolution (may cause display errors)",
+        "200":  "Medium resolution; good size and resolution",
+        "150":  "Lowest resolution; smallest size and average resolution"
+    }
         
     def __init__(self, parent=None):
         super(UiPreferences, self).__init__(parent)
@@ -170,7 +176,7 @@ class UiPreferences(QDialog):
         return  self.widgetBook
 
     def createShellScriptLayout(self) ->QWidget:
-        labels = ["Command to run", "Command line options",None,"Conversion type", "Import name settings", None, None]
+        labels = ["Command to run", "Command line options",None,"Conversion type", "Resolution","Import name settings", None]
         self.widgetShellScript  = QWidget()
         self.layoutShellScript = QGridLayout()
         self.labelGrid( self.layoutShellScript , labels )
@@ -274,6 +280,20 @@ class UiPreferences(QDialog):
         layout.addWidget( self.cmbType, row, 1)
         self.cmbType.currentIndexChanged.connect(self.actionTypeChanged)
         return row+1
+    
+    def formatResolution( self, layout:QGridLayout, row:int )->int:
+        self.cmbRes = QComboBox()
+        self.cmbRes.setObjectName(DbKeys.SETTING_FILE_RES )
+        fres = self.settings.getValue( DbKeys.SETTING_FILE_RES, default=DbKeys.VALUE_FILE_RES)
+        for key, desc in self._resolution.items() :
+            self.cmbRes.addItem( "{:4}: {}".format(key, desc), userData=key ) 
+        idx = self.cmbRes.findData( fres )
+        if idx > -1:
+            self.cmbRes.setCurrentIndex( idx )
+        layout.addWidget( self.cmbRes, row, 1)
+        self.cmbRes.currentIndexChanged.connect(self.actionResChanged)
+        return row+1
+
 
     def formatFileDevice( self ,layout:QGridLayout, row:int )->int:
         self.cmbDevice = QComboBox()
@@ -317,6 +337,16 @@ class UiPreferences(QDialog):
         self.checkAspect.setChecked(self.settings.getValueBool( DbKeys.SETTING_KEEP_ASPECT, DbKeys.VALUE_KEEP_ASPECT))
         layout.addWidget( self.checkAspect, row, 1 )
         self.checkAspect.stateChanged.connect(self.actionAspectRatio )
+        return row+1
+
+    def formatSmartPages( self, layout:QGridLayout, row:int)->int:
+        self.checkSmartPages = QCheckBox()
+        self.checkSmartPages.setObjectName(DbKeys.SETTING_SMART_PAGES )
+        self.checkSmartPages.setText("Use smart page display( 1,2 -> 3,2 -> 3,4)")
+        self.checkSmartPages.setCheckable(True)
+        self.checkSmartPages.setChecked(self.settings.getValueBool( DbKeys.SETTING_SMART_PAGES, DbKeys.VALUE_SMART_PAGES))
+        layout.addWidget( self.checkSmartPages, row, 1 )
+        self.checkSmartPages.stateChanged.connect(self.actionSmartPages )
         return row+1
 
     def formatLayout(self , layout:QGridLayout, row:int)->int:
@@ -374,6 +404,7 @@ class UiPreferences(QDialog):
         row = self.formatScript(self.layoutShellScript, 0 )
         row = self.formatScriptVars(self.layoutShellScript, row )
         row = self.formatFileDevice( self.layoutShellScript, row )
+        row = self.formatResolution( self.layoutShellScript, row )
         row = self.formatNameImport( self.layoutShellScript, row )
         #
         self.formatKeyMods( self.layoutKeyboard, 0  )
@@ -447,7 +478,8 @@ class UiPreferences(QDialog):
                 self.states.pop(  DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
     
     def actionTextChanged(self):
-        if self.textPdfConvert.toPlainText().strip() != self.settings.getValue(DbKeys.SETTING_PDF_SCRIPT ).strip():
+        pdftxt = self.textPdfConvert.toPlainText()
+        if isinstance( pdftxt, str) and pdftxt.strip() != self.settings.getValue(DbKeys.SETTING_PDF_SCRIPT ).strip():
             self.states[ DbKeys.SETTING_PDF_SCRIPT] = self.textPdfConvert.toPlainText().strip()
 
     def actionHelp(self):
@@ -511,7 +543,7 @@ class UiPreferences(QDialog):
             self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
         elif txt == 'Reinitialise':
             if QMessageBox.AcceptRole == QMessageBox.question( self, "Reset script", "Reset database script to default"):
-                from db.setup import Setup
+                from qdb.setup import Setup
                 Setup().RestoreDefaultPdfScript()
                 self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
         elif txt == 'Preview':
@@ -519,7 +551,7 @@ class UiPreferences(QDialog):
         elif txt == 'Help':
             self.actionHelp()
         else:
-            print("???", txt)
+            logging.error("Runtime error. Unknown button: {}".format( txt) )
     
     def actionChangeDefaultDir(self):
         cdir = self.lblDefaultDir.text()
@@ -566,6 +598,13 @@ class UiPreferences(QDialog):
         self.flagChanged = True
         self.formatFileDevice( self.layoutShellScript, 3 )
 
+    def actionResChanged(self, value):
+        newVal = self.cmbRes.currentData()
+        if newVal is not None:
+            self.states[ DbKeys.SETTING_FILE_RES ] = self.cmbRes.currentData() 
+            self.flagChanged = True
+        #self.formatFileDevice( self.layoutShellScript, 3 )
+
     def actionDeviceChanged( self, value ):
         self.states[ DbKeys.SETTING_DEFAULT_GSDEVICE] = self.cmbDevice.currentData()
         self.flagChanged = True
@@ -586,6 +625,10 @@ class UiPreferences(QDialog):
 
     def actionAspectRatio( self, status ):
         self.states[ DbKeys.SETTING_KEEP_ASPECT ] = self.checkAspect.isChecked()
+        self.flagChanged = True
+
+    def actionSmartPages( self, status ):
+        self.states[ DbKeys.SETTING_SMART_PAGES ]= self.checkSmartPages.isChecked()
         self.flagChanged = True
     
     def actionLayout(self, buttonObject ):

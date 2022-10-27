@@ -29,6 +29,7 @@
 
 from PySide6.QtWidgets import QComboBox
 from PySide6.QtCore    import Qt
+import logging
 
 class UiGenericCombo( QComboBox ):
 
@@ -57,7 +58,7 @@ class UiGenericCombo( QComboBox ):
         return -1
 
     def setCurrentItem( self, currentValue:str=None, add=False):
-        if currentValue is not None and currentValue != '':
+        if currentValue is not None and currentValue:
             if add :
                 super().setCurrentText( currentValue )
             else:
@@ -71,19 +72,30 @@ class UiGenericCombo( QComboBox ):
         """
             Fill the dropdown box with key/value from dictionary
         """
-        for key, value in values.items() :
-            self.addItem( str(key), userData=value )
-        self.setCurrentItem( currentValue)
-        self._finishSetup()
-
+        try:
+            for key, value in values.items() :
+                self.addItem( str(key), userData=value )
+            if currentValue:
+                self.setCurrentItem( str(currentValue) )
+            self._finishSetup()
+        except Exception as err:
+            valueList = ",".join( [ str(key) + ":"+ str(value)  for key,value in values.items  ])
+            logging.exception( "fillDict: values: {} currentvalue: {}".format( valueList, currentValue ))
+            raise err
             
     def fillList( self, values:list , currentValue:None ):
         """
             Fill the dropdown box with values from a list
         """
-        self.addItems( values )
-        self.setCurrentItem( currentValue )
-        self._finishSetup()
+        try:
+            self.addItems( values )
+            if currentValue:
+                self.setCurrentItem( str(currentValue) )
+            self._finishSetup()
+        except Exception as err:
+            valueList = ",".join( [ str(x) for x in values ])
+            logging.exception( "fillList: values: {} currentvalue: {}".format( valueList, currentValue ))
+            raise err
 
     def fillTable(self, dbObject, currentValue:str=None):
         """

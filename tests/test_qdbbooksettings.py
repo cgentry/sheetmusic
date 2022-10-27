@@ -24,28 +24,38 @@ import unittest
 import sqlite3
 
 sys.path.append("../")
-from db.dbconn import DbConn
-from db.dbbooksettings import DbBookSettings
-from db.dbsql import SqlRowString
-from db.setup import Setup
+from qdb.dbconn import DbConn
+from qdb.dbbooksettings import DbBookSettings
+from qdb.setup import Setup
+from qdb.util  import DbHelper
+from PySide6.QtSql import QSqlQuery
 
 
 class TestDbBookSettings(unittest.TestCase):
-    def setUp(self):
-        (conn, cursor) = DbConn().openDB(databaseName=':memory:')
-        self.setup = Setup(':memory:')
-        self.setup.dropTables()
-        conn.commit()
-        self.setup.createTables()
+    def glue( self,  row:dict ):
+        for key in row:
+            self.query.addBindValue(row[key] )
 
+    def setUp(self):
+        db = DbConn().openDB( ':memory:')
+        s = Setup(":memory:")
+        s.dropTables()
+        s.createTables()
+        del s
+
+        self.query = QSqlQuery( db )
+
+        ### BOOK
         bkData = [
                 {'book': 'test1', 'location': '/loc', 'source': '/src'},
                 {'book': 'test2', 'location': '/loc', 'source': '/src'},
         ]
+        self.query.prepare("INSERT INTO Book ( book,location,source) VALUES( ?,?,?)" )
         for row in bkData:
-            cursor.execute(
-                "INSERT INTO Book ( book,location,source) VALUES( :book,:location,:source)", row)
-        conn.commit()
+            self.glue( row )
+            if not self.query.exec():
+                raise RuntimeError( self.query.lastError().text() )
+        self.query.finish()
 
         settings = [
             {'book_id': 1, 'key': 'key1', 'value': 'value1'},
@@ -57,11 +67,12 @@ class TestDbBookSettings(unittest.TestCase):
             {'book_id': 2, 'key': 'key2', 'value': 'value2'},
             {'book_id': 2, 'key': 'key3', 'value': 'value3'},
         ]
-
+        self.query.prepare("INSERT INTO BookSetting ( book_id,key,value) VALUES( ?, ?,? )" )
         for row in settings:
-            cursor.execute(
-                "INSERT INTO BookSetting ( book_id,key,value) VALUES( :book_id,:key,:value)", row)
-        conn.commit()
+            self.glue( row )
+            if not self.query.exec():
+                raise RuntimeError( self.query.lastError().text() )
+        self.query.finish()
         self.test1_count=4
         self.test2_count=3
 
@@ -69,15 +80,16 @@ class TestDbBookSettings(unittest.TestCase):
             {"key": 'key4', 'value': 'value4'},
             {"key": 'key5', 'value': 'value5'},
         ]
-
+        self.query.prepare( "INSERT INTO System ( key,value) VALUES( ?,?)" )
         for row in system:
-            cursor.execute(
-                "INSERT INTO System ( key,value) VALUES( :key,:value)", row)
-        conn.commit()
+            self.glue( row )
+            if not self.query.exec():
+                raise RuntimeError( self.query.lastError().text() )
+        self.query.finish()
         self.settings = DbBookSettings()
+    
 
     def tearDown(self):
-        self.setup.dropTables()
         pass
 
     def test_getAllSettings(self):
@@ -87,12 +99,11 @@ class TestDbBookSettings(unittest.TestCase):
         rows = self.settings.getAll( 'test2')
         self.assertEqual( len(rows), self.test2_count )
 
+
     def test_getBookSetting_fallback( self ):
-        row = self.settings.getValue('test2','key4')
-        self.assertEqual( len(row), 4)
-        self.assertEqual( row['book'], 'test2')
-        self.assertEqual( row['value'], 'value4')
-        self.assertEqual( row['key'], 'key4')
+        value = self.settings.getValue('test2','key4')
+        self.assertIsNotNone( value , "test2 fallback of key4")
+        self.assertEqual( value, 'value4')
 
     def test_getBookSetting_notfound( self ):
         row = self.settings.getValue('test2','key9')
@@ -103,9 +114,9 @@ class TestDbBookSettings(unittest.TestCase):
 
     def test_getBookSetting_found(self):
         for i in range(1,5):
-            row = self.settings.getValue('test1','key{}'.format(i))
-            self.assertIsNotNone( row )
-            self.assertEqual( row['value'], 'value{}'.format(i))
+            value = self.settings.getValue('test1','key{}'.format(i))
+            self.assertIsNotNone( value )
+            self.assertEqual( value, 'value{}'.format(i))
 
     def test_getBookSetting_nokeys(self):
         self.assertRaises( ValueError, self.settings.getValue)
@@ -145,35 +156,24 @@ class TestDbBookSettings(unittest.TestCase):
         self.assertFalse( self.settings.getBool('test1','keyNoWay'))
 
     def test_setValue(self):
-        ok = self.settings.setValue( 'test1', 'keyadd', 'valueadd')
-        self.assertTrue( ok )
-
-        ok = self.settings.setValue('test1', 'keyadd', 'valueadd2', ignore=True )
-        self.assertFalse( ok ,"Did not have error on duplicate key")
-
-        self.assertRaises(sqlite3.IntegrityError, self.settings.setValue, 'test1','keyadd', 'valueadd2')
+        self.assertTrue(  self.settings.setValue( 'test1', 'keyadd', 'valueadd') , "Insert first record")
+        self.assertFalse( self.settings.setValue( 'test1', 'keyadd', 'valueadd2') , "Insert Duplicate")
 
         row = self.settings.getValue('test1', 'keyadd')
-        self.assertEqual( row['value'], 'valueadd')
-        self.assertEqual( row['key'], 'keyadd')
-        self.assertEqual( row['book'], 'test1')
-
-        self.assertRaises( sqlite3.OperationalError, self.settings.setValue, 'title5', 'key5', 'value5')
+        self.assertEqual( row, 'valueadd')
+        rtn = self.settings.setValue( 'title5', 'key5', 'value5')
+        self.assertFalse( rtn )
         
     def test_setValue_nokeys(self):    
         self.assertRaises( ValueError, self.settings.setValue, None)
         self.assertFalse( self.settings.setValue( ignore=True))
 
     def test_setValue(self):
-        ok = self.settings.setValue( 'test1', 'keyadd', 'valueadd')
-        self.assertTrue( ok )
-
-        ok = self.settings.upsertBookSetting(book='test1', key='keyadd', value='valueadd2')
-        self.assertTrue( ok )
+        self.assertTrue(self.settings.setValue( 'test1', 'keyadd', 'valueadd') )
+        self.assertTrue(self.settings.upsertBookSetting(book='test1', key='keyadd', value='valueadd2'))
+        
         row = self.settings.getValue('test1', 'keyadd')
-        self.assertEqual( row['value'], 'valueadd2')
-        self.assertEqual( row['key'], 'keyadd')
-        self.assertEqual( row['book'], 'test1')
+        self.assertEqual( row, 'valueadd2')
 
     def test_upsert_fail(self):
         self.assertRaises( ValueError, self.settings.upsertBookSetting,None, None,None)
@@ -195,7 +195,7 @@ class TestDbBookSettings(unittest.TestCase):
 
     def test_delone_badcall(self):
         self.assertRaises(ValueError, self.settings.deleteValue,None, None )
-        self.assertRaises(sqlite3.OperationalError, self.settings.deleteValue,'test5', 'key1' )
+        self.assertFalse( self.settings.deleteValue('test5', 'key1' ) )
 
         ok=self.settings.deleteValue(book=None, key='', ignore=True)
         self.assertEqual(ok, 0 )
@@ -212,10 +212,10 @@ class TestDbBookSettings(unittest.TestCase):
 
     def test_delall_badcall(self):
         self.assertRaises(ValueError, self.settings.deleteAllValues,None)
-        self.assertRaises(sqlite3.OperationalError, self.settings.deleteAllValues,'test5')
+        self.assertEqual(self.settings.deleteAllValues('test5') , -1)
 
         ok=self.settings.deleteAllValues(book=None, ignore=True)
-        self.assertEqual(ok, 0 )
+        self.assertEqual(ok, -1 )
   
         
 

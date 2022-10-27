@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from re import M
-from db.keys import DbKeys
+from qdb.keys import DbKeys
 from PySide6.QtCore import (QCoreApplication, QRect,QSize)
 from PySide6.QtGui import (QAction, Qt )
 from PySide6.QtWidgets import (
@@ -89,6 +89,9 @@ class UiMain(object):
         self.actionProperties = QAction(MainWindow)
         self.actionProperties.setObjectName(u"actionProperties")
 
+        self.actionDeleteAllBookmarks = QAction(MainWindow)
+        self.actionDeleteAllBookmarks.setObjectName( u'actionDeleteAllBookmarks')
+
         # Action Close
         self.actionClose = QAction(MainWindow)
         self.actionClose.setObjectName(u"actionClose")
@@ -111,6 +114,12 @@ class UiMain(object):
         self.actionAspectRatio = QAction(MainWindow)
         self.actionAspectRatio.setObjectName(u'actionAspectRatio')
         self.actionAspectRatio.setCheckable(True)
+
+        # Smart Pages
+        self.actionSmartPages = QAction( MainWindow )
+        self.actionSmartPages.setObjectName(u'actionSmartPages')
+        self.actionSmartPages.setCheckable(True)
+        
 
         # Status Bar
         self.actionViewStatus = QAction(MainWindow)
@@ -278,6 +287,9 @@ class UiMain(object):
         self.menubar.addAction(self.menuEdit.menuAction())
         self.menuEdit.addAction(self.actionProperties)
         
+        self.menuEdit.addSeparator()
+        self.menuEdit.addAction( self.actionDeleteAllBookmarks )
+
         # View actions
         self.addViewActions()
     
@@ -315,6 +327,7 @@ class UiMain(object):
         self.menuView.addSeparator()
         self.menuView.addAction( self.actionAspectRatio)
         self.menuView.addAction(self.actionViewStatus)
+        self.menuView.addAction( self.actionSmartPages )
         self.menuView.addSeparator()
 
     def addMenuBookmark( self , MainWindow):
@@ -346,6 +359,9 @@ class UiMain(object):
         self.actionProperties.setShortcut(
             QCoreApplication.translate("Properties", u"Ctrl+I", None))
 
+        self.actionDeleteAllBookmarks.setText(
+            QCoreApplication.translate( 'MainWindow', u"Delete All Bookmarks", None))
+
         self.actionPreferences.setText(
             QCoreApplication.translate("MainWindow",u"Preferences...", None))
 
@@ -376,6 +392,9 @@ class UiMain(object):
             QCoreApplication.translate("MainWindow", u"Keep Aspect Ratio", None))
         self.actionAspectRatio.setShortcut(
             QCoreApplication.translate("MainWindow", u"Ctrl+A", None))
+
+        self.actionSmartPages.setText(
+            QCoreApplication.translate("MainWindow", u"Smart Page Turn", None))
 
         self.actionViewStatus.setText(
             QCoreApplication.translate("MainWindow", u"View Status Bar", None))
@@ -536,10 +555,12 @@ class UiMain(object):
         self.left.setObjectName(u"left")
         self.left.setScaledContents(False)
         self.left.setAlignment(Qt.AlignCenter)
+        self.left.setMargin(5)
         self.right = QLabel()
         self.right.setObjectName(u"right")
         self.right.setScaledContents(False)
         self.right.setAlignment(Qt.AlignCenter)
+        self.right.setMargin(5)
 
         self.twoPagesSide = QWidget()
         self.twoPagesSide.setObjectName(u"twoPagesSide")

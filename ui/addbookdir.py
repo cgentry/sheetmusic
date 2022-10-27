@@ -1,7 +1,7 @@
-from PySide6.QtWidgets import QFileDialog, QMessageBox
-from db.dbsystem       import DbSystem
-from dil.preferences   import DilPreferences
-from db.keys           import DbKeys
+from PySide6.QtWidgets  import QFileDialog, QMessageBox
+from qdb.dbsystem       import DbSystem
+from qdil.preferences   import DilPreferences
+from qdb.keys           import DbKeys
 
 class AddBookDirectory( ):
     def __init__(self):

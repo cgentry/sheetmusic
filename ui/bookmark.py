@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui  import QIntValidator
 
-from db.keys import BOOKMARK
+from qdb.keys     import BOOKMARK
 from util.convert import toInt
 
 class TableItem( QTableWidgetItem):

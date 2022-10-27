@@ -18,21 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from genericpath import isfile
-from multiprocessing.sharedctypes import Value
 import os
-import fnmatch
-from db.dbbook         import DbBook
-from db.dbbooksettings import DbBookSettings
-from db.dbsql          import SqlColumnNames, SqlUpdate
-from db.dbsystem       import DbSystem
-from db.keys           import DbKeys, BOOK, BOOKPROPERTY
-from dil.preferences   import DilPreferences
-from functools         import lru_cache
-from util.convert        import toInt
-from PySide6.QtWidgets import QMessageBox
-from PySide6.QtGui     import QPixmap
-from PySide6.QtCore    import Qt
+from qdb.dbbook         import DbBook
+from qdb.dbbooksettings import DbBookSettings
+from qdb.dbsystem       import DbSystem
+from qdb.keys           import DbKeys, BOOK, BOOKPROPERTY
+from util.convert       import toInt
+from PySide6.QtWidgets  import QMessageBox
+from PySide6.QtGui      import QPixmap
 
 class DilBook( DbBook ):
     """
@@ -43,9 +36,9 @@ class DilBook( DbBook ):
         super().__init__()
         self.dbooksettings = DbBookSettings()
         s = DbSystem()
-        self.page_prefix = s.getValue( DbKeys.SETTING_FILE_PREFIX , DbKeys.VALUE_FILE_PREFIX)
-        self.page_suffix = s.getValue( DbKeys.SETTING_FILE_TYPE , DbKeys.VALUE_FILE_TYPE)
-        self.numberRecent = DbSystem().getValue( DbKeys.SETTING_MAX_RECENT_SIZE , 10 )
+        self.page_prefix  = s.getValue( DbKeys.SETTING_FILE_PREFIX , DbKeys.VALUE_FILE_PREFIX)
+        self.page_suffix  = s.getValue( DbKeys.SETTING_FILE_TYPE ,   DbKeys.VALUE_FILE_TYPE)
+        self.numberRecent = s.getValue( DbKeys.SETTING_MAX_RECENT_SIZE , 10 )
         del s
         self.clear()
     
@@ -79,10 +72,10 @@ class DilBook( DbBook ):
         We then get bookPageName (the page plus three digit extension)
         and the complete path formatter string
         """
-        self.dirPath = os.path.normpath(self.book[BOOK.location])
+        self.dirPath        = os.path.normpath(self.book[BOOK.location])
         self.bookPageName   = "".join( [self.page_prefix , "-{0:03d}"] )
-        self.bookPathFormat = os.path.join(
-            self.dirPath, "".join( [self.bookPageName,".",self.page_suffix]) )
+        self.pageFormat     = "".join( [self.bookPageName,".",self.page_suffix]) 
+        self.bookPathFormat = os.path.join( self.dirPath, self.pageFormat )
 
     def getFileType(self) -> str:
         return self.page_suffix
@@ -157,13 +150,13 @@ class DilBook( DbBook ):
             This will create a new record in the database and save all the book settings
             The return will be the books record (in dict format)
         """
-        book = kwargs[ BOOK.name ]
+        bookname = kwargs[ BOOK.name ]
         settings, newBook = self._splitParms( kwargs )
         recId = super().addBook( **newBook )
         
         for key, value in settings.items():
             self.dbooksettings.upsertBookSetting( id=recId, key=key, value=value )
-        return super().getBook( book )
+        return super().getBook( book=bookname )
 
 
     def updateIncompleteBooksUI(self):
@@ -264,10 +257,8 @@ class DilBook( DbBook ):
         return False
 
     def setAspectRatio( self, aspect:bool )->bool:
-        print("Aspect Ratio", aspect )
         if aspect is not None and self.getAspectRatio() !=  aspect :
             newAspect = 1 if aspect else 0
-            print("\nAspect Ratio", newAspect )
             self.book[ BOOK.aspectRatio] = newAspect
             self.setProperty( BOOK.aspectRatio , newAspect )
             return True
@@ -335,6 +326,11 @@ class DilBook( DbBook ):
         else:
             return os.path.normpath(bookPath)
 
+    def getPageString( self, pageNum:int=None)->str:
+        if pageNum == None:
+            pageNum = self.getAbsolutePage() 
+        return self.pageFormat.format(toInt( pageNum ))
+
     def getBookPagePath(self, pageNum=None)->str:
         return self.bookPathFormat.format(toInt( pageNum ))
 
@@ -378,7 +374,11 @@ class DilBook( DbBook ):
             This will get the book name form the database rather than
             pulling it from our local storage
         """
-        book = self.getBookById( ( self.getID() if id is None else id  ) )
+        if id is None:
+            id = self.getID()
+        book = self.getBookById( id )
+        if book is None:
+            raise RuntimeError("No book found for ID: {}".format( id ))
         return book[ BOOK.name ]
 
     def getAll(self):
@@ -395,13 +395,15 @@ class DilBook( DbBook ):
             We have several differenty keystores: some in Book and
             some in BookSettings. We need to know where to put it.
         """
+        book_id = self.getID()
+        book_name = self.getTitle()
         settings, database = self._splitParms( self.changes  )
         for key in settings:
-            self.dbooksettings.upsertBookSetting( id=self.getID(), key=key, value=self.changes[key] )
+            self.dbooksettings.upsertBookSetting( id=book_id, key=key, value=self.changes[key] )
         # Because we may have changed the book we need to check on the previous name
         
         if len( database ) > 0 :
-            database[ BOOK.book ] = self.getBooknameByID( self.book['id'])
+            database[ BOOK.book ] = self.getTitle()
             self.update(  **database )
 
         self.changes = {}

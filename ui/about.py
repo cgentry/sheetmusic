@@ -21,9 +21,9 @@
 
 import os
 import platform
-from PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QTextEdit, QPushButton
+from   PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QTextEdit, QPushButton
 import PySide6
-from db.keys import ProgramConstants
+from   qdb.keys import ProgramConstants
 
 class UiAbout(QDialog):
     __about="""<center><h1>Sheetmusic</h1><h3>Copyright 2022 Charles Gentry</h3>
@@ -86,7 +86,7 @@ class UiAbout(QDialog):
         else:
             if self.btnLicense.text() == 'License':
                 dir = os.path.dirname( os.path.dirname( __file__ ) )
-                with open( dir + "/documentation/license.html","rt") as fh:
+                with open( dir + "/docs/license.html","rt") as fh:
                     self.infobox.clear()
                     self.infobox.insertHtml( fh.read() )
                 self.btnLicense.setText('About')

@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+# Conversion script from PDF to pages
+# version 0.1
+#
+# This file is part of SheetMusic
+# Copyright: 2022 by Chrles Gentry
+#
+trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
+
+EndScript()
+{
+    echo "Conversion ending."
+}
+
+########################################################
+# Command to run
+# This command uses GHOSTSCRIPT, which is a free utility
+########################################################
+echo \"Conversion starting {{debug-state}}\"
+echo \"Source file is {{source}}\"
+echo .
+{{debug}}cd       '{{target}}'  || exit 1
+{{debug}}mkdir -p '{{name}}'    || exit 2
+echo Input is \"{{source}}\"
+
+{{debug}}gs -dSAFER -dBATCH -dNOPAUSE -r300 -dDeskew -sDEVICE="{{device}}" -sOutputFile="{{name}}/page-%03d.{{type}}" "{{source}}"  || exit 3

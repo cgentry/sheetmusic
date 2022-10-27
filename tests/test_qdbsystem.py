@@ -22,13 +22,13 @@ import sys
 import sqlite3
 import unittest
 
-from db.dbconn import DbConn
-from db.setup import Setup
-from db.dbsystem import DbSystem
+from qdb.dbconn import DbConn
+from qdb.setup import Setup
+from qdb.dbsystem import DbSystem
 
 class TestSystem( unittest.TestCase):
     def setUp(self):
-        (self.conn, self.cursor) = DbConn().openDB(':memory:')
+        DbConn.openDB(':memory:')
         self.setup = Setup(":memory:")
         self.setup.dropTables()
         self.setup.createTables()
@@ -53,69 +53,78 @@ class TestSystem( unittest.TestCase):
 
     def test_setValue_set(self):
         key = 'mykey'
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'myvalue', conflict="") )
+        self.assertTrue( self.obj.setValue( key, 'myvalue') )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
     def test_setValue_conflict(self):
         key = 'mykey'
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'myvalue', conflict="") )
+        self.assertTrue( self.obj.setValue( key, 'myvalue') )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertRaises( sqlite3.IntegrityError, 
-            self.obj.setValue, key, 'myvalue', None )
+        self.assertFalse( self.obj.setValue( key, 'myvalue' ) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertRaises( sqlite3.IntegrityError, 
-            self.obj.setValue, key, 'myvalue', 'FAIL' )
+        self.assertFalse( self.obj.setValue( key, 'myvalue' ) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertRaises( sqlite3.IntegrityError, 
-            self.obj.setValue, key, 'myvalue', DbSystem.SQL_SYSTEM_INSERT_FAIL )
+        self.assertFalse( self.obj.setValue( key, 'myvalue' ) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
-
-    def test_setValue_badparm(self):
-        self.assertRaises( ValueError, 
-            self.obj.setValue, 'mykey', 'myvalue', 'badparm' )
 
     def test_setValue_replace(self):
         key = 'mykey'
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'myvalue', conflict=DbSystem.SQL_SYSTEM_INSERT_REPLACE) )
+        self.assertTrue( self.obj.setValue( key, 'myvalue', replace=True) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertEqual( 'newvalue', self.obj.setValue( key, 'newvalue', conflict='replace') )
+        self.assertTrue('newvalue', self.obj.setValue( key, 'newvalue', replace=True) )
         self.assertEqual( 'newvalue', self.obj.getValue(key) )
 
     def test_setValue_ignore(self):
         key = 'mykey'
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'myvalue', conflict="ignore") )
+        self.assertTrue( self.obj.setValue( key, 'myvalue', ignore=True) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'newvalue', conflict=DbSystem.SQL_SYSTEM_INSERT_IGNORE) )
-        self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
     def test_setValue_delete(self):
         key = 'mykey'
-        self.assertEqual( 'myvalue', self.obj.setValue( key, 'myvalue', conflict="ignore") )
+        self.assertTrue( self.obj.setValue( key, 'myvalue', ignore=True) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-        self.assertEqual( None , self.obj.setValue( key ))
+        self.assertTrue(self.obj.setValue( key ) )
         self.assertEqual( None, self.obj.getValue(key) )
 
-    def test_saveAll( self ):
+    def test_saveAll_list( self ):
         data = [
             { 'key': 'k1', 'value': 'v1'},
             { 'key': 'k2', 'value': 'v2'},
             { 'key': 'k3', 'value': 'v3'},
             { 'key': 'k4', 'value': 'v4'},
         ]
-        self.obj.saveAll( data )
+        self.assertEqual( 4 , self.obj.saveAll( data ) )
         rtnData = self.obj.getAll()
         self.assertEqual( len( rtnData ) , 4 )
         self.assertEqual( rtnData['k1'], 'v1')
         self.assertEqual( rtnData['k2'], 'v2')
         self.assertEqual( rtnData['k3'], 'v3')
         self.assertEqual( rtnData['k4'], 'v4')
-        
+
+    def test_saveAll_dictionary( self ):
+        data = {
+            'K1': 'v1',
+            'K2': 'v2',
+            'K3': 'v3',
+            'K4': 'v4',
+        }
+        self.assertEqual( 4 , self.obj.saveAll( data ) )
+        rtnData = self.obj.getAll()
+        self.assertEqual( len( rtnData ) , 4 )
+        self.assertEqual( rtnData['K1'], 'v1')
+        self.assertEqual( rtnData['K2'], 'v2')
+        self.assertEqual( rtnData['K3'], 'v3')
+        self.assertEqual( rtnData['K4'], 'v4')
+
+    def test_saveall_fail(self):
+        self.assertRaises(ValueError, self.obj.saveAll, 'hello') 
+
 if __name__ == "__main__":
     sys.path.append("../")
     unittest.main()

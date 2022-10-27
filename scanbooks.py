@@ -1,8 +1,8 @@
 from curses.ascii import isdigit
 import getopt, sys, os
-from db.dbbook import DbBook, DbGenre, DbComposer
-from db.setup import Setup
-from db.keys  import BOOK
+from qdb.dbbook import DbBook, DbGenre, DbComposer
+from qdb.setup import Setup
+from qdb.keys  import BOOK
 from util.tio import printColumns, question, selectListEntry, inputint,inputIfNone, printDictionary
 
 ###
@@ -275,7 +275,7 @@ def _update( list ):
 
 def scan( ):
     global directory, database, command
-    from dil.book import DilBook
+    from qdil.book import DilBook
     from PySide6.QtWidgets import QApplication
     app = QApplication()
     
@@ -283,7 +283,7 @@ def scan( ):
     bk.addBookDirectoryUI()
 
 def update():
-    from dil.book import DilBook
+    from qdil.book import DilBook
     from PySide6.QtWidgets import QApplication
     app = QApplication()
     

@@ -1,21 +1,17 @@
 
 import shutil
-from select import select
-from tkinter import dialog
-from db.dbconn import DbConn
-from db.dbbook import DbGenre, DbComposer, DbBook
-from db.keys import BOOK
+from qdb.dbbook import DbGenre, DbComposer, DbBook
+from qdb.keys   import BOOK
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup,  QCheckBox,
     QComboBox,    QDialog,       QDialogButtonBox,
-    QFileDialog,  QGridLayout,   QHBoxLayout,
-    QLabel,       QLineEdit,     QMessageBox,
-    QPlainTextEdit, QPushButton, QRadioButton,
-    QTabWidget,   QTextEdit,     QVBoxLayout,
-    QWidget, QFrame, QSplitter, QStyleFactory, QTreeView, QTreeWidget, QTreeWidgetItem,
-    QTableWidget, QTableWidgetItem, QHeaderView, QInputDialog
+    QGridLayout,  QHBoxLayout,   QVBoxLayout,
+    QWidget,      QSplitter,     QTreeWidget, 
+    QTableWidget, QTreeWidgetItem, QLabel,             
+    QTableWidgetItem, QHeaderView, QInputDialog,
+    QMessageBox, QLineEdit
 )
+from PySide6.QtSql import QSqlQuery
 
 
 class FileBase(QDialog):
@@ -24,7 +20,6 @@ class FileBase(QDialog):
     def __init__(self):
         super().__init__()
 
-        (_, self.cursor) = DbConn().handles()
         self.dbook = DbBook()
         
         self.lastSortOrder = ""
@@ -328,18 +323,18 @@ class DeletefileAction( ):
             book = dbb.getBook( book=name)
             if book is not None:
                 try:
-                    if dbb.delBook( book=name):
+                    if dbb.delBook( name ):
                         shutil.rmtree( book[ BOOK.location ], onerror=self.showError )
                     else:
                         self.showError( None, name, FileNotFoundError("No book was removed from database") )
                 except Exception as err:
                     self.showError( None, name, err )
         
-    def showError( self , func, path, errinfo ):
+    def showError( self , func, path, errinfo:Exception ):
         if isinstance( errinfo, tuple ):
             emsg = str( errinfo[1] ) 
         else:
-            emsg = str(esg)
+            emsg = str(errinfo)
         QMessageBox.critical( 
             None,
             "File Deletion Error",

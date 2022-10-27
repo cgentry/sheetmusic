@@ -25,10 +25,11 @@ import tempfile
 import unittest
 #sys.path.append("../")
 
-from db.dbconn import DbConn
-from db.dbbook import DbBook, DbGenre, DbComposer
-from db.dbgeneric import DbTransform
-from db.setup import Setup
+from PySide6.QtSql import QSqlQuery
+
+from qdb.dbconn import DbConn
+from qdb.dbbook import DbBook, DbGenre, DbComposer
+from qdb.setup import Setup
 
 
 class TestDbBookmark(unittest.TestCase):
@@ -39,16 +40,14 @@ class TestDbBookmark(unittest.TestCase):
         s.createTables()
         del s
         self.book = DbBook()
+        self.query = QSqlQuery( DbConn.db() )
     
     def tearDown(self):
-        (conn,cursor)= DbConn().openDB()
-        cursor.execute("DELETE FROM Book")
-        conn.commit()
-        DbConn().closeDB(clear=True)
+        self.query.exec("DELETE FROM Book")
         pass
 
     def test_addBook(self):
-        from db.dbbooksettings import DbBookSettings
+        from qdb.dbbooksettings import DbBookSettings
         id = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.assertEqual( id , 1 )
        
@@ -57,7 +56,7 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( bk["book"] , "title1")
         self.assertEqual( bk['name_default'], 0 )
 
-        bk = self.book.getBook( "title1" )
+        bk = self.book.getBook( book="title1" )
         self.assertIsNotNone( bk )
         self.assertEqual( bk["book"] , "title1")
         self.assertEqual( bk["composer"] , "bach")
@@ -65,6 +64,17 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( bk["source"] , "Source")
         self.assertEqual( bk["location"] , 'loc')
         self.assertEqual( bk['name_default'], 0 )
+
+    def test_getBookByColumn(self):
+        from qdb.dbbooksettings import DbBookSettings
+        id = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
+        self.assertEqual( id , 1 )
+
+        book = self.book.getBookByColumn('source', 'Source')
+        self.assertEqual( book['book'], 'title1')
+    
+        book = self.book.getBookByColumn('location', 'loc')
+        self.assertEqual( book['book'], 'title1')
 
     def test_incomplete_book_no_page(self):
         id = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
@@ -103,7 +113,7 @@ class TestDbBookmark(unittest.TestCase):
     def test_update( self ):
         id = self.book.addBook(book="title2",composer="Handel", genre="classical", source="Source",location="loc")
         self.assertEqual( id , 1 )
-
+        
         bk = self.book.getBook( book='title2' )
         self.assertIsNotNone( bk )
         self.assertEqual( bk["book"] , "title2")
@@ -123,7 +133,7 @@ class TestDbBookmark(unittest.TestCase):
         newTitle = 'newTitle'
         id = self.book.addBook(book="title2",composer="Handel", genre="classical", source="Source",location="loc")
         self.assertEqual( id , 1 )
-        changeList = {'book': 'title2', '*book': newTitle }
+        changeList = {'book': 'title2', 'location': 'newloc', '*book': newTitle }
         self.book.update( **changeList )
 
         self.assertTrue( self.book.isBook( newTitle ))
@@ -133,13 +143,12 @@ class TestDbBookmark(unittest.TestCase):
         self.assertFalse( self.book.isBook( newTitle ))
         self.assertTrue( self.book.isBook( 'title2' ))
         
-
     def test_delBook(self):
         rtn = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.assertTrue( rtn )
         rtn = self.book.delBook("title1")
         self.assertTrue( rtn )
-        bk = self.book.getBook( "title1" , order="book" )
+        bk = self.book.getBook( book="title1"  )
         self.assertIsNone( bk )
 
     def test_delAllBooks(self):
@@ -151,8 +160,9 @@ class TestDbBookmark(unittest.TestCase):
         self.assertTrue( rtn )
 
         self.assertTrue( self.book.delAllBooks() )
-        self.assertIsNone( self.book.getBook( "title1" , order="book" ) )
-        self.assertIsNone( self.book.getBook( "title2" , order="book" ) )
+        self.assertEqual( self.book.getTotal(), 0)
+        self.assertIsNone( self.book.getBook( book="title1"  ) )
+        self.assertIsNone( self.book.getBook( book="title2"  ) )
 
     def test_getComposerGenre(self):
         rtn = self.book.addBook(book="title1",composer="mozart", genre="classical", source="Source",location="loc")
@@ -195,22 +205,19 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( bk[0]['book'], 'title1')
         self.assertEqual( bk[1]['book'], 'title2')
 
-        rtn = self.book.getAll( fetch=None)
-        bk = rtn.fetchone()
-        self.assertEqual( bk['book'], 'title1')
-        bk = rtn.fetchone()
-        self.assertEqual( bk['book'], 'title2')
+        rtn = self.book.getAll( fetchall=False)
+        self.assertTrue( rtn.next() )
+        self.assertEqual( rtn.value( 'book'), 'title1')
+        self.assertTrue( rtn.next() )
+        self.assertEqual( rtn.value( 'book'), 'title2')
+        rtn.finish()
+        del rtn
 
         rows = self.book.getAll( )
-        dct = DbTransform().toDictionary( rows , key='book', data='location' )
-        self.assertEqual( len(dct), 2 )
-        self.assertEqual( dct['title1'] , 'loc1')
-        self.assertEqual( dct['title2'] , 'loc2')
+        self.assertEqual( len(rows), 2 )
+        self.assertEqual( rows[0]['location'] , 'loc1')
+        self.assertEqual( rows[1]['location'] , 'loc2')
 
-        lst = DbTransform().toList( rows , data='location')
-        self.assertEqual( len(lst), 2 )
-        self.assertEqual( lst[0] , 'loc1')
-        self.assertEqual( lst[1] , 'loc2')
 
 
     def test_edit_composer(self):
@@ -247,15 +254,16 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( rtn[2], newValue ) #pop
 
     def test_duplicate_insert(self):
-        self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
-        self.assertRaises(sqlite3.IntegrityError, self.book.addBook,book="title1",composer="handel", genre="classical", source="Source",location="loc")
+        self.assertEqual( self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc") , 1 )
+        self.assertEqual(self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc"), -1 )
+        self.assertTrue( self.book.isError() )
         self.assertEqual( self.book.getTotal(), 1 )
 
     def test_upsert_exists(self):
         self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.book.upsertBook(book="title1",composer="handel", genre="classical", source="Source",location="loc")
         self.assertEqual( self.book.getTotal(), 1 )
-        bk = self.book.getBook('title1')
+        bk = self.book.getBook(book='title1')
         self.assertEqual( bk['composer'], 'handel')
 
     def test_upsert_not_exists(self):

@@ -5,9 +5,10 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version = "0.2.0"
-    author = "Charles Gentry"
-    
+    version      = "0.2.0"
+    version_main = "0.2"
+    author       = "Charles Gentry"
+
 class DbKeys():
     """
     Class contains all of the settings for labels and key default values. 
@@ -19,10 +20,12 @@ class DbKeys():
     VALUE_DEFAULT_DIR   = "~/sheetmusic"
     VALUE_FILE_PREFIX   = 'page'
     VALUE_FILE_TYPE     = 'png'
+    VALUE_FILE_RES      = '300'
     VALUE_GSDEVICE      = 'png16m'
     VALUE_KEEP_ASPECT   = True
     VALUE_PAGES_DOUBLE  = "2pages"
     VALUE_PAGES_SINGLE  = "1page"
+    VALUE_SMART_PAGES   = True
     VALUE_REOPEN_LAST   = True
     VALUE_SCRIPT_CMD    = '/bin/bash'
     VALUE_SCRIPT_SPLIT  = ';'              ## Split script variables with this char
@@ -31,6 +34,8 @@ class DbKeys():
     VALUE_RECENT_SIZE_MIN = 5
     VALUE_RECENT_SIZE_MAX = 20
     VALUE_RECENT_SIZE_DEFAULT = 10
+    VALUE_SHEETMUSIC_DOC        = 'sheetmusic_doc'
+    VALUE_SHEETMUSIC_INDEX      = "index.doc"
     
     ###
     #       STORED IN ONLY IN QPREFERENCES
@@ -43,9 +48,10 @@ class DbKeys():
     ###
     SETTING_PAGE_LAYOUT        = 'layout'         ## Page layout (1/2)
     SETTING_KEEP_ASPECT        = 'aspectRatio'    ## Keep aspect ratio when resizing
+    SETTING_SMART_PAGES        = 'smartPages'     ## Use alternate pages for two page displays
 
     ###
-    #       STORED ONLY IN System
+    #       STORED ONLY IN System table
     ###
     SETTING_DEFAULT_GSDEVICE    = 'gsdevice'       ## Which ghostscript device will we use 
     SETTING_DEFAULT_PATH_MUSIC  = 'sheetmusicPath' ## Where is the music folder?
@@ -53,8 +59,11 @@ class DbKeys():
     SETTING_DEFAULT_SCRIPT_VAR  = 'scriptvar'      ## What 'extra' variables we will run
     SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix
     SETTING_FILE_TYPE           = 'fileType'       ## File extension (type)
+    SETTING_FILE_RES            = 'resolution'     ## Output resolution
     SETTING_PDF_SCRIPT          = 'pdfScript'      ## The PDF conversion script template
     SETTING_LAST_BACKUP         = 'last_backup'    ## Where we stored the last backup
+    SETTING_LOGGING_ENABLED     = 'logging_enabled'
+    SETTING_VERSION             = 'version'        ## Database Version (current)
 
     #       book settings
     SETTING_LAST_BOOK_NAME      = 'book'             ## Last book opened.
@@ -85,9 +94,14 @@ class DbKeys():
     VALUE_NAME_IMPORT_FILE_0    = 0           # Minimal cleanup only (bad chars)
     VALUE_NAME_IMPORT_FILE_1    = 1           # Just use filename but get rid of characters
     VALUE_NAME_IMPORT_FILE_2    = 2           # Try and tidy up the filename more
-    SETTING_LOGGING_ENABLED     = 'logging_enabled'
-
     
+    
+
+    ###
+    #       Settings for DbSettings only
+    ###
+    SETTING_EDIT_HISTORY        = 'history'     ## You need to store this as 'history_pagename'
+    SETTING_EDIT_HISTORY_FORMAT = 'history_"{0:03d}'
 
     ###
     #       END DATABASE

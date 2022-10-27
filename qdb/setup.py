@@ -23,22 +23,22 @@
 # config.ini - See ConfigFile in configfile.py
 # 
 
-import errno
+import logging
 import os.path
-from db.dbconn import DbConn
-from db.keys   import DbKeys
-from db.dbsql  import SqlInsert
-#from keymodifiers import KeyModifiers
+
+from qdb.dbconn import DbConn
+from qdb.keys   import DbKeys, ProgramConstants
+from qdb.util   import DbHelper
+from PySide6.QtSql  import QSqlQuery
+from util.convert   import toBool
 
 class Setup():
-    location = ":memory:"
 
     def __init__(self, location:str=None):
-        if location is not None:
-            self.location = location
-            ( self.conn, self.cursor ) = DbConn().openDB( location )
-        else:
-            (self.conn, self.cursor) = DbConn().handles()
+        self.query = QSqlQuery( DbConn.db() )
+
+    def __del__(self):
+        del self.query
 
     def createTables(self):
         tables = [
@@ -87,8 +87,7 @@ class Setup():
                            name TEXT    NOT NULL UNIQUE )""",
             """Genre     ( id   INTEGER PRIMARY KEY ASC,
                            name TEXT    UNIQUE NOT NULL)
-            """,
-            
+            """
             ]
         ### Non unique indexes    
         idx = [
@@ -105,7 +104,7 @@ class Setup():
             """BookView AS 
                SELECT 
                     Book.*,
-                    datetime( Book.date_added , 'localtime') AS local_added,
+                    datetime( Book.date_added ,  'localtime') AS local_added,
                     datetime( Book.date_updated, 'localtime') AS local_updated,
                     datetime( Book.date_read,    'localtime') AS local_read,
                     Composer.id    AS composer_id, 
@@ -150,25 +149,23 @@ class Setup():
         """
 
         for tableCreate in tables:
-            self.cursor.execute( "CREATE TABLE IF NOT EXISTS {};".format( tableCreate) )
-        self.conn.commit()
+            self.query.exec( "CREATE TABLE IF NOT EXISTS {};".format( tableCreate) )
         
         for indexCreate in idx:
-            self.conn.execute( "CREATE INDEX IF NOT EXISTS {};".format(indexCreate ) )
+            self.query.exec( "CREATE INDEX IF NOT EXISTS {};".format(indexCreate ) )
         for indexCreate in unique_idx:
-            self.conn.execute( "CREATE UNIQUE INDEX IF NOT EXISTS {};".format(indexCreate ) )
-        self.conn.commit()
+            self.query.exec( "CREATE UNIQUE INDEX IF NOT EXISTS {};".format(indexCreate ) )
 
         try:
             for viewCreate in views:
-                self.conn.execute( "CREATE VIEW IF NOT EXISTS {};".format(viewCreate))
+                self.query.exec( "CREATE VIEW IF NOT EXISTS {};".format(viewCreate))
         except Exception as err:
-            print("Invalid view", viewCreate )
+            self.logging.exception("Invalid view: '{}".format( viewCreate ) )
             raise err
-        self.conn.commit()
-        self.conn.execute( booktrigger )
-        self.conn.execute( settingtrigger )
-        self.conn.commit()
+
+        self.query.exec( booktrigger )
+        self.query.exec( settingtrigger )
+        DbConn.commit()
 
     def dropTables(self):
         """
@@ -181,19 +178,32 @@ class Setup():
         views = ["BookView","BookmarkView","BookSettingView"]
 
         for table in tables:
-            self.cursor.execute("DROP TABLE IF EXISTS {};".format( table ))
+            self.query.exec("DROP TABLE IF EXISTS {};".format( table ))
         for view in views:
-            self.cursor.execute("DROP VIEW IF EXISTS {};".format( view ))
-        self.conn.commit()
+            self.query.exec("DROP VIEW IF EXISTS {};".format( view ))
+        DbConn.commit()
 
-    def initData(self):
-        """
-            initData will pre-load the database with the default settings. It doesn't
-            override values that have been set so is safe to call anytime.
-        """
+    def updateSystem(self)->bool:
+        """ Check to see if we need to update the system. This could be when verions IDs change"""
+        replace_data = {
+            DbKeys.SETTING_VERSION:             ProgramConstants.version_main,
+        }
+
+        sql         = '''SELECT value FROM System WHERE key=?'''
+        sql_replace = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''
+
+        version = DbHelper.fetchone( sql , DbKeys.SETTING_VERSION, default="0.0" )
+        if version != ProgramConstants.version_main:
+            for key, value in replace_data.items():
+                query = DbHelper.queryList( sql_replace, [ key, value ] )
+                if query.exec():
+                    added += self.query.numRowsAffected() 
+            return True
+        return False
         
+    def initSystem(self)->bool:
         data = {
-            DbKeys.SETTING_KEEP_ASPECT:      DbKeys.VALUE_KEEP_ASPECT,
+            DbKeys.SETTING_KEEP_ASPECT:         DbKeys.VALUE_KEEP_ASPECT,
             DbKeys.SETTING_DEFAULT_PATH_MUSIC:  os.path.expanduser(DbKeys.VALUE_DEFAULT_DIR),
             DbKeys.SETTING_DEFAULT_GSDEVICE:    DbKeys.VALUE_GSDEVICE,
             DbKeys.SETTING_PAGE_LAYOUT:         DbKeys.VALUE_PAGES_SINGLE,
@@ -202,32 +212,97 @@ class Setup():
             DbKeys.SETTING_DEFAULT_SCRIPT:      DbKeys.VALUE_SCRIPT_CMD,
             DbKeys.SETTING_DEFAULT_SCRIPT_VAR:  DbKeys.VALUE_SCRIPT_VAR,
             DbKeys.SETTING_FILE_PREFIX:         DbKeys.VALUE_FILE_PREFIX,
+            DbKeys.SETTING_FILE_RES:            DbKeys.VALUE_FILE_RES,
             DbKeys.SETTING_LAST_IMPORT_DIR:     DbKeys.VALUE_LAST_IMPORT_DIR,
             DbKeys.SETTING_NAME_IMPORT:         DbKeys.VALUE_NAME_IMPORT_FILE_1,
             DbKeys.SETTING_LOGGING_ENABLED:     False,
-            
-            # DbKeys.SETTING_PAGE_PREVIOUS:     mods["page-back"].items(),
-            # DbKeys.SETTING_PAGE_NEXT:         mods["page-forward"].items(),
-            # DbKeys.SETTING_FIRST_PAGE_SHOWN:  mods["first-page-shown"].items(),
-            # DbKeys.SETTING_LAST_PAGE_SHOWN:   mods["last-page-shown"].items(),
-            # DbKeys.SETTING_BOOKMARK_PREVIOUS: mods["previous-bookmark"].items(),
-            # DbKeys.SETTING_BOOKMARK_NEXT:     mods["next-bookmark"].items(),
+            DbKeys.SETTING_VERSION:             ProgramConstants.version_main,
         }
-        # del km
+ 
         sql = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''
-
+        
+        added = 0
         for key, value in data.items() :
-            self.cursor.execute(sql, ( key, value ) )
-        self.insertPdfScript( )
-        self.conn.commit()
+            self.query.prepare( sql )
+            self.query.addBindValue( key )
+            self.query.addBindValue( value )
+            if not self.query.exec():
+                print("ERROR: system insert", self.query.lastError().text(), "\nValues:", self.query.boundValues() )
+            added += self.query.numRowsAffected()
+            self.query.finish()
 
-        self._initComposers()
-        self._initGenre()
-        self.conn.commit()
+        self.insertPdfScript( )
+        DbConn.commit()
+        return (added > 0 )
+
+    def initGenre(self)->bool:
+        """
+            Initialise Genre UNLESS there are records there. If none,
+            fill up with some initial data
+        """ 
+        self.query.exec("SELECT COUNT(*) as count FROM Genre")
+        self.query.exec()
+        self.query.next()
+        rowCount = self.query.value(0)
+        self.query.finish()
+        if rowCount == 0:
+            self.query.prepare("INSERT OR IGNORE INTO Genre ( name ) VALUES ( ?)")
+            for g in [ 
+                "Unknown", "Various", "Teaching", "Alternative",
+                "Blues", "Christmas", "Choral", "Classical", "Country" ,
+                "Folk",  "Gospel", "Holiday", "Indie Rock", "Jazz", 
+                "Latin", "Metal", "Movie", "Musical", "New Age", "Opera", 
+                "Pop", "R&B", "Religious", "Reggae", "Rock" , "Soul", 
+                "Traditional", "Theatre", "Vocal", "World"]:
+                
+                self.query.addBindValue( g )
+                self.query.exec()
+            DbConn.commit()
+        return rowCount == 0
+
+    def initComposer(self)->bool:
+        """
+            Initialise Composers UNLESS there are records there. If none,
+            fill up with some initial data
+        """
+        self.query.exec("SELECT COUNT(*) as count FROM Composer")
+        self.query.exec()
+        self.query.next()
+        rowCount = self.query.value(0)
+        self.query.finish()
+
+        if rowCount == 0:
+            self.query.prepare("INSERT OR IGNORE INTO Composer ( name ) VALUES ( ?)")
+            for g in ["Unknown", "Various", "Teaching", 'Anonymous',
+                'Bach, C.P.E.', 'Bach, J.C.', 'Bach, J.S.', 
+                'Beethoven', 'Brahms',
+                'Chopin', 'Debussy', 'Duruflé, Maurice', 'Dvořák', 
+                'Elgar', 'Giovanni, Gabrieli', 'Glass, Philip', 'Grieg, Edvard',
+                'Handel', 'Haydn', 'Liszt', 'Mahler', 'Mendelssohn', 
+                'Messiaen, Olivier', 'Mixed', 'Pachelbel', 'Purcell', 'Rachmaninov', 'Saint-Saëns', 
+                'Schubert', 'Satie, Erik', 'Shostakovich', 'Shumann', 'Strauss, Richard', 
+                'Stravinsky', 'Tchaikovsky', 'Verdi', 'Vivaldi', "Wagner"
+                'Walton, William', 'Widor, Charles Marie', 'Williams, Vaughan',
+                "Verdi","Vivaldi"]:
+                self.query.addBindValue( g )
+                self.query.exec()
+            DbConn.commit()
+        return rowCount == 0
+
+    def initData(self):
+        """
+            initData will pre-load the database with the default settings. It doesn't
+            override values that have been set so is safe to call anytime.
+        """
+        
+        self.initSystem()
+        self.initComposer()
+        self.initGenre()
+        DbConn.commit()
 
     def RestoreDefaultPdfScript(self):
         sql = '''DELETE FROM System WHERE key="{}"'''
-        self.conn.execute( sql.format( DbKeys.SETTING_PDF_SCRIPT))
+        self.query.exec( sql.format( DbKeys.SETTING_PDF_SCRIPT))
         self.insertPdfScript()
 
     def insertPdfScript( self ):
@@ -261,46 +336,36 @@ echo Input is \"{{source}}\"
 {{debug}}gs -dSAFER -dBATCH -dNOPAUSE -r300 -dDeskew -sDEVICE="{{device}}" -sOutputFile="{{name}}/page-%03d.{{type}}" "{{source}}"  || exit 3
 
 '''
-        self.conn.execute( sql , (DbKeys.SETTING_PDF_SCRIPT , _defaultPdfCmd ) )
+        self.query.prepare(sql)
+        self.query.addBindValue( DbKeys.SETTING_PDF_SCRIPT )
+        self.query.addBindValue( _defaultPdfCmd )
+        self.query.exec()
+        self.query.finish()
 
-    def _initGenre(self):
-        """
-            Initialise Genre UNLESS there are records there. If none,
-            fill up with some initial data
-        """
-        row = self.cursor.execute("SELECT COUNT(*) as count FROM Genre").fetchone()
-        if row['count'] == 0:
-            for g in [ 
-                "Unknown", "Various", "Teaching", "Alternative",
-                "Blues", "Christmas", "Choral", "Classical", "Country" ,
-                "Folk",  "Gospel", "Holiday", "Indie Rock", "Jazz", 
-                "Latin", "Metal", "Movie", "Musical", "New Age", "Opera", 
-                "Pop", "R&B", "Religious", "Reggae", "Rock" , "Soul", 
-                "Traditional", "Theatre", "Vocal", "World"]:
-                SqlInsert( 'Genre', ignore=True, commit=False, name=g)
-        return row['count'] == 0
+    def logging(self, directory_location )->bool:
+        try:
+            self.query.prepare( "SELECT value FROM System WHERE key=?" )
+            self.query.addBindValue( DbKeys.SETTING_LOGGING_ENABLED )
+            if self.query.exec():
+                self.query.next()
+                shouldShowLogging = toBool( self.query.value(0))
+            else:
+                shouldShowLogging = False
+        except Exception as err:
+            logging.exception("DB error getting key '{}': {}".format( DbKeys.SETTING_LOGGING_ENABLED, str(err)) )
+            shouldShowLogging = False 
 
-    def _initComposers(self):
-        """
-            Initialise Composers UNLESS there are records there. If none,
-            fill up with some initial data
-        """
-        (_, cursor) = DbConn().openDB()
-        row = self.cursor.execute("SELECT COUNT(*) as count FROM Composer").fetchone()
-        if row['count'] == 0:
-            for g in ["Unknown", "Various", "Teaching", 'Anonymous',
-                'Bach, C.P.E.', 'Bach, J.C.', 'Bach, J.S.', 
-                'Beethoven', 'Brahms',
-                'Chopin', 'Debussy', 'Duruflé, Maurice', 'Dvořák', 
-                'Elgar', 'Giovanni, Gabrieli', 'Glass, Philip', 'Grieg, Edvard',
-                'Handel', 'Haydn', 'Liszt', 'Mahler', 'Mendelssohn', 
-                'Messiaen, Olivier', 'Mixed', 'Pachelbel', 'Purcell', 'Rachmaninov', 'Saint-Saëns', 
-                'Schubert', 'Satie, Erik', 'Shostakovich', 'Shumann', 'Strauss, Richard', 
-                'Stravinsky', 'Tchaikovsky', 'Verdi', 'Vivaldi', "Wagner"
-                'Walton, William', 'Widor, Charles Marie', 'Williams, Vaughan',
-                "Verdi","Vivaldi"]:
-                SqlInsert( 'Composer', ignore=True, commit=False, name=g)
-        return row['count'] == 0
+        fileoutput = os.path.join( directory_location , 'sheetmusic.log')
+        level      = logging.INFO if shouldShowLogging else logging.ERROR 
+        logging.basicConfig( 
+            filename=fileoutput, 
+            filemode='w', 
+            format='%(asctime)s %(levelname)-8s : %(name)-12s %(message)s' , 
+            datefmt='%m-%d %H:%M', 
+            level=level)
+        
+        
+        return shouldShowLogging
 
 # if __name__ == "__main__":
 #     s = Setup(":memory:")
@@ -319,6 +384,6 @@ echo Input is \"{{source}}\"
 #             WHERE book=:book and page <=:page
 #             ORDER BY page DESC LIMIT 1
 #         """
-#     result = self.cursor.execute(sql , {'book':'test1', 'page':30})
+#     result = self.query.execute(sql , {'book':'test1', 'page':30})
    
 #     = DbConn().openDB(close=True)

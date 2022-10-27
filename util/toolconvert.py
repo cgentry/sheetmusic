@@ -25,28 +25,27 @@
 # of the process.
 
 from fileinput import filename
-import shutil
 from os import path, chmod
+from pathlib import PurePath
 import fnmatch
 import os
 import re
+import shutil
 import sys
 import tempfile
 import time
 
-from pathlib import PurePath
-from dil.preferences import DilPreferences
-from db.keys import  DbKeys
+from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import (
         QApplication,       QDialog, 
         QDialogButtonBox ,  QFileDialog,
         QMessageBox,        QPlainTextEdit, 
         QTabWidget,         QVBoxLayout
     )
-from PySide6.QtCore import QProcess
-from db.keys    import BOOK, DbKeys, ImportNameSetting
-from db.dbbook  import DbBook
 
+from qdb.dbbook       import DbBook
+from qdb.keys         import BOOK, DbKeys, ImportNameSetting
+from qdil.preferences import DilPreferences
 
 class ToolConvert():
     _script = 'convert-pdf.smc'
@@ -226,16 +225,31 @@ class UiBaseConvert():
         bookName = self._cleanupName( bookName , cleanupLevel )
         return { BOOK.numberEnds: endPage , BOOK.name: bookName }
 
+    def _fillInFromCurrent( self, sourceFile:str)->bool:
+        book = DbBook().getBookByColumn( BOOK.source , sourceFile )
+        if book is None:
+            currentFile = {}
+        else:
+            currentFile = {
+                BOOK.name:          book[BOOK.name],
+                BOOK.totalPages:    book[BOOK.totalPages],
+                BOOK.composer:      book[BOOK.composer],
+                BOOK.genre:         book[BOOK.genre ],
+                BOOK.numberStarts:  book[BOOK.numberStarts],
+                BOOK.numberEnds:    book[BOOK.numberEnds]
+            }
+
+        return currentFile
+
+
     def _fillInDefaults( self, filelist:list ):
-        for sourceFile in filelist :
-            ## Simple 'transform' of filename to bookname
-            bookName = PurePath( sourceFile ).stem
-            bookName = bookName.replace('_', ' ')
+        for sourceFile in filelist :      
             currentFile = { 
                 BOOK.source:        sourceFile , 
                 BOOK.numberStarts:  1, 
             }
             currentFile.update( self._getInfoPDF( sourceFile ))
+            currentFile.update( self._fillInFromCurrent( sourceFile ))
             self.data.append( currentFile )
 
     def getFileInfo(self, fileList:list )->bool:
@@ -297,8 +311,8 @@ class UiBaseConvert():
             ## Is this location already encoded? If so, we delete the old files
             ## and the database entry.
             if dbb.isSource( entry[ BOOK.source ] ):
-                book = dbb.getBookByColumn( 'source', entry[ BOOK.source ])
-                dbb.delBook( book=book[ BOOK.book ])
+                book = dbb.getBookByColumn( BOOK.source , entry[ BOOK.source ])
+                dbb.delBook( book[ BOOK.book ])
                 shutil.rmtree( book[ BOOK.location ], ignore_errors=True  )
 
             ## Is the source wasn't encoded but the name is the same

@@ -1,10 +1,13 @@
+####
+#### TEST BED APPLICATION - doesn't really do anything
+####
 import sys
-from db.keys import BOOK, DbKeys
-from db.setup import Setup
-from db.dbconn import DbConn
+from qdb.keys import BOOK, DbKeys
+from qdb.setup import Setup
+from qdb.dbconn import DbConn
 from PySide6.QtWidgets import QApplication
 from ui.file import Openfile
-from dil.preferences import SystemPreferences
+from qdil.preferences import SystemPreferences
 
 if __name__ == "__main__":
     """ Give it a try"""

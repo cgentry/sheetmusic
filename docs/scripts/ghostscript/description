@@ -1,0 +1,3 @@
+Ghostscript is a free, open source interpreter for PDF pages that can convert to various formats. Full information can be found at https://ghostscript.com
+
+The script is written for Unix-based systems but can be tweaked as needed. There are a number of variables that can be set.

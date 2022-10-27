@@ -1,0 +1,56 @@
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <title>Sheetmusic Import</title>
+</head>
+
+<body style="font-size:12pt;font-family:helvetica">
+    <p>
+        <center>
+            <h2>SheetMusic</h2>
+        </center>
+    </p>
+    <a id="pdf" />
+    <h2>PDF</h2>
+    <p>
+        The imput source for music books is PDFs in a standard format. The documents are imported page-by-page into the
+        music directory. The standard page format is a PNG, but other formats can be set in the preferences.
+    </p>
+    <p>
+        Currently there is no facility to mark up the final pages displayed. If you want to mark them with playing
+        notes, you can annotate the original PDFs and reimport the documents into the system.
+    </p>
+    <a id="import" /> 
+    <h2>Import PDFs</h2>
+        <p>
+            PDF documents must be reformatted for use in the system. The process is to select the file(s) from the system, 
+            give them a name and fill any information available, then start the process. The default program used is 
+            <a href="https://ghostscript.com">ghostscript</a>,
+            which will read each page and write them out to the sheetmusic directory.
+            </p>>
+            <p>Ghostscript is an open source program that can be installed easily in your system. (Some systems come
+                with it on installation.) The SheetMusic program will run a script to convert the PDF and display the progress
+                to you. The <a href="ghostscript.html">script can be altered</a>, along with the parameters passed to the program.
+                The script that comes with the program has been tested only on a Mac system, but will be tested on additonal 
+                systems as it nears completion.
+            </p>
+        </p>
+        <a id="reimport" />
+        <h2>Re-Import PDFs</h2>
+        <p>
+            Once a document has been imported into the system, you can re-import it quite easily. You only need to
+            select
+            <b>File->Import...->Reimport</b> and select the previously imported document into the system. The previous
+            document will be completly deleted but the <a href="bookmarks.html">bookmarks</a> will be re-loaded once the
+            process is complete.
+        </p>
+        <p>
+            Re-importing a document allows you to mark up the PDF and bring those changes back into the system with very
+            little effort.
+            If you add pages, however, the bookmarks you set will not be correct. You will need to delete the bookmarks
+            that are wrong or
+            <a href="bookmarks.html#delete-all">delete all the bookmarks</a> for the book.
+        </p>
+
+</body>
