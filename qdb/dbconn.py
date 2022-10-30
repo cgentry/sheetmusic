@@ -3,7 +3,7 @@
 
 from PySide6.QtSql  import QSqlDatabase, QSqlQuery
 from qdb.keys       import DbKeys
-from typing         import Tuple
+import logging
 
 _qdb_conn = None
 _qdb_name = None
@@ -107,11 +107,13 @@ class DbConn():
     def reopenDB()->QSqlDatabase:
         global _qdb_name, _qdb_conn
         _qdb_conn =  QSqlDatabase.database( _qdb_name , open=True )
+        if not _qdb_conn.isValid():
+            logging.critical( "DB Open error: {}".format(  _qdb_conn.lastError().text() ) )
         return _qdb_conn
 
     @staticmethod
-    def cursor()->QSqlQuery:
-        raise RuntimeError("bad call")
+    def query()->QSqlQuery:
+        return QSqlQuery( DbConn.db() )
 
     @staticmethod
     def connection()->DummyConnection:
@@ -158,7 +160,7 @@ class DbConn():
         for table in DbKeys().primaryKeys:
             query.exec( "REINDEX {};".format( table ))
     
-        query.execute("vacuum;")
+        query.exec("vacuum;")
         query.finish()
         del query
 

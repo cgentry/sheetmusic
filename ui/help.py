@@ -9,6 +9,7 @@ from   PySide6.QtCore     import QUrl, Qt
 class HelpBrowser(QTextBrowser):
     def __init__(self, helpEngine, parent=None):
         super().__init__(parent)
+        self.setStyleSheet( '* { font-family: "Times New Roman", Times, serif; font-size: large; }')
         self.helpEngine = helpEngine
 
     def loadResource(self, _type, name):
@@ -58,7 +59,7 @@ class UiHelp( QDialog ):
 
         self.setWindowTitle( u'Help')
         layout.addWidget( horizSplitter )
-        self.resize( 800,600 )
+        self.resize( 1024,600 )
         self.setLayout( layout )
 
 if "__main__" == __name__ :

@@ -9,18 +9,47 @@
                 <section title="Importing PDFs" 		ref="import.html" ></section>
             </section>
 	    <section title="License"				ref="license.html"></section>
+        <section title="Ghostscript"            ref="ghostscript.html"></section>
         </toc>
         <keywords>
             <keyword name="import"          			ref="import.html#import" />
             <keyword name="reimport"        			ref="import.html#reimport" />
             <keyword name="pdf" 		id="intro"  	ref="import.html#pdf" />
             <keyword name="import script"   			ref="import.html#ghostcript" id="import script"  />
+            <keyword name="ghostscript"                 ref="ghostscript.html" />
         </keywords>
         <files>
             <file>index.html</file>
             <file>intro.html</file>
             <file>import.html</file>
             <file>license.html</file>
+            <file>ghostscript.html</file>
+            <file>css/general.css</file>
+	        <file>images/mainwindow.png</file>
+            <file>images/file-import-prompt-composer.png</file>
+        	<file>images/file-import-prompt-genre.png</file>
+            <file>images/file-import-prompt-reprocess.png</file>
+    	    <file>images/file-import-prompt.png</file>
+            <file>images/file-import-output.png</file>
+            <file>images/file-import-script.png</file>
+        	<file>images/menu-edit.png</file>
+        	<file>images/menu-file-bookmark-edit.png</file>
+    	    <file>images/menu-file-import-music.png</file>
+        	<file>images/menu-file-open-recent.png</file>
+	        <file>images/menu-file.png</file>
+        	<file>images/menu-go.png</file>
+        	<file>images/menu-help.png</file>
+        	<file>images/menu-tools.png</file>
+        	<file>images/menu-view-properties-edit.png</file>
+        	<file>images/menu-view-properties.png</file>
+        	<file>images/menu-view.png</file>
+        	<file>images/pref-booksetting.png</file>
+        	<file>images/pref-filesetting.png</file>
+        	<file>images/pref-keymodifiers.png</file>
+	        <file>images/pref-script.png</file>
+	        <file>images/pref-scriptsettings.png</file>
+	        <file>images/sheetmusic-small.png</file>
+	        <file>images/sheetmusic-tiny.png</file>
         </files>
     </filterSection>
 </QtHelpProject>

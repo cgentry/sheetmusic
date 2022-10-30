@@ -106,10 +106,11 @@ class DbBook(DbBase):
         self.columnBook  = DbConn.getColumnNames( 'Book')
         self.columnView  = DbConn.getColumnNames( 'BookView')
         if not DbBook.SQL_IS_EXPANDED:
-            DbBook.SQL_SELECT_BOOKVIEW_ALL      = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_ALL,self.columnBook)
+            DbBook.SQL_BOOK_INCOMPLETE          = DbHelper.addColumnNames( DbBook.SQL_BOOK_INCOMPLETE, self.columnBook)
+
             DbBook.SQL_GET_BOOKVIEW             = DbHelper.addColumnNames( DbBook.SQL_GET_BOOKVIEW,self.columnView)
             DbBook.SQL_GET_BOOKVIEW_BY          = DbHelper.addColumnNames( DbBook.SQL_GET_BOOKVIEW_BY, self.columnView)
-            DbBook.SQL_BOOK_INCOMPLETE          = DbHelper.addColumnNames( DbBook.SQL_BOOK_INCOMPLETE, self.columnBook)
+            DbBook.SQL_SELECT_BOOKVIEW_ALL      = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_ALL,self.columnView)
             DbBook.SQL_SELECT_BOOKVIEW_FILTER   = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_FILTER, self.columnView)
             DbBook.SQL_SELECT_BOOKVIEW_LIKE     = DbHelper.addColumnNames( DbBook.SQL_SELECT_BOOKVIEW_LIKE, self.columnView)
             DbBook.SQL_IS_EXPANDED = True  
@@ -138,7 +139,7 @@ class DbBook(DbBase):
     def getBook( self, book:str )->dict:
         return DbHelper.fetchrow( DbBook.SQL_GET_BOOKVIEW , book , self.columnView )
         
-    def getFilterBooks( self, filterName, filter, orderList:list=['book'] , fetch='all'):
+    def getFilterBooks( self, filterName:str, filter:str, orderList:list=['book'] ):
         """
             Retrieve all the books, ordered by 'order' and filtered by a column.
             This allows searches for queries.
@@ -149,18 +150,13 @@ class DbBook(DbBase):
         sql = DbBook.SQL_SELECT_BOOKVIEW_FILTER.replace( ':filterName', filterName )
         sql = sql.replace( ':order' , ','.join( orderList ) )
         
-        query = DbHelper.prep( sql )
-        if fetch == 'all':
-            return DbHelper.fetchrows( query , filter, self.columnView )
-        return query.exec()
+        return DbHelper.fetchrows( sql, filter, self.columnView , endquery=self._checkError)
+        
 
-    def getLike( self, filter:str , fetchall=True ):
+    def getLike( self, filter:str ):
         sql = DbBook.SQL_SELECT_BOOKVIEW_LIKE.replace( ':filter', filter )
-        query = DbHelper.prep( sql )
-        if fetchall:
-            return DbHelper.fetchrows( query , None, self.columnView )
-        return query.exec()
-
+        return DbHelper.fetchrows( sql , None, self.columnView , endquery=self._checkError)
+        
     def getAll(self, order:str='book', fetchall=True):
         """
             Retrieve all the books, ordered by 'order'.
@@ -169,8 +165,7 @@ class DbBook(DbBase):
         """
         sql = DbBook.SQL_SELECT_BOOKVIEW_ALL.replace(':order', order)
         if fetchall:
-            return DbHelper.fetchrows( sql , None, self.columnView )
-
+            return  DbHelper.fetchrows( sql , None, self.columnView , endquery=self._checkError )
         query = DbHelper.prep( sql )
         query.exec()
         return query
@@ -182,7 +177,7 @@ class DbBook(DbBase):
         """
         return DbHelper.record( query , self.columnView )
 
-    def getRecent( self, fetchall=True, limit:int=10 ):
+    def getRecent( self, limit:int=10 ):
         """
             Retrieve records from the books in date order (descending)
             limit is between 5 and 20. If you pass a non-int value, it will default to 10.
@@ -190,11 +185,8 @@ class DbBook(DbBase):
         limit = toInt( limit , 10 )
         limit = str( min( 20, max(limit, 5 )) ) # must be between 5 and 20
         sql = DbBook.SQL_SELECT_RECENT.replace(':limit', limit )
-        if fetchall:
-            return DbHelper.fetchrows( sql , None, DbBook.COL_SELECT_RECENT )
-        else:
-            query = DbHelper.prep( sql  )
-            return query.exec()
+        
+        return DbHelper.fetchrows( sql , None, DbBook.COL_SELECT_RECENT, endquery=self._checkError )
 
     def getRecentNext( self, query:QSqlQuery )->dict:
         return DbHelper.record( query , DbBook.COL_SELECT_RECENT )
@@ -335,7 +327,7 @@ class DbBook(DbBase):
         A list of reasons will be passed back. the field with a problem will be 'field:'
         """
         bookList={}
-        rows = DbHelper.fetchrows( DbBook.SQL_BOOK_INCOMPLETE , None, self.columnBook )
+        rows = DbHelper.fetchrows( DbBook.SQL_BOOK_INCOMPLETE , None, self.columnBook , endquery=self._checkError)
         if rows is not None:
             for row in rows:
                 reasons = []
@@ -376,12 +368,19 @@ class DbBook(DbBase):
             You should also check to see if the book is already added by 
             checking with 'isSource()'. If it is, delete the entry and addNew
         """
-        if not self.isBook( name ):
-            return name
-        formatString = "{} [{}]"
-        pattern = {'pattern' : formatString.format( name , '%') }
-        result = DbConn().cursor().execute( "SELECT count(*) as count FROM Book where book like :pattern", pattern  ).fetchone()
-        return formatString.format( name, 1+int(result[ 'count']) )
+        if self.isBook( name ):
+            pattern = '{}%'.format( name )
+            query = DbHelper.bind( DbHelper.prep( "SELECT count(*) as count FROM Book WHERE book LIKE ?" ), pattern )
+            if query.exec() and query.next():
+                count = query.value(0)
+            else:
+                count = 0
+            self._checkError( query )
+            query.finish()
+            del query
+            if count is not None and count > 0 : # shouldn't have gotten here!
+                return "{} [{}]".format( name, 1+int(count) )
+        return name
 
     def sourcesExist( self, sources:list )->list:
         """

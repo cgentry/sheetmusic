@@ -100,16 +100,17 @@ class DbBookSettings( DbBase ):
         """
         sql = DbBookSettings.SQL_BOOKSETTING_ALL.replace(':order', order)
         if fetchall:
-            return DbHelper.fetchrows( sql , self._bookID( book ), self.columnNames )
+            return DbHelper.fetchrows( sql , self._bookID( book ), self.columnView , endquery=self._checkError )
         query = DbHelper.prep( sql )
         query.exec()
+        self._checkError( query )
         return query
     
     def getSetting( self, book:str=None, key:str=None, fallback=True ):
         if not key:
             raise ValueError( "No lookup key")
         parms = [ self._bookID( book) , key, key]
-        rows= DbHelper.fetchrows( DbBookSettings.SQL_GET_VALUE, parms , ['setting','system'])
+        rows= DbHelper.fetchrows( DbBookSettings.SQL_GET_VALUE, parms , ['setting','system'], endquery=self._checkError )
         if rows is not None and len(rows)>0:
             if len( rows ) == 1 :
                 if fallback:

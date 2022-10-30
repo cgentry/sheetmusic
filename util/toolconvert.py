@@ -25,6 +25,7 @@
 # of the process.
 
 from fileinput import filename
+from genericpath import isdir
 from os import path, chmod
 from pathlib import PurePath
 import fnmatch
@@ -48,21 +49,27 @@ from qdb.keys         import BOOK, DbKeys, ImportNameSetting
 from qdil.preferences import DilPreferences
 
 class ToolConvert():
-    _script = 'convert-pdf.smc'
+   # _script = 'convert-pdf.smc'
     
     def __init__(self):
         self.pref = DilPreferences()
         self.path = self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
 
-    def _scriptPath( self, file ):
-        if file is None:
-            return path.expanduser(
-                path.join(
-                    self.path, 
-                    self._script
-                )
-            )
-        return path.expanduser( file )
+    # def _scriptPath( self, file ):
+    #     if file is None:
+    #         return path.expanduser(
+    #             path.join(
+    #                 self.path, 
+    #                 self._script
+    #             )
+    #         )
+    #     return path.expanduser( file )
+    # def scriptExists( self, file:str=None )->bool:
+    #     return path.exists( self._scriptPath( file ) )
+    # def writeRaw( self, script, file=None ):
+    #     file = self._scriptPath( file )
+    #     with open(file, 'w') as scriptFile:
+    #         scriptFile.writelines(script)
 
     def setPath( self, path:str):
         self.path = path
@@ -70,14 +77,18 @@ class ToolConvert():
     def default(self):
         return self.readRaw()
 
-    def scriptExists( self, file:str=None )->bool:
-        return path.exists( self._scriptPath( file ) )
-
-    def readRaw(self, file:str=None ) -> str:
+    
+    def readRaw(self , setup=True ) -> str:
         """
             Read and return the raw script from the database
         """
-        return self.pref.getValue( DbKeys.SETTING_PDF_SCRIPT )
+        raw = self.pref.getValue( DbKeys.SETTING_PDF_SCRIPT )
+        if not raw and setup:
+            from qdb.setup import Setup
+            sy = Setup()
+            sy.insertPdfScript()
+            raw = self.readRaw( False )
+        return raw
         
     def readExpanded( self, sourceFile:str, file=None, name=None, debug=False):
         """ Read and expand the conversion template
@@ -89,10 +100,6 @@ class ToolConvert():
         """
         return self.expandScript(  self.readRaw( file ), sourceFile, name, debug=debug )
 
-    def writeRaw( self, script, file=None ):
-        file = self._scriptPath( file )
-        with open(file, 'w') as scriptFile:
-            scriptFile.writelines(script)
 
     def expandScript( self, script:str, sourceFile:str, name=None, debug=False )->str:
         """ 
@@ -157,6 +164,7 @@ class UiBaseConvert():
         self.baseDir = '~'
         self.data = []
         self.duplicateList = []
+        self.page_suffix = self.pref.getValue( DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE )
 
     def setBaseDirectory(self, dir:str):
         if dir is not None:
@@ -166,20 +174,9 @@ class UiBaseConvert():
         return ( self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR )
 
     def getScript(self, inputFile: str, outputName: str, debugFlag=False) -> str:
-        toolConvert = ToolConvert()
-        ##toolConvert.setPath(self.settings)
         if not self.rawScript:
-            if not toolConvert.scriptExists():
-                rtn = QMessageBox.question(
-                    None,
-                    "",
-                    "No script found.\nDo you want to use default script template?",
-                    QMessageBox.StandardButton.Yes,
-                    QMessageBox.StandardButton.No)
-                if rtn == QMessageBox.No:
-                    return None
+            toolConvert = ToolConvert()
             self.rawScript = toolConvert.readRaw()
-
         self.script = toolConvert.expandScript(
             self.rawScript, inputFile, outputName, debug=debugFlag)
         self.bookPath = toolConvert.bookPath
@@ -190,7 +187,10 @@ class UiBaseConvert():
         """
             Pass a directory and a type for the books.
         """
-        pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix))
+        if os.path.isdir(bookDir):
+            pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix))
+        else:
+            pages = 0
         return pages > 0   
 
     def _cleanupName(self, bookName:str, level:int )->str:
@@ -334,7 +334,10 @@ class UiBaseConvert():
                 if self.status == self.RETURN_CANCEL :
                     break
                 self.data[ index ].update( { BOOK.location: self.bookPath} )
-                self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
+                if self.isBookDirectory( self.bookPath ):
+                    self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
+                else:
+                    self.data[ index ][ BOOK.totalPages ] = 0
                 if 'debug' in self.data[ index ] :
                     self.data[ index ].pop( 'debug')
         return self.status

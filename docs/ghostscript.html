@@ -1,0 +1,70 @@
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <link rel="stylesheet" type="text/css" href="css/general.css" />
+    <title>Sheetmusic Import</title>
+</head>
+
+<body>
+    <p>
+        <img src="images/sheetmusic-tiny.png" />
+    </p>
+    <h2>Ghostscript</h2>
+    <p>
+        Ghostscript is an open source PostScript&#174; and PDF interpreting program. It is used by many vendors for
+        printing
+        and display. This program uses it to convert from PDfs to a PNG. PNGs are a lossless digital encoding format. A
+        shell script (bash) is used to pass parameters to the interpreter.
+    </p>
+    <p>
+        The standard command line
+        is:<br />gs &ndash;dSAFER &ndash;dBATCH &ndash;dNOPAUSE &ndash;r{dpi} &ndash;dDeskew <nobr>
+            &ndash;sDEVICE="{output-file-format}"</nobr>
+        <nobr>&ndash;sOutputFile="{output-directory}/page-%03d.png"</nobr>
+        <nobr>"{input-file}"</nobr>
+    <ul>
+        <li>gs - Command for ghostscript program. This must be in your search path.</li>
+        <li>SAFER - Use fonts from safe paths for all fonts and files needed by the interpreter. Remove only if you have font rendering problems in ghostscript.</li>
+        <li>BATCH - Causes Ghostscript to exit after processing all files named on the command line. Don't change.</li>
+        <li>NOPAUSE - Disables the prompt and pause at the end of each page. Don't change.</li>
+        <li>Deskew - Used with png16m to help deskew images</li>
+        <li>-r {dpi} - Parameter is set to how high a DPI you can have. This can be from 150 to 300. At very high
+            density, the images may not render in the program (too much memory required). If you don't get images
+            rendering, drop the DPI down. The default is 300dpi which is very good quality. 200dpi will usually be good
+            enough and will produce files easier to render. 150dpi is the current minimum, but future versions may allow
+            lower values, depending upon feedback.</li>
+        <li>-sDEVICE={output-file-format} This can be one of several formats:<br />
+            <b>At this point, only png formats are supported. Future releases will test and supportall of them.</b> The
+            prefered option is png16m but pnggray can be selected to save disk space.
+            <ul>
+                <li>png16m : 24-bit RGB color PNG</li>
+                <li>pnggray : Grayscale PNG</li>
+                <li>jpeg : Standard JPEG</li>
+                <li>jpeggray : Grayscale JPEG</li>
+                <li>bmp16m : 24-bit RGB color bitmap (BMP)</li>
+                <li>bmpgray : 'Grayscale bitmap (BMP)</li>
+                <li>tiff24nc : '24-bit RGB color TIFF</li>
+                <li>tiffgray : Grayscale TIFF</li>
+            </ul>
+        </li>
+        <li>-sOutputFile="{output-directory}/page-%03d.{output-type}" The output directory is a combinatio of where
+            files are stored, set in Preferences, and the books name that was set in the prompt dialog box. The %03d is
+            used by ghostscript to incrment each page as it is processed. The final output type is set to one of the
+            supported types: png, tif, jpg, or bmp. You <i>must</i> not change any values in the script.</li>
+    </ul>
+    </p>
+    <h3>Errors that may occur</h3>
+    <p>
+        You've just run the program to convert and a bunch of errors have been thrown up. This is usually because it contains non-standard PDF tags or information. You should check the pages have been imported correctly. If they haven't, try to open it in a PDF program (e.g. Preview on MacOS) and export the version. This may fix the problem.
+        A few examples seen:
+        <code>
+            <ul>
+            <li>**** Warning: considering '0000000000 XXXXX n' as a free entry.</li>
+            <li>**** This file had errors that were repaired or ignored.</li>
+            <li>**** Please notify the author of the software that produced this<br/>
+                **** file that it does not conform to Adobe's published PDF<br/>
+                **** specification.</li>
+            </ul>
+        </code>
+    </p>

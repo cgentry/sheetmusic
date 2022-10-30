@@ -50,7 +50,7 @@ from ui.file            import Openfile, Deletefile, DeletefileAction, Reimportf
 from util.convert       import toBool
 
 class MainWindow(QMainWindow):
-    timer_interval = 25
+    timer_interval = 75
     colour_pallet = [ '#236dc9','#236dc9','#1c58a1','#174781','#133968','#102e54',
                       '#0d2544','#0b1e37','#09182c','#081424','#07101d','#060d18',
                       '#000000' ]
@@ -176,8 +176,8 @@ class MainWindow(QMainWindow):
             if absolute: # simple page display, no page movement
                 self.is_forward = False
                 self.is_backward = False
-            self.blockSignals( True )
             page = self.book.getAbsolutePage()
+            self.blockSignals( True )
             self.clearBorderColour()
             try:
                 if self.ui.isRightPageShown():
@@ -738,8 +738,8 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     sy = SystemPreferences()
-    dbLocation    = sy.getPathDB()    # Fetch the system settings
-    mainDirectory = sy.getDirectory()
+    dbLocation    = sy.getPathDB()          # Fetch the system settings
+    mainDirectory = sy.getDirectory()       # Get direcotry
     DbConn.openDB( dbLocation )
     setup = Setup()
 
@@ -750,7 +750,7 @@ if __name__ == "__main__":
         ini = Initialise( )
         ini.run( dbLocation  )
         del ini
-        
+
     setup.initData()
     setup.updateSystem()
     setup.logging(mainDirectory)

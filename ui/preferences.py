@@ -51,7 +51,6 @@ class UiPreferences(QDialog):
     This creates a simple grid and populates it with info from the qdil/preferences.
     '''
 
-    _tool_script_pdf = "convert-pdf.smc"
     _device_settings = {
         'png':{ 'png16m'  : "24-bit RGB color", 
                 'pnggray' : "Grayscale"},
@@ -399,7 +398,8 @@ class UiPreferences(QDialog):
         row = self.formatFiletype( self.layoutBook, 0 )
         row = self.formatLayout(self.layoutBook, row  )
         row = self.formatReopenLastBook( self.layoutBook,row )
-        self.formatAspectRatio(self.layoutBook, row )
+        row = self.formatAspectRatio(self.layoutBook, row )
+        row = self.formatSmartPages( self.layoutBook, row )
         #
         row = self.formatScript(self.layoutShellScript, 0 )
         row = self.formatScriptVars(self.layoutShellScript, row )
