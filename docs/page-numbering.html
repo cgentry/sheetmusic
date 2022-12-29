@@ -1,0 +1,61 @@
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <link rel="stylesheet" type="text/css" href="css/general.css" />
+    <title>Page Numbering</title>
+</head>
+
+<body>
+    <p>
+        <center>
+            <img src="images/sheetmusic-tiny.png" />
+        </center>
+    </p>
+    <h2>Page Numbering</h2>
+    <p>PDFs often have a title page and, sometimes, several pages of introduction or copyright pages. After these
+        initial pages
+        you will find the pages will display page numbers. In order to reduce confusion, the program introduces a
+        concept of an 'offset to page one', i.e.
+        the page where numbering starts.
+    </p>
+    <h3>Page display</h3>
+    <p>
+        A page number is always displayed in the lower right of the status bar. This number can be one of two values:
+    <ul>
+        <li><b>Book page</b> This is the absolute page number. If an offset is set, this is a page that occurs before
+            the page numbering
+            starts in the book. For example, if there are 4 pages before page numbering starts, and you've set the
+            offset to 4, any page
+            in the book before page 4 will have the label of 'Book page'.<br />
+            <center><img src="images/status-bar_book-page.png" /></center><br />
+            The lower right will be blank.
+        </li>
+        <li><b>Page</b> When the page is within the page numbering offset, the page number in the lower left status
+            bar:<br />
+            <center><img src="images/status-bar_page-relative.png" /></center><br />
+            The lower right in the status bar will show the Book Page without a label:<br />
+            <center><img src="images/status-bar_page-absolute-right-corner.png" /></center>
+        </li>
+    </ul>
+    </p>
+    <h3>Setting the page numbering offset</h3>
+    <p>
+        There are two ways to set the page numbering offset: when you import the document, or in the document properties
+        option.
+        Either method does the same thing.
+    </p>
+    <p>
+        <b>File Import</b>
+        When you import the PDF you are prompted to enter the offset to the first page.<br />
+        <center><img src="images/file-import-prompt.png" /></center><br />
+        
+    </p>
+    <b>Book's Properties</b>
+    <p>
+        The book's properties can be altered at anytime once a book is open. If the book's page 1 is being displayed on the screen but the pae
+        number in the lower left doesn't match, or it is displaying 'Book page', set the page offset to match the Book page. First select 'Edit' from the 
+        menu bar, then 'Properties'. A dialog box will open and you can alter the 'Offset to page 1'.
+        <center><img src="images/menu-edit.png" /></center><br>
+        <center><img src="images/menu-view-properties.png" /></center>
+    </p>

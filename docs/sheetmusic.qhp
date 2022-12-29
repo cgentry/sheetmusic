@@ -6,21 +6,38 @@
         <toc>
             <section title="Sheetmusic Help"    		ref="index.html" >
                 <section title="Introduction"   		ref="intro.html" ></section>
+                <section title="General Usage"          ref="usage.html" >
+                    <section title="Menus"              ref="usage.html#menu"></section>
+                    <section title="Status Bar"         ref="usage.html#status-bar"></section>
+                    <section title="Page Numbering"         ref="page-numbering.html"></section>
+                </section>
                 <section title="Importing PDFs" 		ref="import.html" ></section>
-                <section title="Preferences"            ref="prefs.html" ></section>
+                <section title="Preferences"            ref="prefs.html" >
+                    <section title="File settings"      ref="prefs.html#file" ></section>
+                    <section title="Book settings"      ref="prefs.html#book-settings" ></section>
+                    <section title="Key modifiers"      ref="prefs.html#keymodifiers" ></section>
+                    <section title="Script"             ref="prefs.html#script"></section>
+                    <section title="Script Settings"    ref="prefs.html#script-settings"></section>
+                </section>
             </section>
-	    <section title="License"				ref="license.html"></section>
-        <section title="Ghostscript"            ref="ghostscript.html"></section>
+	    <section title="License"				        ref="license.html"></section>
+        <section title="Ghostscript"                    ref="ghostscript.html"></section>
         </toc>
         <keywords>
-            <keyword name="import"          			ref="import.html#import" />
-            <keyword name="reimport"        			ref="import.html#reimport" />
-            <keyword name="pdf" 		id="intro"  	ref="import.html#pdf" />
-            <keyword name="import script"   			ref="import.html#ghostcript" id="import script"  />
-            <keyword name="ghostscript"                 ref="ghostscript.html" />
-            <keyword name="script"                      ref="prefs.html" />
-            <keyword name="file setting"                ref="prefs.html" />
-            <keyword name="book setting"                ref="prefs.html" />
+            <keyword name="Book Setting (Prefs)"        ref="prefs.html#book-settings" />
+            <keyword name="Book Properties"             ref="usage.html#menu-properties" />
+            <keyword name="Flle Setting (Prefs)"        ref="prefs.html#file-settings" />
+            <keyword name="Ghostscript"                 ref="ghostscript.html" />
+            <keyword name="Import"          		    ref="import.html#import" />
+            <keyword name="Key Modifiers (Prefs)"       ref="prefs.html#keymodifiers" />
+            <keyword name="Menu"                        ref="usage.html#menu" />
+            <keyword name="Navigation (Prefs)"          ref="prefs.html#keymodifiers" />
+            <keyword name="Page Numbers"                ref="page-numbering.html" />
+            <keyword name="PDF" 	id="intro"  	    ref="import.html#pdf" />
+            <keyword name="Reimport"        		    ref="import.html#reimport" />
+            <keyword name="Script (Prefs)"              ref="prefs.html#script" />
+            <keyword name="Script Settings (Prefs)"     ref="prefs.html#script-settings" />
+            <keyword name="Smart Page Turn"             ref="usage.html#menu-view-smart-page" />
         </keywords>
         <files>
             <file>index.html</file>
@@ -28,8 +45,12 @@
             <file>import.html</file>
             <file>license.html</file>
             <file>ghostscript.html</file>
+            <file>page-numbering.html</file>
             <file>prefs.html</file>
+            <file>usage.html</file>
             <file>css/general.css</file>
+            <file>images/bookmark-name-prompt.png</file>
+            <file>images/book-properties.png</file>
 	        <file>images/mainwindow.png</file>
             <file>images/file-import-prompt-composer.png</file>
         	<file>images/file-import-prompt-genre.png</file>
@@ -45,6 +66,7 @@
         	<file>images/menu-go.png</file>
         	<file>images/menu-help.png</file>
         	<file>images/menu-tools.png</file>
+            <file>images/menu-view-bookmarks.png</file>
         	<file>images/menu-view-properties-edit.png</file>
         	<file>images/menu-view-properties.png</file>
         	<file>images/menu-view.png</file>
@@ -53,8 +75,13 @@
         	<file>images/pref-keymodifiers.png</file>
 	        <file>images/pref-script.png</file>
 	        <file>images/pref-scriptsettings.png</file>
+            <file>images/screen-layout-800.png</file>
 	        <file>images/sheetmusic-small.png</file>
 	        <file>images/sheetmusic-tiny.png</file>
+            <file>images/status-bar-pages.png</file>
+            <file>images/status-bar_page-relative.png</file>
+            <file>images/status-bar_book-page.png</file>
+            <file>images/status-bar_page-absolute-right-corner.png</file>
         </files>
     </filterSection>
 </QtHelpProject>

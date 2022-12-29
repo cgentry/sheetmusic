@@ -1,0 +1,179 @@
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+	<link rel="stylesheet" type="text/css" href="css/general.css" />
+	<title>General Usage</title>
+</head>
+
+<body>
+    <p>
+        <center>
+            <img src="images/sheetmusic-tiny.png" />
+        </center>
+    </p>
+    <h2>General Usage</h2>
+    <p>
+        This program's screen is split into three parts: menu, page display, and status bar. The purpose is to allow you to control the program and display contents of sheet music you have in your system.
+        As detailed in <a href="import.html">the PDF import page</a>, the program will import and organise PDFs that contain sheet music.
+        It allows you to have <a href=""bookmarks.html">bookmarks</a> to help you access pages quickly, remembers settings, and has <a href="display.html">display settings</a> to aid the display and
+        navigation throughout the document.
+    </p>
+    <h2>Screen layout</h2><br />
+    <img src="images/screen-layout-800.png" />
+    <p>The screen is split into three different sections:
+        <ul>
+            <li><a href="#menu">Menu</a> - Options for picking sheet music, importing files, and how to display the current document are available
+            in here.</li>
+            <li><a href="#page-display">Page Display</a> - The main portion of the screen is used to display the current pages of the sheet music.</li>
+            <li><a href="#status-bar">Status Bar</a> - The status bar is where page information and current relative location are displayed.</li>
+        </ul>
+    </p>
+    <a id="menu" />
+    <h3>Menu</h3>
+    <p>
+        The menus, and options, available are:
+        <ul>
+            <li><b>File</b>
+                <ul>
+                    <li><b>Open</b></li>
+                    <li><b>Open Recent ></b>&nbsp;This will show a list of the most recent books that have been opened.
+                        The number of books shown can be set in <a href="prefs.html#file">Preferences panel</a>.
+                    </li>
+                    <li><b>Close</b> Close the current document.</li>
+                    <li><b>Delete... </b> Delete one or more books from the system. This will remove all the converted pages and the database entries for the book. This cannot be undone.</li>
+                    <li><b>Import Music </b>
+                        <ul>
+                            <li><b>Import PDF</b> Import a PDF book into the system. See <a href="import.html#import">the import detail page.</a></li>
+                            <li><b>Reimport PDF</b> Reimport a PDF book into the system. This is useful if you've made changes to the PDF, for example annotations, or if there are problems with the display resolution. See <a href="import.html#reimport">the reimport detail page.</a></li>
+                            <li><b>Import Directory of Books...</b> If there is a complete directory of books to import, this will prompt you for a directory. You will need to fill in the import form for each book as it is imported. See <a href="import.html#import">the import detail page.</a></li>
+                            <li><b>Check for incomplete entries</b>  This will scan the database for any entries that have not been completed and will prompt you for the information.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li><b>Edit </b>
+                <a id="menu-properties"/>
+                <ul>
+                    <li><b>Properties</b> This will display, and allow you to edit, the current sheetmusic properties.<br/>
+                    <img src="images/book-properties.png" /></li>
+                    <li><b>Delete all bookmarks</b> This will delete all the bookmarks for the current book. This cannot be undone.</li>
+                </ul>
+            </li>
+            <a id="menu-view" />
+            <li><b>View </b>
+                <ul>
+                    <li><b>Bookmarks...</b>&nbsp; Display a list of the current booksmarks. This allows section, or deletion, of a bookmark stored for this book.<br/>
+                    <img src="images/menu-view-bookmarks.png"/></li>
+                    <li><b>One Page</b>&nbsp;Display one page at a time.</li>
+                    <li><b>Two pages</b>&nbsp;Display to pages at a time, side-by-side.</li>
+                    <li><b>Keep Aspect Ratio</b>&nbsp;Book pages and the screen size may not match. This option forces the page
+                    to keep the same relative size on the screen. If turned off, this will fill the screen with the page. This usually
+                distorts the image to some degree. The default is <b>on</b></li>
+                    <li><b>View Status Bar</b>&nbsp; The <a href="#status-bar">status bar</a> can be hidden or displayed with this option. It
+                        acts as a  toggle showing or hiding the status bar when clicked.</li>
+                    <a id="menu-view-smart-page" />
+                    <li><b>Smart Page Turn</b>&nbsp;Smart Page Turn is used when the View is set to <b>Two pages</b>. This allows one page to be played while the next page is being displayed. 
+                        The new page will have a 'glow' that displays for a short period of time to show you that it is the new page. For example<br/>
+                        <table>
+                            <tr>
+                                <th>Page Left</th>
+                                <th>Page Right</th>
+                                <th>Action</th>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>4</td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><b>* 5 *</b>
+                                </td><td>4</td>
+                                <td>After 'Next Page'</td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td><b>* 6 *</b></td>
+                                <td>After 'Next Page'</td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>5</td>
+                                <td>'Previous Page'</td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td><b>* 3 *</b></td>
+                                
+                                <td>'Previous Page'</td></tr>
+                            <tr>
+                                <td><b>* 2 *</b></td>
+                                <td>3</td>
+                                <td>'Previous Page'</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td><b>* 1 *</b></td>
+                                <td>'Previous Page'</td>
+                            </tr>
+                        </table>
+                </ul><br/>
+            </li>
+            <li><b>Go</b> These options allow you to navigate through the document. Keys are available to make navigation much easier and can 
+                be setup in the <a href="prefs.html#keymodifiers">Preferences Panel, key modifiers</a>
+                <ul>
+                    <li><b>Previous Page</b></li>
+                    <li><b>Next Page</b></li>
+                    <li><b>First Page</b></li>
+                    <li><b>Last Page</b></li>
+                    <li><b>Go To Page</b></li>
+                    <li><b>Previous Bookmark</b></li>
+                    <li><b>Next Bookmark</b></li>
+                </ul>
+            </li>
+            <li><b>Tools</b>
+                <ul>
+                    <li><b>Bookmark Current Page</b>&nbsp;A prompt for the bookmark name will appear and a bookmark will be created for the current page.<br/>
+                    <img src="images/bookmark-name-prompt.png"/></li>
+                    <li><b>Add Bookmark</b></li>
+                    <li><b>Clean DB</b></li>
+                    <li><b>Backup DB To File</b></li>
+                </ul>
+            </li>
+        </ul>
+    </p>
+    <a id="page-display" />
+    <h3>Page Display</h3>
+    <p>
+        The page display is where the sheetmusic will be displayed. The format and layout are controlled in with the <a href="#menu-view">View menu</a> options.
+        The last page displayed will be remembered and will be re-loaded when the program restarts or the book is reopened.
+    </p>
+    
+    <a id="status-bar" />
+    <h3>Status Bar</h3><br/>
+    <img src="images/status-bar-pages.png" />
+    <p>
+        The Status Bar is split into three parts:
+        <ul>
+            <li>Left: Current page display<br/><img src="images/status-bar_page-relative.png"/></li>
+            <li>Center: Page slider</li>
+            <li>Right: Absolute page display<br/><img src="images/status-bar_page-absolute-right-corner.png"/></li>
+        </ul>
+        More information on page numbering can be found in <a href="page-numbering.html">the page numbering detail page</a>.
+    </p>
+    <ul>
+        <li><b>Current page displayed</b> Pages can be either the 'Book' page or the absolute page. A book page will match the page number 
+            displayed on the page, but it may not be the actual page. For example, the book may contain a cover page and an introduction page. 
+            These often have no page number assigned, or they get a roman numeral page number (e.g. I, II, III, IV, etc). The sheetmusic may starting
+            on the 2nd or 5th page within the book that has been converted. This gives us two different page numbering schemes: Book page and 
+            absolute page (starting with the cover page, for example). This can be very confusing. Within the book's properties you will find
+            the starting page number. This should be set to the absolute page's number.<br/>More clarification can be found in <a href="page-numbering.html">the page numbering refrence.</a>
+        </li>
+        <li><b>Page Slider</b> This is a visual representation of the position of the page relative to the book. Sliding this left or right
+        will move the page back and forth. This allows rapid sweeping through the current book.</li>
+        <li><b>Absolute page display</b> While the <b>Current page displayed</b> will show you either Book or absolute page, this will
+        only display the absolute page number within the book.</li>
+    </ul>
+    The status bar can be turned off by clicking the menu option <b>Status Bar</b> under <b>View</b>.<br />
+        <img src="images/menu-view.png" /><br/>
+</body>

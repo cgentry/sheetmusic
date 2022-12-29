@@ -3,32 +3,161 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 	<link rel="stylesheet" type="text/css" href="css/general.css" />
-	<title>Preferences</title>
+	<title>Sheetmusic Preferences</title>
 </head>
 
-<body style="font-size:12pt;font-family:helvetica">
+<body>
 	<p>
 		<center>
 			<h2>SheetMusic</h2>
 		</center>
 	</p>
 	<p>
-		Preferences are global to all books and provides important setting and default settings for books. A book can have some specific setting stored for it, such as one or two page display. All settings are stored in an SQLITE3 database in the sheet music directory.
+		Preferences are global to all books and provides important setting and default settings for books. A book can
+		have some specific setting stored for it, such as one or two page display. All settings are stored in an SQLITE3
+		database in the sheet music directory.
+	</p>
+	<a id="file" />
+	<p>
+		<img src="images/pref-filesetting.png" />
+	<ul>
+		<li><b>Sheetmusic directory</b><a id="sheetmusic directory" />- Choose a directory where all of the sheetmusic books
+			will be stored.</li>
+		<li><b>Database directory</b> - Choose a directory where to store the database that hold informatio about all the music
+			in your library. This is usually the same directory as the sheetmusic directory.</li>
+		<li><b>Number of recent files</b> - In the program, it will remember all the files you have previously opened. You can
+			display from 5 to 20 of the recent files.</li>
+	</ul>
+	</p>
+	<a id="book-settings" />
+	<p>
+		<img src="images/pref-booksetting.png" />
 	</p>
 	<p>
-		<img src="images/pref-booksetting.png">
+	<ul>
+		<li><b>Book page formatted as</b> - Each imported page from a PDF is read by <a href="ghostscript.pdf">Ghostscript</a> and converted
+			into a format that is used by the SheetMusic program. You may pick one of the supported formats here.
+			<ul>
+				<li><b>png</b> - the default format as it is lossless and provides good quality.</li>
+				<li><b>jpeg</b> - This is a lossy format that produces very small files but with loss of detail.</li>
+				<li><b>tiff</b> - an older image format that produces good quality images.</li>
+				<li><b>bmp</b> - Bitmapped graphic format. Usually a larger file format and not really recommended.</li>
+			</ul>
+		</li>
+		<li><b>One page / Two pages</b> - the default of either one page or two pages at a time. This can be changed per-book
+			and will be remembered. Set this for the default.</li>
+		<li><b>Reopen last book</b> - It will remember your last book and reopen it when the program starts again.</li>
+		<li><b>Keep aspect ratio for page</b> - pages can distort if you don't keep the aspect ratio. However. some pages do
+			look fine when they simply fill the monitor. This can be changed per-book.</li>
+		<li><b>Use smart page display</b> - When you have two pages displayed side-by-side, smart page display will only change
+			on page at a time and will briefly changed the border color. If you are looking at pages 3 (left) and 4
+			(right), flipping the page will show you 5 (left) and 4 (right). The next page flip will show you 5 (left)
+			and 6 (right). This lets you "flow" between pages easily. With out this turned on, you will get pages 3 and
+			4, then 5 and 6. This can be changed per-book. Note that this is only effectve for 2 page displays.</li>
+	</ul>
+	</p>
+	<a id="keymodifiers" />
+	<p>
+		<img src="images/pref-keymodifiers.png" />
+	</p>
+	<p>Key modifiers allow you to navigate through the document. The standard document naviations are:
+		<ul>
+			<li><b>Previous page</b>
+				<ul>
+				<li>PgUp - standard page up on your keyboard.</li>
+				<li>Up-cursor key - A good alternative if you don't have a page up key or if the cursor keys are more convienent.</li>
+				<li>Left-cursor key - another good alternatie to page up.</li>
+				<li>i - a key often used in games for navigation</li>
+				</ul>
+			</li>
+			<li><b>Next Page</b>
+				<ul>
+					<li>PgDown</li>
+					<li>Down-cursor key</li>
+					<li>Right-cursor key</li>
+					<li>k - a key often used in games for navigation</li>
+				</ul>
+			</li>
+			<li><b>First Page</b> - Move to the very first page in the book.
+				<ul>
+					<li>CMD-Up - Combination of command key and up arrow key.</li>
+					<li>CMD-Left - Combination of command key and left arrow key</li>
+				</ul>
+			</li>
+			<li><b>Last Page</b>- Move to the last page in the book
+				<ul>
+					<li>CMD-Down - Combination of command key and down arrow key.</li>
+					<li>CMD-Right - Combination of command key and right arrow key</li>
+				</ul>
+			</li>
+			<li><b>Previous Bookmark</b> - Move to the previous bookmarked page.
+				<ul>
+					<li>Alt-Up - Combinatino of the alt (or control) key and up arrow key.</li>
+					<li>Alt-left - Combination of the alt (or control) key and left arrow key.</li>
+					<li>j - a key often used in games for navigation</li>
+				</ul>
+			</li>
+			<li><b>Next Bookmark</b> - Move to the next bookmarked page.
+				<ul>
+					<li>Alt-down - Combinatino of the alt (or control) key and down arrow key.</li>
+					<li>Alt-right - Combination of the alt (or control) key and right arrow key.</li>
+					<li>k - a key often used in games for navigation</li>
+				</ul>
+			</li>
+		</ul>
+	</p>
+	<a id="script" />
+	<p>
+		<img src="images/pref-script.png" />
 	</p>
 	<p>
-		<img src="images/pref-filesetting.png">
-	</p>
-	<p>
-		<img src="images/pref-keymodifiers.png">
-	</p>
-	<p>
-		<img src="images/pref-scriptsettings.png">
-	</p>
-	<p>
-		<img src="images/pref-script.png">
-	</p>
+		This is the script that will be run to convert a PDF to a PNG. Variables will be replaced by the program before
+		it is run. The script may be altered for the system you use in order to work. This has been tested on a MacOS
+		sytem. The variables are:
+	<ul>
+		<li>{{debug-state}} - Show the state of the debug request in the output screen.</li>
+		<li>{{debug}} - This is will be replaced with the string 'echo ' or a blank string in the script.</li>
+		<li>{{source}} - The full path to the source PDF file.</li>
+		<li>{{target}} - This is the target <b>directory</b> for the conversion. This will consist of the <a
+				href='#sheetmusic-directory'>sheetmusic directory</a> with the final book name you entered (e.g.
+			'/your/home/sheetmusic/new sheetmusic').</li>
+		<li>{{device}} - What output "device" ghostscript will use? This is set in the <a
+				href="script-settings">Conversion type drop-down box.</a></li>
+		<li>{{dpi>> - The resolution you picked from the <a id=#script-settings-resolution>resolution</a> drop-down.
+		</li>
+		<li>{{name}} - The name you imput for this book. It will default to the filename of the source. </li>
+		<li>{{type}} - The type of output the file is. This is selected in the <a href='#book-settings'>Book settings,
+				format</a></li>
 
+	</ul>
+	</p>
+	<a id="script-settings" />
+	<p>
+		<img src="images/pref-scriptsettings.png" /> Script settings are used to actually run the script and contains values used in Ghostscript.
+		<ul>
+			<li>Command to run: - This can be any <i>bash</i> compatible shell script. (Windows is not yet supported.</i></li>
+			<li>Command line options: - after the 'Command to run', what options should follow it. Separate options with a ;. The script itself, or it's location in the file system, can be inserted by a :::script variable.</li>
+			<li>Conversion type: - Dropdown selection of two supported conversions that will be passed to Ghostscript
+				<ul>
+					<li>png16m: 24-bit RGB color</li>
+					<li>pnggray: Grayscale</li>
+				</ul>
+			</li>
+			<li>Resolution - this will determine the output resolution for the conversion from PDF to the converstion type selected.
+				<ul>
+					<li>300 - Highest resolution. This may cause problems displaying some very dense PDF images.</li>
+					<li>200 - Medium resolution. This should be usable for all PDFs and gives good resolution and file size.</li>
+					<li>150 - Lower resolution. This should give usable resolution and smallest file size</li>
+				</ul>
+			</li>
+			<li>Import name settings- How to cleanup characters from the input filename for use as a directory. This helps to protect directory creation.
+				<ul>
+					<li><b>Only cleanup illegal charaters from name</b> - The name will have newlines, multple blanks and invalid characters replaced.</li>
+					<li><b>Use filename with minimum cleanup<b></li>
+					<li><b>Use filename with maximum cleanup and Title Name</b></li>
+					<li><b>Use PDF to fill in name</b> - This feature requires PyPDF2 be installed in the system. It will read the PDF file, get the total number of pages and the book title from the PDF. The name will then be cleaned up as much as possible.</li>
+				</ul>
+			</li>
+		</ul>
+	</p>
 </body>

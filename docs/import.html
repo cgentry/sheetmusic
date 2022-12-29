@@ -15,37 +15,48 @@
     <a id="pdf" />
     <h2>PDF</h2>
     <p>
-        The imput source for music books is PDFs in a standard format. The documents are imported page-by-page into the
-        <a href="prefs.html#prefs-dir">sheetmusic directory</a>. The standard page format is a PNG, but other can be set
-        in the <a href="prefs.html#pref-format">preferences panel.</a>
+        The input source for music books are standard PDFs. The books are imported page-by-page into the
+        <a href="prefs.html#locations">sheetmusic directory</a>. The standard output page format is a PNG (portable network graphic), but other formats can be selected
+        in the <a href="prefs.html#book-settings">preferences panel.</a>
         <a id="" markup" />
     <p>
         Currently there is no facility to mark up the final pages displayed. If you want to mark them with playing
         notes, you can annotate the original PDFs and reimport the documents into the system.
     </p>
     <a id="import" />
-    <h2>Import PDFs</h2>
+    <h2>How to Import One or More PDFs</h2>
     <p>
-        PDF documents must be reformatted for use in the system. The process is to select the file(s) from the system,
-        give them a name and fill any information available, then start the process. The default program used is
+        PDF documents must be reformatted for use in the system. The process is:
+        <ol>
+            <li>Select the file(s) from the system using the standard file picker.</li>
+            <li>Fill in the import information. This will include the name of the book, the number of pages, and starting page.</li>
+            <li>Select Execute. This will run the script and perform the convesion.</li> 
+            
+        </ol>
+        The default program used is
         <a href="https://ghostscript.com">ghostscript</a>,
         which will read each page and write them out to the sheetmusic directory.
     </p>
+    <a id="select-files" />
+    <h3>Select the files(s) from the system</h3>
     <p>
-        From the File menu, select <bold>import music->import PDF... </bold>
-    <p>
+        From the File menu, select <bold>import music->import PDF... </bold><br/>
         <img src="images/menu-file-import-music.png" />
+    <br/>
+        A file selection dialog will open to allow you to select multiplefiles from the system. 
     </p>
-    <p>A file selection dialog will open to allow you to select multiple
-        files from the system. You will be prompted to enter the information about the PDF. The name of the document and
+    <a id="import-information" />
+    <h3>Fill in the import information</h3>
+    <p>
+        You will be prompted to enter the information about each PDF. The name of the document and
         total number of pages is read from the PDF file. This feature will only happen if you have installed PyPDF2. If
         this is not present, you will need to fill out the fields yourself.</p>
     <p>
         <img src="images/file-import-prompt.png" /><br />
     <ul>
         <li>Name: this will either come from the PDF information or the file name. You may enter anything you like but
-            you must not enter a starting period, or use 'special characters'. This will be a file directory name in the
-            system so normal filename rules apply.<br /></li>
+            you must not enter a starting period, or use 'special characters'. This name will be used to create a file directory name in the
+            system, so normal filename rules apply.<br /></li>
         <li>Composer and Genre (see below)<br /></li>
         <li>Offset to page 1: PDFs of sheetmusic sometimes have title and introduction pages before the book numbering
             starts. The program will display either a 'book' page or a 'page'. The book page is absolute while the
@@ -68,6 +79,8 @@
         select <b>Skip All</b>.<br />
         <img src="images/file-import-prompt-reprocess.png" />
     </p>
+    <a id="execute-script" />
+    <h3>Execute the script</h3>
     <p>Before processing every file, you will also be shown the script and output pane. The Script panel will show you
         what is going to be executed. You can edit the scipt if you want to make little 'tweeks' to it. The original
         source is in the <a href="prefs.html#pref-script">Preferences Script panel</a>.<br /><br />
@@ -83,7 +96,7 @@
         The script that comes with the program has been tested only on a Mac system, but will be tested on additonal
         systems as it nears completion.
     </p>
-    </p>
+    
     <a id="reimport" />
     <h2>Re-Import PDFs</h2>
     <p>

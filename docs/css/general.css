@@ -1,4 +1,26 @@
 body { font-size: 14pt; }
-li:not(:last-of-type) {
-    margin-bottom: 2em;
+li {
+    margin-bottom: 2;
+    font-size: 14pt;
+    line-height: 1.25;
 }
+img {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    margin-top:0%;
+    margin-bottom: 0%;
+}
+table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  
+  td, th {
+    border: 1px solid #dddddd;
+    text-align: center;
+    padding: 8px;
+  }
+  
+  tr:nth-child(even) {
+    background-color: #dddddd;
+  }
