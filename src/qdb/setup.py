@@ -52,6 +52,8 @@ class Setup():
                           location      TEXT NOT NULL,
                           version       TEXT DEFAULT "0.5.3", 
                           layout        TEXT DEFAULT '1page',
+                          notes         TEXT,
+                          link          TEXT,
                           aspectRatio      BOOLEAN NOT NULL CHECK (aspectRatio in (0,1)) DEFAULT 1,
                           total_pages      INTEGER DEFAULT 0, 
                           last_read        INTEGER DEFAULT 1, 

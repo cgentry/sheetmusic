@@ -26,16 +26,17 @@ import PySide6
 from   qdb.keys import ProgramConstants
 
 class UiAbout(QDialog):
-    __about="""<center><h1>Sheetmusic</h1><h3>Copyright 2022 Charles Gentry</h3>
-    <p>
-    Sheetmusic version: {}<br>
-    Python version    : {}<br>
-    PySide version    : {}<br>
-    QT Version        : {}
-    </p>
+    __about="""<center><h1>Sheetmusic</h1>
+    <table>
+    <tr><td>Author</td><td>Charles Gentry</td></tr>
+    <tr><td>Sheetmusic version:</td><td>{}</td></tr>
+    <tr><td>Python version</td><td>{}</td></tr>
+    <tr><td>PySide version</td><td>{}</td></tr>
+    <tr><td>QT Version</td><td>{}</td></tr>
+    </table>
     </center>
     <p>
-    # Sheetmusic is free software; you can redistribute it and/or modify
+    Sheetmusic is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 3 of the License, or
     (at your option) any later version.
@@ -48,6 +49,8 @@ class UiAbout(QDialog):
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <a href="http://www.gnu.org/licenses/">http://www.gnu.org/licenses/</a>.
     </p>
+    <br/><br/><br/><br/>
+    <p style="text-align: right;">{}</p>
     """
     def __init__(self):
         super().__init__()
@@ -62,7 +65,9 @@ class UiAbout(QDialog):
             ProgramConstants.version, 
             platform.python_version(), 
             PySide6.__version__, 
-            PySide6.QtCore.qVersion() )
+            PySide6.QtCore.qVersion() ,
+            ProgramConstants.copyright 
+        )
 
     def information(self)->QTextEdit:
         global __version__

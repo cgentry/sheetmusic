@@ -5,9 +5,10 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.2.0"
+    version      = "0.2.5"
     version_main = "0.2"
     author       = "Charles Gentry"
+    copyright    = u'©2022-2023 Charles Gentry'
 
 class DbKeys():
     """
@@ -25,6 +26,7 @@ class DbKeys():
     VALUE_KEEP_ASPECT   = True
     VALUE_PAGES_DOUBLE  = "2pages"
     VALUE_PAGES_SINGLE  = "1page"
+    VALUE_PAGES_STACKED = "2stacked"
     VALUE_SMART_PAGES   = True
     VALUE_REOPEN_LAST   = True
     VALUE_SCRIPT_CMD    = '/bin/bash'
