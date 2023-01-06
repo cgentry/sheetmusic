@@ -5,7 +5,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.2.5"
+    version      = "0.2.6"
     version_main = "0.2"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -162,6 +162,7 @@ class BOOK :
     source          = 'source'
     location        = 'location'
     version         = 'version'
+    note            = 'notes'
     totalPages      = 'total_pages'
     aspectRatio     = 'aspectRatio'
     lastRead        = 'last_read'

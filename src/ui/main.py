@@ -96,6 +96,7 @@ class UiMain(object):
 
         # EDIT actions
         self.actionProperties           = action( u"Properties", shortcut=u'Ctrl+I')
+        self.actionNoteBook             = action( u"BookNote"  , title="Note for Book")
         self.actionDeleteAllBookmarks   = action( u'DeleteAllBookmarks', title=u'Delete All Bookmarks')
 
         # VIEW actions
@@ -236,6 +237,7 @@ class UiMain(object):
 
     def addEditActions(self)->None:
         self.menuEdit.addAction(self.actionProperties)
+        self.menuEdit.addAction(self.actionNoteBook)
         self.menuEdit.addSeparator()   # -------------------
         self.menuEdit.addAction( self.actionDeleteAllBookmarks )
 

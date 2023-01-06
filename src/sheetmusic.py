@@ -30,8 +30,9 @@ import os
 import logging
 from tkinter import N
 
-from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir, QTimer
-from PySide6.QtWidgets  import QApplication, QMainWindow,  QMessageBox, QDialog, QLabel, QFileDialog
+from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir
+from PySide6.QtWidgets  import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
+from PySide6.QtGui      import QPixmap
 
 from qdb.dbconn         import DbConn
 from qdb.dbsystem       import DbSystem
@@ -43,160 +44,65 @@ from qdil.book          import DilBook
 from qdil.bookmark      import DilBookmark
 
 from ui.main            import UiMain
+from ui.pagewidget      import ( PageLabelWidget, PageWidget )
 from ui.properties      import UiProperties
 from ui.bookmark        import UiBookmark
 from ui.file            import Openfile, Deletefile, DeletefileAction, Reimportfile
+from ui.note            import UiNote
 
 from util.convert       import toBool
 
 class MainWindow(QMainWindow):
-    timer_interval = 75
-    colour_pallet = [ '#236dc9','#236dc9','#1c58a1','#174781','#133968','#102e54',
-                      '#0d2544','#0b1e37','#09182c','#081424','#07101d','#060d18',
-                      '#000000' ]
 
     def __init__(self):
         super().__init__()
-        self.is_forward = False
-        self.is_backward = False
-        self.page_left = None
-        self.page_right = None
         self.smart_pages = False
         
-        self.border_label = None
-        self.border_colour_index = 0
-
-        self.border_timer = QTimer()
-        self.border_timer.setInterval( self.timer_interval )
-        self.border_timer.setSingleShot(True)
-        self.border_timer.timeout.connect(self.onTimer)
-
         self.loadUi()
         self.book = DilBook()
         self.system = DbSystem()
         self.bookmark = DilBookmark()
         self.logger = logging.getLogger('main')
         
-
     def loadUi(self)->None:
         self.pref = DilPreferences()
         self.settings = self.pref.getAll()
         self.ui = UiMain()
         self.ui.setupUi(self)
 
-    def _pageLabel( self, label:QLabel, bookpage )->bool:
+    def _pageLabel( self, label:PageLabelWidget, bookpage )->bool:
         label.clear()
         if bookpage > self.book.getTotal():
             return True
         px = self.book.getPixmap(bookpage )
-        if px is None or px is False or px.isNull():
+        return label.setImage( px , bookpage )
+        # if px is None or px is False or px.isNull():
             
-            label.setText("<h1>IMAGE NOT AVAILABLE</h1>")
-            msg = "Could not open page {}.\nTry to re-import at lower resolution".format( bookpage )
-            QMessageBox.critical(None, "Image Error", msg , QMessageBox.Close )
-            return False
-        keepAspectRatio = self.book.getAspectRatio()
-        label.setScaledContents( ( not keepAspectRatio ) )
-        if keepAspectRatio:
-            size = self.ui.mainWindow.size()
-            if self.ui.isRightPageShown():
-                size.setWidth( size.width()/2 )
-            label.resize( size )
-            px = px.scaled( size , aspectMode=Qt.KeepAspectRatio, mode=Qt.SmoothTransformation )
-        label.setPixmap( px )
-        return True
+        #     label.setText("<h1>IMAGE NOT AVAILABLE</h1>")
+        #     msg = "Could not open page {}.\nTry to re-import at lower resolution".format( bookpage )
+        #     QMessageBox.critical(None, "Image Error", msg , QMessageBox.Close )
+        #     return False
+        # keepAspectRatio = self.book.getAspectRatio()
+        # label.setScaledContents( ( not keepAspectRatio ) )
+        # if keepAspectRatio:
+        #     size = self.ui.mainWindow.size()
+        #     if self.ui.isRightPageShown():
+        #         size.setWidth( size.width()/2 )
+        #     label.resize( size )
+        #     px = px.scaled( size , aspectMode=Qt.KeepAspectRatio, mode=Qt.SmoothTransformation )
+        # label.setPixmap( px )
+        # return True
 
-    def setBorderColour(self):
-        if self.border_label is not None:
-            if self.border_colour_index < len( self.colour_pallet ):
-                backgroundColour =  "background: {};".format( self.colour_pallet[ self.border_colour_index ] )
-                self.border_colour_index = self.border_colour_index+1
-                self.border_label.setStyleSheet( backgroundColour )
-                self.border_timer.start()
-            else:
-                self.clearBorderColour()
+       
 
-    def clearBorderColour(self):
-        self.border_colour_index = 0
-        if self.border_label is not None:
-            self.border_label.setStyleSheet("")
-            self.border_label = None
-
-    def pageImageLeft(self, pagenumber)->bool:
-        """ Display the left page image """
-        self.page_left = pagenumber 
-        return self._pageLabel( self.ui.left ,self.page_left )
-
-    def pageImageRight(self, pagenumber )->bool:
-        """ Display the right page image when doing two page display"""
-        if self.ui.isRightPageShown():
-            self.page_right = pagenumber
-            return self._pageLabel( self.ui.right ,self.page_right )
-        return True
-
-    def showOnePage( self, pagenumber ):
-        return self.pageImageLeft( pagenumber )
-
-    def showSmartPages( self, pagenumber ):
-        if self.page_left < self.page_right:
-            if self.is_forward:
-                rtn = self.pageImageLeft( pagenumber )
-                self.border_label = self.ui.left
-            if self.is_backward:
-                rtn = self.pageImageRight( pagenumber)
-                self.border_label = self.ui.right
-        else:
-            if self.is_forward:
-                rtn = self.pageImageRight( pagenumber )
-                self.border_label = self.ui.right
-            if self.is_backward:
-                rtn = self.pageImageLeft( pagenumber )
-                self.border_label = self.ui.left
-        self.setBorderColour()
-        return rtn
-        
-
-    def showTwoPages( self, pagenumber , absolute=True):
-        if absolute or self.page_left is None or self.page_right is None or not self.smart_pages:
-            return self.pageImageLeft( pagenumber ) and self.pageImageRight(pagenumber+1)
-        return  self.showSmartPages( pagenumber )
-        
-
-    def showPages(self, delay:bool=False, absolute=True)->bool:
-        """ Show left and right pages (if enabled) This will also allow "page-flip"
-            display. 
-            Absolute is: 
-                    True: show page n and n+1
-                    False: If showing two pages:
-                        left goes to page n+1, gets border (when page_odd is true)
-                        right toes to page n+1, gets border (when page_odd is false)
-                    page_odd is flipped back and forth but reset when True
-            """
-        if self.book.isOpen() :
-            if absolute: # simple page display, no page movement
-                self.is_forward = False
-                self.is_backward = False
+    def showPages( self )->bool:
+        """ Load both pages into the display if the book is open """
+        if self.book.isOpen():
             page = self.book.getAbsolutePage()
-            self.blockSignals( True )
-            self.clearBorderColour()
-            try:
-                if self.ui.isRightPageShown():
-                    if absolute or not self.smart_pages or page == 1 or page >= self.book.getTotal() :
-                        pages_shown = self.showTwoPages( page , absolute=True )
-                        if self.smart_pages:
-                            self.book.setPageNumber( page+1)
-                    else:
-                        pages_shown = self.showSmartPages( page )
-                else:
-                     pages_shown = self.showOnePage( page )
-
-                if  pages_shown :
-                    self.updateStatusBar()
-            except:
-                self.closeBook()
-            finally:
-                gc.collect(2)
-                self.blockSignals( False )
+            # self.book.setPageNumber( page + 1 )
+            leftpx = self.book.getPixmap( page )
+            rightpx = self.book.getPixmap( page+1)
+            self.ui.pageWidget.loadPages( leftpx, page , rightpx, page+1 )
         return self.book.isOpen()
 
     def updatePageNumbers(self, absolutePageNumber:int=None )->None:
@@ -231,10 +137,6 @@ class MainWindow(QMainWindow):
         self.ui.statusProgress.setMaximum( self.book.getTotal())
         self.ui.statusProgress.setValue( absolutePageNumber)
 
-    def clearLabels(self)->None:
-        self.ui.left.text = ""
-        self.ui.right.text = ""
-
     def restoreWindowFromSettings(self)->None:
         self.pref.restoreMainWindow( self.ui.getWindow() ) 
         self.pref.restoreShortcuts( self.ui )  
@@ -245,16 +147,22 @@ class MainWindow(QMainWindow):
         self.closeBook()
         rtn = self.book.openBook(newBookName, page )
         if rtn == QMessageBox.Ok:
-            self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            self.book_layout = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
             self.smart_pages = toBool( self.book.getPropertyOrSystem( DbKeys.SETTING_SMART_PAGES ) )
-            
-            if self.showPages( absolute=True):
+
+            #self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            self.ui.pageWidget.setDisplay( self.book_layout )
+            self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
+            self.ui.pageWidget.setKeepAspectRatio( self.book.getAspectRatio() )
+
+            if self.showPages():
                 self.setTitle()
                 self.setMenusForBook(True)
                 self.bookmark.open( newBookName )
                 self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
-                self.ui.actionAspectRatio.setChecked(  self.book.getAspectRatio()  )
+                self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
                 self.ui.actionSmartPages.setChecked( self.smart_pages )
+                self.updateStatusBar()
         return rtn
 
     def closeBook(self)->None:
@@ -262,6 +170,7 @@ class MainWindow(QMainWindow):
         if self.book.isOpen():
             self.pref.setValue( DbKeys.SETTING_LAST_BOOK_NAME , self.book.getTitle())
             self.book.closeBook()
+            self.ui.pageWidget.clear()
         self.setMenusForBook(False)
         self.ui.mainWindow.hide()
 
@@ -314,8 +223,10 @@ class MainWindow(QMainWindow):
         return False
     
     def resizeEvent(self,event):
-        if self.ui.isRightPageShown() is not None:
-            self.showPages( absolute=True)
+        self.ui.pageWidget.resize( self.ui.pager.size() )
+        self.showPages()
+        # if self.ui.isRightPageShown() is not None:
+        #     self.showPages()
 
     def keyPressEvent(self, ev)->None:
         #if False and (ev.type() == QEvent.KeyPress):
@@ -334,42 +245,49 @@ class MainWindow(QMainWindow):
         self.closeBook()
         DbConn.closeDB()
 
+    def _changePage( self, inc:int )->None:
+        currentPage = self.book.getAbsolutePage()
+        newPage = self.book.incPageNumber(inc)
+        if newPage != currentPage :
+            if inc < 0 :
+                self.ui.pageWidget.previousPage( self.book.getPixmap( newPage ), newPage )
+            else:
+                self.ui.pageWidget.nextPage( self.book.getPixmap( newPage ), newPage )
+            self.updateStatusBar()
+
+        
     def pageBackward(self)->None:
-        self.is_backward=True
-        self.is_forward=False
-        self.book.incPageNumber(-1)
-        self.showPages(absolute=False)
+        self.book.setPageNumber( self.ui.pageWidget.getLowestPageShown())
+        self._changePage(  -1 )
 
     def pageForward(self)->None:
-        self.is_backward=False
-        self.is_forward=True
-        self.book.incPageNumber(1)
-        self.showPages(True, absolute=False)
+        self.book.setPageNumber( self.ui.pageWidget.getHighestPageShown())
+        self._changePage(   1 )
     
     def goToPage(self, page )->None:
         ''' Set the page number to the page passed and display
             page number must be absolute, not relative.
         '''
         self.book.setPageNumber(page)
-        self.showPages( absolute=True)
+        self.showPages()
 
     def goFirstBookmark(self)->None:
         bmk = self.bookmark.getFirst( )
         self.book.setPageNumber(bmk[BOOKMARK.page])
-        self.showPages(absolute=True)
+        self.showPages()
 
     def goLastBookmark(self)->None:
         bmk = self.bookmark.getLast( )
         self.book.setPageNumber(bmk[BOOKMARK.page])
-        self.showPages(absolute=True)
+        self.showPages()
 
     def goFirstPageShown(self)->None:
         self.book.setPageNumber(self.book.getFirstPageShown() )
-        self.showPages(absolute=True)
+        self.showPages()
 
     def goLastPageShown(self)->None:
         self.book.setPageNumber( self.book.getLastPageShown())
-        self.showPages(absolute=True)
+        self.showPages()
 
     def connectMenus(self)->None:
         """ Connect menus and events to the routines handling the function"""
@@ -387,6 +305,7 @@ class MainWindow(QMainWindow):
         self.ui.menuOpen_Recent.aboutToShow.connect( self.actionOpenRecentUpdateFiles)
         self.ui.menuOpen_Recent.triggered.connect(self.actionOpenRecent)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
+        self.ui.actionNoteBook.triggered.connect( self.actionNoteBook )
         self.ui.actionDeleteAllBookmarks.triggered.connect( self.actionDeleteAllBookmarks )
         self.ui.actionPreferences.triggered.connect(self.actionPreferences)
         self.ui.actionAbout.triggered.connect( self.actionAbout )
@@ -399,6 +318,7 @@ class MainWindow(QMainWindow):
 
         self.ui.actionOne_Page.triggered.connect( self.actionOnePage)
         self.ui.actionTwo_Pages.triggered.connect( self.actionTwoPages)
+        self.ui.actionStack_Pages.triggered.connect( self.actionStackedPages)
         self.ui.actionViewStatus.triggered.connect(self.actionViewStatusBar)
         self.ui.actionAspectRatio.triggered.connect(self.actionAspectRatio)
         self.ui.actionSmartPages.triggered.connect( self.actionSmartPages )
@@ -410,7 +330,7 @@ class MainWindow(QMainWindow):
         self.ui.statusProgress.valueChanged.connect( self.actionProgressChanged)
         self.ui.statusProgress.sliderReleased.connect(self.actionProgressReleased)
 
-        self.ui.twoPagesSide.installEventFilter( self)
+        #self.ui.twoPagesSide.installEventFilter( self)
 
         self.ui.actionImportPDF.triggered.connect(self.actionImportPDF)
         self.ui.actionImportDirectory.triggered.connect( self.actionImportDirectory )
@@ -459,9 +379,6 @@ class MainWindow(QMainWindow):
         bmk = self.bookmark.getNext( self.book.getAbsolutePage() )
         self._finishBookmarkNavigation(bmk)
 
-    def onTimer(self):
-        self.setBorderColour()
-
     def actionViewStatusBar(self, state)->None:
         self.pref.setValueBool( DbKeys.SETTING_WIN_STATUS_ENABLED, state , replace=True)
         self.ui.actionViewStatus.setChecked(state)
@@ -469,11 +386,12 @@ class MainWindow(QMainWindow):
 
     def actionAspectRatio(self, state)->None:
         self.book.setAspectRatio( state )
-        self.showPages(absolute=True)
+        self.showPages()
 
     def actionSmartPages( self, state:bool )->None:
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , state)
         self.smart_pages = state
+        self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
 
     def actionProgressChanged( self, value )->None:
         """ The slider has changed so update page numbers """
@@ -487,7 +405,17 @@ class MainWindow(QMainWindow):
         if self.book.editProperties( UiProperties() ) :
             self.setTitle()
             self.updateStatusBar()
-            self.showPages(absolute=True)
+            self.showPages()
+
+    def actionNoteBook(self)->None:
+        txt = self.book.getNote()
+        uinote = UiNote()
+        uinote.setWindowTitle( "{} - Book".format( self.book.getTitle() ) )
+        uinote.setText( txt )
+        rtn=uinote.exec()
+        if rtn and uinote.textChanged():
+            self.book.setProperty( BOOK.note , uinote.text() )
+            
 
     def actionDeleteAllBookmarks(self)->None:
         rtn = QMessageBox.warning(
@@ -512,7 +440,7 @@ class MainWindow(QMainWindow):
         viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
         self.ui.showRightPage((viewState == DbKeys.VALUE_PAGES_DOUBLE ))
         self.toggleMenuPages( viewState )
-        self.showPages(absolute=True)
+        self.showPages()
     
     def actionAbout(self)->None:
         from ui.about import UiAbout
@@ -664,12 +592,15 @@ class MainWindow(QMainWindow):
             layoutType = self.system.getValue( DbKeys.SETTING_PAGE_LAYOUT , DbKeys.VALUE_PAGES_SINGLE )
         self.ui.actionOne_Page.setChecked(  (layoutType == DbKeys.VALUE_PAGES_SINGLE))
         self.ui.actionTwo_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_DOUBLE))
+        self.ui.actionStack_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACKED ))
 
     def _setPageLayout( self, value ):
+        """ Set the display to either one page or two, depending on what value is in the book entry"""
         self.book.setProperty( DbKeys.SETTING_PAGE_LAYOUT , value)
-        self.ui.showRightPage((value == DbKeys.VALUE_PAGES_DOUBLE ))
+        self.ui.pageWidget.setDisplay( value )
+        #self.ui.showRightPage((value == DbKeys.VALUE_PAGES_DOUBLE ))
         self.toggleMenuPages( value )
-        self.showPages(absolute=True)
+        self.showPages()
 
     def _setSmartPages( self, value ):
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , value )
@@ -680,6 +611,9 @@ class MainWindow(QMainWindow):
 
     def actionTwoPages(self)->None:
         self._setPageLayout( DbKeys.VALUE_PAGES_DOUBLE)
+
+    def actionStackedPages(self)->None:
+        self._setPageLayout( DbKeys.VALUE_PAGES_STACKED)
 
     def _importPDF(self, insertData, duplicateData ):
         dilb = DilBook()
@@ -736,6 +670,14 @@ class MainWindow(QMainWindow):
         DilBook().updateIncompleteBooksUI()
         pass
 
+    def introImage( self )->None:
+        imagePath = os.path.join( os.path.dirname(__file__) , "images", "sheetmusic.png" )
+        if os.path.isfile( imagePath ) :
+            px= QPixmap(imagePath)
+            self.ui.pageWidget.staticPage ( px)
+            self.show()
+        
+
 if __name__ == "__main__":
     sy = SystemPreferences()
     dbLocation    = sy.getPathDB()          # Fetch the system settings
@@ -763,6 +705,7 @@ if __name__ == "__main__":
     window.connectMenus()
     window.restoreWindowFromSettings()
     window.show()
+    
     window.openLastBook()
     window.setupWheelTimer()
     window.show()

@@ -216,6 +216,9 @@ class DilBook( DbBook ):
         self.thisPage = min( max( 1, self.thisPage) , self.getProperty( BOOK.totalPages, 999) )
         return self.thisPage
 
+    def getNote(self)->str:
+        return self.getProperty( BOOK.note )
+        
     def getTitle(self) -> str:
         return self.getProperty( BOOK.name )
     
@@ -293,7 +296,7 @@ class DilBook( DbBook ):
 
     def incPageNumber(self, inc:int) -> int:
         """ Increment the page number by the passed integer. Number can be positive or negative. """
-        self.setPageNumber( self.thisPage+inc)
+        return self.setPageNumber( self.thisPage+inc)
 
     def getContentStartingPage(self) -> int:
         ''' Return the page that content starts on (book)

@@ -52,7 +52,7 @@ class UiNote(QDialog):
         self.textField = QTextEdit()
         self.textField.setAcceptRichText(True)
         self._textChanged = False
-        self.textField.textChanged.connect( self.textChanged )
+        self.textField.textChanged.connect( self.setChanged )
 
     def clear(self)->None:
         self.textField.clear()
@@ -84,15 +84,16 @@ class UiNote(QDialog):
         if btn.text() == self.btnTxtCancel :
             self.reject()
 
-    def setText(self, txt)->None:
+    def setText(self, txt:str)->None:
+        if not isinstance( txt , str ):
+            raise ValueError("Invalid text passed: {}".format( type(txt )))
         self.textField.setMarkdown( txt )
-        self.textField.setCursor
         self._textChanged = False
 
     def text( self )->str:
         return self.textField.toMarkdown()
 
-    def setChanged(self, sig)->None:
+    def setChanged(self)->None:
         self._textChanged = True
     
     def textChanged(self)->bool:

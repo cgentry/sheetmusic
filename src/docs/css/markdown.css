@@ -1,0 +1,22 @@
+body { font-size: 14pt; }
+
+img {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    margin-top:0%;
+    margin-bottom: 0%;
+}
+
+
+th {
+    font-size: 24pt;
+}
+
+td {
+    border: 1px solid;
+    text-align: left;
+}
+  
+tr {
+    border: 3px solid;
+}

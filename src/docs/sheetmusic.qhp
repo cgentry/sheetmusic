@@ -30,8 +30,10 @@
             <keyword name="Ghostscript"                 ref="ghostscript.html" />
             <keyword name="Import"          		    ref="import.html#import" />
             <keyword name="Key Modifiers (Prefs)"       ref="prefs.html#keymodifiers" />
+            <keyword name="Markdown"                    ref="markdown.html" />
             <keyword name="Menu"                        ref="usage.html#menu" />
             <keyword name="Navigation (Prefs)"          ref="prefs.html#keymodifiers" />
+            <keyword name="Notes"                       ref="notes.html" />
             <keyword name="Page Numbers"                ref="page-numbering.html" />
             <keyword name="PDF" 	id="intro"  	    ref="import.html#pdf" />
             <keyword name="Reimport"        		    ref="import.html#reimport" />
@@ -44,6 +46,8 @@
             <file>intro.html</file>
             <file>import.html</file>
             <file>license.html</file>
+            <file>markdown.html</file>
+            <file>notes.html</file>
             <file>ghostscript.html</file>
             <file>page-numbering.html</file>
             <file>prefs.html</file>
@@ -70,6 +74,9 @@
         	<file>images/menu-view-properties-edit.png</file>
         	<file>images/menu-view-properties.png</file>
         	<file>images/menu-view.png</file>
+            <file>images/note-book.png</file>
+            <file>images/note-book-markdown.png</file>
+            <file>images/note-book-render.png</file>
         	<file>images/pref-booksetting.png</file>
         	<file>images/pref-filesetting.png</file>
         	<file>images/pref-keymodifiers.png</file>
