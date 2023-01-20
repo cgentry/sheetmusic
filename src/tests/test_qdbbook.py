@@ -19,9 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import sqlite3
-import tempfile
+import logging
 import unittest
 #sys.path.append("../")
 
@@ -40,6 +38,8 @@ class TestDbBookmark(unittest.TestCase):
         s.createTables()
         del s
         self.book = DbBook()
+        self.book.showStack(False)
+        self.book.logger.setLevel( logging.CRITICAL )
         self.query = QSqlQuery( DbConn.db() )
     
     def tearDown(self):

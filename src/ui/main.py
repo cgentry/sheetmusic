@@ -85,7 +85,7 @@ class UiMain(object):
 
         # FILE actions
         self.actionOpen         = action(u'Open',   title='Open...',  shortcut=u'Ctrl+O')
-        self.actionOpen_Recent  = action(u'Recent')
+        self.actionOpenRecent   = action(u'Recent')
         self.actionClose        = action(u"Close",                    shortcut=u"Ctrl+W")
         self.actionDelete       = action(u'Delete', title='Delete...')
         self.actionImport       = action(u'Import')
@@ -100,13 +100,15 @@ class UiMain(object):
         self.actionDeleteAllBookmarks   = action( u'DeleteAllBookmarks', title=u'Delete All Bookmarks')
 
         # VIEW actions
-        self.actionShowBookmarks    = action(u"ShowBookmarks",                title=u'Show Bookmarks...')
-        self.actionOne_Page         = action(u"One_Page"    , checkable=True, title=u'One Page', shortcut=u'Ctrl+1')
-        self.actionTwo_Pages        = action(u"Two_Pages"   , checkable=True, title=u'Two Pages side-by-side' , shortcut='Ctrl+2')
-        self.actionStack_Pages      = action(u"Stack_Pages" , checkable=True, title=u'Two Pages Stacked',       shortcut=u'Ctrl+2')
-        self.actionAspectRatio      = action(u"AspectRatio" , checkable=True, title=u'Keep Aspect ratio',       shortcut=u"Ctrl+A")
-        self.actionSmartPages       = action(u"SmartPages"  , checkable=True, title=u'Smart Page Turn')
-        self.actionViewStatus       = action('ViewStatus'   , checkable=True, title=u'View Status', checked=True)
+        self.actionShowBookmarks       = action(u"ShowBookmarks",                title=u'Show Bookmarks...')
+        self.actionOne_Page            = action(u"One_Page"    , checkable=True, title=u'One Page', shortcut=u'Ctrl+1')
+        self.actionTwo_Pages           = action(u"Two_Pages"   , checkable=True, title=u'Two Pages side-by-side' , shortcut='Ctrl+2')
+        self.actionThree_Pages         = action(u"Three_Pages" , checkable=True, title=u'Three Pages side-by-side' , shortcut='Ctrl+3')
+        self.actionTwo_Pages_Stacked   = action(u"Two_stack"   , checkable=True, title=u'Two Pages Stacked',       shortcut=u'Ctrl+4')
+        self.actionThree_Pages_Stacked = action(u"Three_Stack" , checkable=True, title=u'Three Pages Stacked' , shortcut='Ctrl+5')
+        self.actionAspectRatio         = action(u"AspectRatio" , checkable=True, title=u'Keep Aspect ratio',       shortcut=u"Ctrl+A")
+        self.actionSmartPages          = action(u"SmartPages"  , checkable=True, title=u'Smart Page Turn')
+        self.actionViewStatus          = action('ViewStatus'   , checkable=True, title=u'View Status', checked=True)
 
         # GO actions (Note: shortcuts are sent in 'setNavigationShortcuts' )
         self.actionUp               = action(u"Up",        title=u'Previous Page')
@@ -124,14 +126,15 @@ class UiMain(object):
         self.actionCheckIncomplete      = action( u"CheckIncomplete",    title=u'Check for incomplete entries ...')
         self.actionCleanDB              = action(u'CleanDB',             title=u'Clean Database')
         self.actionDumpDB               = action(u'DumpDB',              title=u'Backup Database...')
-
+        self.actionToolScript           = action(u'Script')
         # HELP actions
         self.actionHelp = action( u"Help")
 
         # NOTE: Following tend to be 'special' as they an float to other places
         self.actionPreferences = action( u'Preferences')
         self.actionPreferences.setMenuRole( QAction.PreferencesRole)
-        self.actionAbout = action(u"actionAbout")
+
+        self.actionAbout       = action(u"actionAbout")
         self.actionAbout.setMenuRole( QAction.AboutRole)
      
     def addStatus(self, MainWindow):
@@ -140,7 +143,15 @@ class UiMain(object):
 
         self.lblPageRelative = QLabel()
         self.lblPageRelative.setObjectName(u'pageRelative')
-        self.lblPageRelative.setText("*")
+        self.lblPageRelative.setText("")
+
+        self.lblBookNote = QLabel()
+        self.lblBookNote.setObjectName( u'bookNote')
+        self.setBookNote(True )
+
+        self.lblPageNote = QLabel()
+        self.lblPageNote.setObjectName( u'pageNote')
+        self.setPageNote(True)
 
         self.statusProgress = QSlider()
         self.statusProgress.setObjectName(u'progressbar')
@@ -158,11 +169,25 @@ class UiMain(object):
         self.lblBookmark.setFlat( True )
 
         self.statusbar.addWidget( self.lblPageRelative)
+        self.statusbar.addWidget( self.lblBookNote )
+        self.statusbar.addWidget( self.lblPageNote )
         self.statusbar.addWidget( self.statusProgress,100)
         self.statusbar.addWidget( self.lblBookmark )
         self.statusbar.addWidget( self.lblPageAbsolute)
 
         MainWindow.setStatusBar(self.statusbar)
+    
+    def setBookNote(self, flag:bool):
+        if flag:
+            self.lblBookNote.setText( "\U0001F4D9" )
+        else:
+            self.lblBookNote.setText( " ")
+
+    def setPageNote(self, flag:bool):
+        if flag:
+            self.lblPageNote.setText( "\U0001F4DD" )
+        else:
+            self.lblPageNote.setText( " ")
 
     def createTriggers(self):
         self.setMarkBookmark    = self.actionBookmarkCurrentPage.triggered.connect
@@ -198,10 +223,11 @@ class UiMain(object):
         self.menuTools= menuElement( u'Tools')
         self.menuHelp = menuElement( u'Help' )
 
-        self.menuOpen_Recent = menuElement( u'OpenRecent' , 'Open Recent...', top=False)
+        self.menuOpenRecent  = menuElement( u'OpenRecent' , 'Open Recent...', top=False)
         self.menuImportPDF   = menuElement( u'ImportPDF'  , 'Import Book from PDF', top=False )
         self.menuReimportPDF = menuElement( u'ReimportPDF', 'Reimport Book from PDF', top=False)
         self.menuImportDirectory = menuElement( u'ScanDir', 'Scan and import books from directory', top=False )
+        self.menuToolScript  = menuElement( u'Scripts'    , 'Run Script...', top=False)
 
     def addActions(self, MainWindow)->None:
         ## Add top level menus to the menubar
@@ -222,16 +248,18 @@ class UiMain(object):
 
     def addFileActions(self)->None:
         self.menuFile.addAction(self.actionOpen)
-        self.actionOpen_Recent = self.menuFile.addMenu( self.menuOpen_Recent )
+        self.actionOpenRecent = self.menuFile.addMenu( self.menuOpenRecent )
         self.menuFile.addAction(self.actionClose)
         self.menuFile.addAction( self.actionDelete )
         self.menuFile.addSeparator()   # -------------------
+        # import submenu...
         self.menuImport = self.menuFile.addMenu( "Import")
         self.menuImport.setTitle('Import music')
         self.menuImport.addAction( self.actionImportPDF )
         self.menuImport.addAction( self.actionReimportPDF)
         self.menuImport.addAction( self.actionImportDirectory)
         self.menuImport.addAction( self.actionCheckIncomplete)
+
         self.menuFile.addSeparator()   # -------------------
         self.menuFile.addAction(self.actionPreferences)
 
@@ -246,7 +274,9 @@ class UiMain(object):
         self.menuView.addSeparator()   # -------------------
         self.menuView.addAction(self.actionOne_Page)
         self.menuView.addAction(self.actionTwo_Pages)
-        self.menuView.addAction(self.actionStack_Pages)
+        self.menuView.addAction(self.actionThree_Pages)
+        self.menuView.addAction(self.actionTwo_Pages_Stacked)
+        self.menuView.addAction(self.actionThree_Pages_Stacked)
         self.menuView.addSeparator()   # -------------------
         self.menuView.addAction( self.actionAspectRatio)
         self.menuView.addAction(self.actionViewStatus)
@@ -268,6 +298,7 @@ class UiMain(object):
         self.menuTools.addAction(self.actionBookmarkCurrentPage)
         self.menuTools.addAction(self.actionAdd_Bookmark)
         self.menuTools.addSeparator()   # -------------------
+        self.actionToolScript = self.menuTools.addMenu( self.menuToolScript )
         self.menuTools.addAction( self.actionCleanDB )
         self.menuTools.addAction( self.actionDumpDB )
 

@@ -1,6 +1,8 @@
 from PySide6.QtSql import QSqlQuery
 from qdb.dbconn    import DbConn
 import logging
+import  base64
+import  pickle
 
 
 class DbHelper:
@@ -14,7 +16,6 @@ class DbHelper:
             (Usefull for implementing better dictionary queries
         """
         return sqlstatement.replace( '*', ','.join( column_names))
-
 
     @staticmethod
     def prep(  sqlstatement:str)->QSqlQuery:
@@ -68,18 +69,18 @@ class DbHelper:
         return rtn
 
     @staticmethod
-    def fetchrow( sql:str , param, fields:list, debug=False, endquery=None)->dict:
+    def fetchrow( sql:str , param, db_fields_to_return:list, debug=False, endquery=None)->dict:
         """ Lookup a single row and return the names back. param is the key value(s)
             which can be a single entry (str), a list, or a dictionary. Return is 
-            always a dictionary which is defined in 'fields'. Fields must be the
-            names, in order of returned values.
+            always a dictionary which is defined in 'db_fields_to_return'.
+            db_fields_to_return must be the names, in order of returned values.
         """
         query = DbHelper.bind( DbHelper.prep( sql ) , param )
         if debug:
             msg = ",".join( [ str(x) for x in query.boundValues() ])
             logging.debug("fetchrow: SQL: '{}' Parms: {}".format( query.lastQuery() , msg ) )
         if query.exec():
-            record = DbHelper.record( query ,fields)
+            record = DbHelper.record( query ,db_fields_to_return)
         else:
             msg = ",".join( [ str(x) for x in query.boundValues() ])
             logging.critical( "fetchrow error: {}\n\t{}\nParms: '{}'".format(  query.lastError().text() , query.lastQuery() , msg ) )
@@ -93,6 +94,11 @@ class DbHelper:
 
     @staticmethod
     def fetchrows( sql:str , param, fields:list , endquery=None )->list:
+        """ Fetch multiple rows that match the criteria
+            param:  list or dictionary of values to bind
+            fields: fields from the query to return
+            endquery: routine to call at end of query. If None, call internal endquery
+        """
         query = DbHelper.bind( DbHelper.prep(sql) , param )
         if query.exec():
             rtn = DbHelper.all( query , fields ) 
@@ -152,4 +158,22 @@ class DbHelper:
             )
         return newRecord
 
+    @staticmethod
+    def encode( value )->str:
+        """ encode will take any arbitrary value and encode to ascii"""
+        if value is None:
+            return None
+        ps= pickle.dumps( value )
+        en = base64.b64encode(ps).decode('ascii') 
+        return en 
+
+    @staticmethod
+    def decode( value:str ):
+        """ decode takes a string that has been encoded by 'encode' and return the original value """
+        if value is None:
+            return None
+        dc =  pickle.loads(base64.b64decode(value))
+        return dc
+
+       
     

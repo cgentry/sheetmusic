@@ -19,8 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sys
-import sqlite3
 import unittest
+import logging
 
 from qdb.dbconn import DbConn
 from qdb.setup import Setup
@@ -33,6 +33,8 @@ class TestSystem( unittest.TestCase):
         self.setup.dropTables()
         self.setup.createTables()
         self.obj = DbSystem()
+        self.obj.showStack(False)
+        self.obj.logger.setLevel( logging.CRITICAL )
         
 
     def tearDown(self):

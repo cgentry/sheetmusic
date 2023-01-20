@@ -64,7 +64,7 @@ class UiHelp( QDialog ):
 
 if "__main__" == __name__ :
     from PySide6.QtWidgets import QApplication
-    app = app = QApplication([])
+    app = QApplication([])
     mainFile = os.path.abspath(sys.modules['__main__'].__file__)
     mainExePath = os.path.dirname( os.path.dirname(mainFile) )
     uihelp = UiHelp( None , mainExePath)

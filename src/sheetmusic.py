@@ -30,14 +30,15 @@ import os
 import logging
 from tkinter import N
 
-from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir
+from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir, QByteArray
 from PySide6.QtWidgets  import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
-from PySide6.QtGui      import QPixmap
+from PySide6.QtGui      import QPixmap, QAction
 
 from qdb.dbconn         import DbConn
 from qdb.dbsystem       import DbSystem
-from qdb.keys           import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys
+from qdb.keys           import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE
 from qdb.setup          import Setup
+from qdb.dbnote         import DbNote
 
 from qdil.preferences   import DilPreferences, SystemPreferences
 from qdil.book          import DilBook
@@ -49,6 +50,8 @@ from ui.properties      import UiProperties
 from ui.bookmark        import UiBookmark
 from ui.file            import Openfile, Deletefile, DeletefileAction, Reimportfile
 from ui.note            import UiNote
+from util.toollist      import GenerateToolList
+from ui.runscript       import UiRunScriptFile, ScriptKeys
 
 from util.convert       import toBool
 
@@ -62,7 +65,11 @@ class MainWindow(QMainWindow):
         self.book = DilBook()
         self.system = DbSystem()
         self.bookmark = DilBookmark()
+        self._notelist = None
         self.logger = logging.getLogger('main')
+        tl = GenerateToolList()
+        self.toollist = tl.list()
+        del tl
         
     def loadUi(self)->None:
         self.pref = DilPreferences()
@@ -93,17 +100,50 @@ class MainWindow(QMainWindow):
         # label.setPixmap( px )
         # return True
 
-       
+    def pageList( self, start_page, len_list)->list:
+        plist = [0]*3
+        if start_page < 1:
+            start_page = 1
+        totalpages = self.book.getTotal()
+        for i in range( 0, len_list ):
+            if  start_page+i > totalpages:
+                break
+            plist[i] = start_page+i
+        return plist
 
-    def showPages( self )->bool:
-        """ Load both pages into the display if the book is open """
+    def loadPages( self )->bool:
+        """ Load both pages into the display if the book is open 
+            This will try to optimise the number of pages shown if we hit the end of the book
+            on a load.
+        """
         if self.book.isOpen():
-            page = self.book.getAbsolutePage()
-            # self.book.setPageNumber( page + 1 )
-            leftpx = self.book.getPixmap( page )
-            rightpx = self.book.getPixmap( page+1)
-            self.ui.pageWidget.loadPages( leftpx, page , rightpx, page+1 )
+            page = self.book.getAbsolutePage()  
+            ## work some 'magic' Show page-n...page IF page is last page.
+            totalPages = self.book.getTotal()
+            showingPages = self.ui.pageWidget.numberPages()
+            if page == totalPages and showingPages and showingPages > 1:
+                plist = self.pageList( page-showingPages+1 , 3 )
+                print( "Page {}, showing: {} , list: {}".format( page, showingPages, plist ))
+                self._loadPageWidgetList( plist )
+            else:
+                self._loadPageWidgetList( self.pageList( page , 3 ) )
         return self.book.isOpen()
+
+    def reloadPages( self )->bool:
+        if self.book.isOpen():
+            self._loadPageWidgetList( self.ui.pageWidget.pageNumbers() )
+        return self.book.isOpen()
+
+    def _loadPageWidgetList( self, plist:list ):
+        if len( plist ) < 3 :
+            plist.extend( [0] * (3 - len(plist) ))
+        return self._loadPageWidget( plist[0], plist[1], plist[2] )
+
+    def _loadPageWidget( self, pg1:int, pg2:int, pg3:int ):
+            page1 = self.book.getPixmap( pg1 )
+            page2 = self.book.getPixmap( pg2)
+            page3 = self.book.getPixmap( pg3)
+            self.ui.pageWidget.loadPages( page1, pg1 , page2, pg2 ,page3, pg3)
 
     def updatePageNumbers(self, absolutePageNumber:int=None )->None:
         if  self.book.isPageRelative(absolutePageNumber):
@@ -123,7 +163,10 @@ class MainWindow(QMainWindow):
             self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bookmark ))
 
     def updateStatusBar(self)->None:
-        absolutePageNumber = self.book.getAbsolutePage()
+        if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
+            absolutePageNumber = self.ui.pageWidget.getHighestPageShown()
+        else:
+            absolutePageNumber = self.ui.pageWidget.getLowestPageShown()
 
         if  self.book.isPageRelative(absolutePageNumber):
             self.ui.lblPageAbsolute.setText( " |{:4d} |".format( absolutePageNumber))
@@ -133,6 +176,11 @@ class MainWindow(QMainWindow):
             lbl = "Book page"
         self.ui.lblPageRelative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage()))
         #self.updateBookmarkMenuNav( self.bookmakr )
+        
+        nlist = self.getNoteList( self.book.getID())
+        
+        self.ui.setBookNote( (0 in nlist and nlist[0] > 0 ))
+        self.ui.setPageNote( (absolutePageNumber in nlist and nlist[ absolutePageNumber] > 0 ))
 
         self.ui.statusProgress.setMaximum( self.book.getTotal())
         self.ui.statusProgress.setValue( absolutePageNumber)
@@ -141,7 +189,13 @@ class MainWindow(QMainWindow):
         self.pref.restoreMainWindow( self.ui.getWindow() ) 
         self.pref.restoreShortcuts( self.ui )  
         self.actionViewStatusBar( self.pref.getValueBool( DbKeys.SETTING_WIN_STATUS_ENABLED , True ))
-            
+    
+    def getNoteList(self, book_id:int , refresh=False)->dict:
+        if book_id is not None and (self._notelist is None or refresh ):
+            dbnote = DbNote()
+            self._notelist = dbnote.getNoteForBook( book_id )
+        return self._notelist
+
     def openBook(self, newBookName:str, page=None):
         """ """
         self.closeBook()
@@ -150,12 +204,13 @@ class MainWindow(QMainWindow):
             self.book_layout = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
             self.smart_pages = toBool( self.book.getPropertyOrSystem( DbKeys.SETTING_SMART_PAGES ) )
 
-            #self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
-            self.ui.pageWidget.setDisplay( self.book_layout )
+            #self.ui.pageWidget.setDisplay( self.book_layout )
             self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
             self.ui.pageWidget.setKeepAspectRatio( self.book.getAspectRatio() )
+            #self.ui.pageWidget.resize( self.ui.pager.size() )
+            self.ui.pageWidget.setDisplay( self.book_layout )
 
-            if self.showPages():
+            if self.loadPages():
                 self.setTitle()
                 self.setMenusForBook(True)
                 self.bookmark.open( newBookName )
@@ -163,10 +218,12 @@ class MainWindow(QMainWindow):
                 self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
                 self.ui.actionSmartPages.setChecked( self.smart_pages )
                 self.updateStatusBar()
+                self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
         return rtn
 
     def closeBook(self)->None:
         """ Close the book, save a pointer to it, and hide the menu items. """
+        self._notelist = None
         if self.book.isOpen():
             self.pref.setValue( DbKeys.SETTING_LAST_BOOK_NAME , self.book.getTitle())
             self.book.closeBook()
@@ -224,9 +281,8 @@ class MainWindow(QMainWindow):
     
     def resizeEvent(self,event):
         self.ui.pageWidget.resize( self.ui.pager.size() )
-        self.showPages()
-        # if self.ui.isRightPageShown() is not None:
-        #     self.showPages()
+        self.reloadPages()
+
 
     def keyPressEvent(self, ev)->None:
         #if False and (ev.type() == QEvent.KeyPress):
@@ -245,49 +301,61 @@ class MainWindow(QMainWindow):
         self.closeBook()
         DbConn.closeDB()
 
-    def _changePage( self, inc:int )->None:
-        currentPage = self.book.getAbsolutePage()
-        newPage = self.book.incPageNumber(inc)
-        if newPage != currentPage :
-            if inc < 0 :
-                self.ui.pageWidget.previousPage( self.book.getPixmap( newPage ), newPage )
-            else:
-                self.ui.pageWidget.nextPage( self.book.getPixmap( newPage ), newPage )
-            self.updateStatusBar()
+    def _changePage( self, page:int, inc:int )->None:
+        self.book.setPageNumber( page )
+        if self.book.isValidPage( page + inc  ):  
+            page = page+inc
+            self.ui.pageWidget.nextPage( self.book.getPixmap( page ), page )
+        else:
+            if not self.ui.pageWidget.isShown( page ):
+                self.ui.pageWidget.nextPage( None , page )
+        self.updateStatusBar()
 
         
     def pageBackward(self)->None:
-        self.book.setPageNumber( self.ui.pageWidget.getLowestPageShown())
-        self._changePage(  -1 )
+        lowestPage = self.ui.pageWidget.getPageForPosition(1)
+        pg = max( 1 , lowestPage-1 )
+        if pg != lowestPage:
+            self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg )
+        self.book.setPageNumber( pg )
+        self.updateStatusBar()
 
     def pageForward(self)->None:
-        self.book.setPageNumber( self.ui.pageWidget.getHighestPageShown())
-        self._changePage(   1 )
+        pg = self.ui.pageWidget.getHighestPageShown()
+        pg = self.ui.pageWidget.getHighestPageShown()
+        self.book.setPageNumber( pg )
+        if self.book.isValidPage( pg + 1  ):  
+            pg = pg+1
+            self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg )
+        else:
+            if not self.ui.pageWidget.isShown( pg ):
+                self.ui.pageWidget.nextPage( None , pg )
+        self.updateStatusBar()
     
     def goToPage(self, page )->None:
         ''' Set the page number to the page passed and display
             page number must be absolute, not relative.
         '''
         self.book.setPageNumber(page)
-        self.showPages()
+        self.loadPages()
 
     def goFirstBookmark(self)->None:
         bmk = self.bookmark.getFirst( )
         self.book.setPageNumber(bmk[BOOKMARK.page])
-        self.showPages()
+        self.loadPages()
 
     def goLastBookmark(self)->None:
         bmk = self.bookmark.getLast( )
         self.book.setPageNumber(bmk[BOOKMARK.page])
-        self.showPages()
+        self.loadPages()
 
     def goFirstPageShown(self)->None:
         self.book.setPageNumber(self.book.getFirstPageShown() )
-        self.showPages()
+        self.loadPages()
 
     def goLastPageShown(self)->None:
         self.book.setPageNumber( self.book.getLastPageShown())
-        self.showPages()
+        self.loadPages()
 
     def connectMenus(self)->None:
         """ Connect menus and events to the routines handling the function"""
@@ -296,14 +364,17 @@ class MainWindow(QMainWindow):
         self.ui.actionAdd_Bookmark.triggered.connect(self.actionAddBookmark)
         self.ui.actionCleanDB.triggered.connect( self.actionCleanDB )
         self.ui.actionDumpDB.triggered.connect( self.actionDumpDB )
+        self.ui.menuToolScript.aboutToShow.connect( self.actionToolScriptUpdateList)
+        self.ui.menuToolScript.triggered.connect(self.actionToolScript )
+
         #self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         self.ui.actionPreviousBookmark.triggered.connect( self.goPreviousBookmark )
         self.ui.actionNextBookmark.triggered.connect( self.goNextBookmark )
         self.ui.lblBookmark.clicked.connect( self.actionClickedBookmark )
 
         self.ui.actionOpen.triggered.connect(self.actionFileOpen)
-        self.ui.menuOpen_Recent.aboutToShow.connect( self.actionOpenRecentUpdateFiles)
-        self.ui.menuOpen_Recent.triggered.connect(self.actionOpenRecent)
+        self.ui.menuOpenRecent.aboutToShow.connect( self.actionOpenRecentUpdateFiles)
+        self.ui.menuOpenRecent.triggered.connect(self.actionOpenRecent)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
         self.ui.actionNoteBook.triggered.connect( self.actionNoteBook )
         self.ui.actionDeleteAllBookmarks.triggered.connect( self.actionDeleteAllBookmarks )
@@ -317,8 +388,10 @@ class MainWindow(QMainWindow):
         self.ui.actionLastPage.triggered.connect( self.goLastPageShown )
 
         self.ui.actionOne_Page.triggered.connect( self.actionOnePage)
-        self.ui.actionTwo_Pages.triggered.connect( self.actionTwoPages)
-        self.ui.actionStack_Pages.triggered.connect( self.actionStackedPages)
+        self.ui.actionTwo_Pages.triggered.connect( self.actionTwoPagesSide)
+        self.ui.actionTwo_Pages_Stacked.triggered.connect( self.actionTwoPagesStacked)
+        self.ui.actionThree_Pages.triggered.connect( self.actionThreePagesSide )
+        self.ui.actionThree_Pages_Stacked.triggered.connect( self.actionThreePagesStacked )
         self.ui.actionViewStatus.triggered.connect(self.actionViewStatusBar)
         self.ui.actionAspectRatio.triggered.connect(self.actionAspectRatio)
         self.ui.actionSmartPages.triggered.connect( self.actionSmartPages )
@@ -386,7 +459,7 @@ class MainWindow(QMainWindow):
 
     def actionAspectRatio(self, state)->None:
         self.book.setAspectRatio( state )
-        self.showPages()
+        self.loadPages()
 
     def actionSmartPages( self, state:bool )->None:
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , state)
@@ -405,17 +478,34 @@ class MainWindow(QMainWindow):
         if self.book.editProperties( UiProperties() ) :
             self.setTitle()
             self.updateStatusBar()
-            self.showPages()
+            self.loadPages()
+
+    def _actionNote( self, page:int, seq:int , titleSuffix:str ):
+        dbnote = DbNote()
+        uinote = UiNote()
+        id     = self.book.getID()
+        note   = dbnote.getNote( id , page=page , seq=seq )
+        
+        uinote.setText( note[ NOTE.note ] )    
+        uinote.setLocation( note[NOTE.location])
+        uinote.setWindowTitle( "{} - {}".format( self.book.getTitle() , titleSuffix) )
+        uinote.setID( ( note[ NOTE.id ] if NOTE.id in note and note[NOTE.id] > 0 else None ) )
+        rtn=uinote.exec()
+        if rtn:
+            if uinote.delete() and NOTE.id in note :
+                dbnote.deleteNote(note )
+            elif uinote.textChanged():
+                note[NOTE.note ]     = uinote.text() 
+                note[NOTE.location ] = uinote.location() 
+                dbnote.add( note )
+                self.ui.setBookNote(True)
 
     def actionNoteBook(self)->None:
-        txt = self.book.getNote()
-        uinote = UiNote()
-        uinote.setWindowTitle( "{} - Book".format( self.book.getTitle() ) )
-        uinote.setText( txt )
-        rtn=uinote.exec()
-        if rtn and uinote.textChanged():
-            self.book.setProperty( BOOK.note , uinote.text() )
-            
+        self._actionNote( page=0, seq=0, titleSuffix='Book')
+
+    def actionNotePage( self, id ):
+        page   = self.book.getAbsolutePage()
+        self._actionNote( page=page , seq=0 ,titleSuffix="Page {}".format( page ) )
 
     def actionDeleteAllBookmarks(self)->None:
         rtn = QMessageBox.warning(
@@ -438,9 +528,9 @@ class MainWindow(QMainWindow):
         self.ui.setNavigationShortcuts( self.settings )
         self.ui.setBookmarkShortcuts( self.settings )
         viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
-        self.ui.showRightPage((viewState == DbKeys.VALUE_PAGES_DOUBLE ))
+        self.ui.pageWidget.setDisplay( viewState )
         self.toggleMenuPages( viewState )
-        self.showPages()
+        self.loadPages()
     
     def actionAbout(self)->None:
         from ui.about import UiAbout
@@ -540,23 +630,43 @@ class MainWindow(QMainWindow):
         if of.bookName is not None:
             self.openBook( of.bookName )
             
-    def actionOpenRecent(self, action )->None:
+    def actionOpenRecent(self, action:QAction )->None:
         if action is not None:
             if self.openBook( action.data() ) == QMessageBox.Retry:
                 self.actionFileOpen()
 
+    def actionToolScript(self, action:QAction )->None:
+        if action is not None:
+            if action.text() in self.toollist:
+                from ui.runscript import ScriptKeys, UiRunSimpleNote, UiRunScriptFile
+                key = action.text()
+                path = self.toollist[key][ 'path']
+                if self.toollist[key][ScriptKeys.SIMPLE ]:
+                    runner = UiRunSimpleNote( path )
+                else:
+                    runner = UiRunScriptFile( path  )
+                runner.run()
+
+    def actionToolScriptUpdateList(self)->None:
+        self.ui.menuToolScript.clear()
+        keys = sorted( self.toollist.keys() )
+        for key in keys :
+            recent = self.ui.menuToolScript.addAction( key )
+            recent.setData( self.toollist[ key ])
+        self.ui.menuToolScript.setEnabled( len( keys ) > 0 )
+        
     def actionOpenRecentUpdateFiles(self)->None:
-        self.ui.menuOpen_Recent.clear()
+        self.ui.menuOpenRecent.clear()
         fileNames = DilBook().getRecent()
         if fileNames is not None and len( fileNames ) > 0 :
             for entry, bookEntry in enumerate( fileNames , start=1):
-                recent_action = self.ui.menuOpen_Recent.addAction(
+                recent_action = self.ui.menuOpenRecent.addAction(
                     '&{:2d}.  {} - {}'.format(
                         entry, bookEntry[BOOK.name], bookEntry[BOOK.location])
                     )
                 recent_action.setData( bookEntry[ BOOK.name] )
         # end if len(fileNames)
-        self.ui.menuOpen_Recent.setEnabled( (len( fileNames ) > 0) )    
+        self.ui.menuOpenRecent.setEnabled( (len( fileNames ) > 0) )    
 
     def actionClose(self)->None:
         self.closeBook()
@@ -591,16 +701,17 @@ class MainWindow(QMainWindow):
         if layoutType is None:
             layoutType = self.system.getValue( DbKeys.SETTING_PAGE_LAYOUT , DbKeys.VALUE_PAGES_SINGLE )
         self.ui.actionOne_Page.setChecked(  (layoutType == DbKeys.VALUE_PAGES_SINGLE))
-        self.ui.actionTwo_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_DOUBLE))
-        self.ui.actionStack_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACKED ))
+        self.ui.actionTwo_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_SIDE_2))
+        self.ui.actionTwo_Pages_Stacked.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACK_2 ))
+        self.ui.actionThree_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_SIDE_3))
+        self.ui.actionThree_Pages_Stacked.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACK_3 ))
 
     def _setPageLayout( self, value ):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
         self.book.setProperty( DbKeys.SETTING_PAGE_LAYOUT , value)
         self.ui.pageWidget.setDisplay( value )
-        #self.ui.showRightPage((value == DbKeys.VALUE_PAGES_DOUBLE ))
         self.toggleMenuPages( value )
-        self.showPages()
+        self.loadPages()
 
     def _setSmartPages( self, value ):
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , value )
@@ -609,11 +720,17 @@ class MainWindow(QMainWindow):
     def actionOnePage(self)->None:
         self._setPageLayout( DbKeys.VALUE_PAGES_SINGLE)
 
-    def actionTwoPages(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_DOUBLE)
+    def actionTwoPagesSide(self)->None:
+        self._setPageLayout( DbKeys.VALUE_PAGES_SIDE_2)
 
-    def actionStackedPages(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_STACKED)
+    def actionTwoPagesStacked(self)->None:
+        self._setPageLayout( DbKeys.VALUE_PAGES_STACK_2)
+
+    def actionThreePagesSide(self)->None:
+        self._setPageLayout( DbKeys.VALUE_PAGES_SIDE_3)
+
+    def actionThreePagesStacked(self)->None:
+        self._setPageLayout( DbKeys.VALUE_PAGES_STACK_3)
 
     def _importPDF(self, insertData, duplicateData ):
         dilb = DilBook()
@@ -681,7 +798,7 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     sy = SystemPreferences()
     dbLocation    = sy.getPathDB()          # Fetch the system settings
-    mainDirectory = sy.getDirectory()       # Get direcotry
+    mainDirectory = sy.getDirectory()       # Get directory
     DbConn.openDB( dbLocation )
     setup = Setup()
 

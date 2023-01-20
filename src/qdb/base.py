@@ -10,10 +10,12 @@ class DbBase():
     """
     _wasError = False
     _lastError = None
+    _show_stack = False
     _errorMessages = {}
     logger = None
 
     def __init__(self):
+        
         pass
     
     def setupLogger(self):
@@ -24,11 +26,11 @@ class DbBase():
         query.finish()
         return rtn
 
-    def _formatInsertVariable( self, table:str, parms:dict , replace:bool=False, ignore:bool=False)->str:
+    def _formatInsertVariable( self, table_name:str, field_value_dict:dict , replace:bool=False, ignore:bool=False)->str:
         """ Take a dictionary and format for an insert 
             You can set mode of insert by setting replace or ignore flags"""
-        names  = ','.join( list(parms.keys()) )
-        values = ','.join( [ '?' for i in range( 0, len(parms))] )
+        field_names  = ','.join( list(field_value_dict.keys()) )
+        field_values = ','.join( [ '?' for i in range( 0, len(field_value_dict))] )
         if replace:
             insertOp = 'OR REPLACE'
         elif ignore:
@@ -36,21 +38,24 @@ class DbBase():
         else:
             insertOp = ''
 
-        return "INSERT {} INTO {} ({}) VALUES ({})".format( insertOp, table, names, values )
+        return "INSERT {} INTO {} ({}) VALUES ({})".format( insertOp, table_name, field_names, field_values )
 
     def _prepareInsertVariable( self, sql, parms:dict)->QSqlQuery:
         return DbHelper.bind( DbHelper.prep( sql ) , list( parms.values() ))
 
-    def _formatUpdateVariable( self, table:str, keyfield:str, keyvalue:str, parms:dict )->str:
+    def _formatUpdateVariable( self, table_name:str, key_name:str,  field_value_dict:dict )->str:
         """ 
             Take a dictionary and format for update. 
             You need to pass the keyfield and the keyvalue
             Which cannot be part of the parms
         """
-        setlist = [ "{} = ?".format( key.strip('*') ) for key in list( parms.keys() ) ]
+        field_to_value = [ "{} = ?".format( field_name.strip('*') ) for field_name in list( field_value_dict.keys() ) ]
 
-        return "UPDATE {} SET {}  WHERE {} = ?".format( table, ','.join(setlist) , keyfield )
+        return "UPDATE {} SET {}  WHERE {} = ?".format( table_name, ','.join(field_to_value) , key_name )
     
+    def showStack(self , show:bool=True):
+        self._show_stack = show
+
     def _checkError( self, query:QSqlQuery)->bool:
         self._errorMessages = {'sql': query.lastQuery() ,'values':query.boundValues() }
         self._lastError     = query.lastError()
@@ -61,19 +66,20 @@ class DbBase():
         elif self._lastError.type() == QSqlError.StatementError:
             self._errorMessages['error_type'] = 'Program: SQL Error'
         elif self._lastError == QSqlError.TransactionError:
-            self._errorMessage['error_type'] = 'Database: Transaction error'
+            self._errorMessages['error_type'] = 'Database: Transaction error'
         elif self._lastError == QSqlError.UnknownError:
-            self.errorMessage['error_type'] = '?: Unknown error'
+            self.errorMessages['error_type'] = '?: Unknown error'
         if self._wasError:
             self._errorMessages['error_db'] = self._lastError.databaseText()
             self._errorMessages['error_driver'] = self._lastError.driverText()
-            stacklist = stack()
-            for i in range( len(stacklist)-1, 0 , -1):
-                stackinfo = stacklist[i]
-                tag = 'caller-' + str(len(stacklist) - i)
-                fname = "{}/{}".format( path.basename( path.dirname( stackinfo.filename)) , path.basename( stackinfo.filename ) )
-                self._errorMessages[tag] = "{}:{}@{}".format( fname , stackinfo.function, stackinfo.lineno ) 
-            self.logger.error( "DbBase:\n\t" + "\n\t".join( ["{:12}: '{}'".format(k, self._errorMessages[ k ]) for k in sorted(self._errorMessages ) ] ) )
+            if self._show_stack:
+                stacklist = stack()
+                for i in range( len(stacklist)-1, 0 , -1):
+                    stackinfo = stacklist[i]
+                    tag = 'caller-' + str(len(stacklist) - i)
+                    fname = "{}/{}".format( path.basename( path.dirname( stackinfo.filename)) , path.basename( stackinfo.filename ) )
+                    self._errorMessages[tag] = "{}:{}@{}".format( fname , stackinfo.function, stackinfo.lineno ) 
+                self.logger.error( "DbBase:\n\t" + "\n\t".join( ["{:12}: '{}'".format(k, self._errorMessages[ k ]) for k in sorted(self._errorMessages ) ] ) )
         return self._wasError
     
     def lastError(self)->QSqlError:

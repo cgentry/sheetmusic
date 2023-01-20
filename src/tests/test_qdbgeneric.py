@@ -20,7 +20,7 @@
 
 
 import unittest
-import os
+import logging
 
 from qdb.dbconn     import DbConn
 from qdb.setup      import Setup
@@ -41,6 +41,7 @@ class TestDbGeneric( unittest.TestCase ):
         self.sys.createTables()
         self.sys.initGenre()
         self.dummy = DummyData()
+        self.dummy.logger.setLevel( logging.CRITICAL )
 
     def tearDown(self):
         #self.sys.dropTables()

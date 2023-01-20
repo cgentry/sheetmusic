@@ -19,6 +19,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import os
+from collections        import OrderedDict
+from functools          import lru_cache
 from qdb.dbbook         import DbBook
 from qdb.dbbooksettings import DbBookSettings
 from qdb.dbsystem       import DbSystem
@@ -27,6 +29,46 @@ from util.convert       import toInt
 from PySide6.QtWidgets  import QMessageBox
 from PySide6.QtGui      import QPixmap
 
+class TinyCache(  ):
+
+    def __init__(self , size=6):
+        print("CACHE SIZE=",size)
+        self.cache = OrderedDict()
+        self.size( size)
+        self.hits = 0
+        self.miss = 0
+        self.label('cache' )
+
+    def size( self, new_maxsize ):
+        self.max = new_maxsize
+
+    def label(self, name )->None:
+        self.label = name 
+
+    def get(self, key ):
+        if key in self.cache:
+            self.hits = self.hits + 1
+            self.cache.move_to_end(key, last=False)
+            return self.cache[key]
+        self.miss = self.miss + 1
+        return None
+    
+    def set(self, key, value):
+        while len( self.cache ) >= self.max:
+            self.cache.popitem( last=True ) # pop last entry
+        self.cache[key] = value
+        self.cache.move_to_end(key, last=False) # Move to first location
+
+    def cache_clear(self):
+        """ Clear will wipe out all entries. You don't really need to call this """
+        while len( self.cache ) > 0:
+            self.cache.popitem()
+
+    def cache_info( self )->str:
+        return "CacheInfo(hits={}, misses={}, maxsize={}, currsize={})".format( 
+            self.hits, self.miss, self.max, len(self.cache))
+
+
 class DilBook( DbBook ):
     """
         DilBook is a data interface layer that will act as the general
@@ -34,15 +76,17 @@ class DilBook( DbBook ):
     """
     def __init__(self):
         super().__init__()
+        self.tcache = TinyCache(size=self.CACHE_SIZE)
         self.dbooksettings = DbBookSettings()
         s = DbSystem()
         self.page_prefix  = s.getValue( DbKeys.SETTING_FILE_PREFIX , DbKeys.VALUE_FILE_PREFIX)
         self.page_suffix  = s.getValue( DbKeys.SETTING_FILE_TYPE ,   DbKeys.VALUE_FILE_TYPE)
         self.numberRecent = s.getValue( DbKeys.SETTING_MAX_RECENT_SIZE , 10 )
         del s
+        
         self.clear()
     
-    CACHE_SIZE = 5
+    CACHE_SIZE = 2
 
     def _formatPrettyName(self, name):
         ''' Only called when you want to split apart a page name to something nicer'''
@@ -140,6 +184,7 @@ class DilBook( DbBook ):
             if self.book[DbKeys.SETTING_PAGE_LAYOUT ] is not None:
                 self.changes[DbKeys.SETTING_PAGE_LAYOUT ] = self.book[DbKeys.SETTING_PAGE_LAYOUT ]
             self.writeProperties()
+            self.clearCache()
         self.clear()
 
     def isOpen(self)->bool:
@@ -212,9 +257,8 @@ class DilBook( DbBook ):
         self.thisPage = 0
         self.firstPage = 0
 
-    def checkPageNumber(self) -> int:
-        self.thisPage = min( max( 1, self.thisPage) , self.getProperty( BOOK.totalPages, 999) )
-        return self.thisPage
+    def isValidPage( self, page:int )->bool:
+        return ( page >0 and page <= self.getProperty( BOOK.totalPages, 999) )
 
     def getNote(self)->str:
         return self.getProperty( BOOK.note )
@@ -290,7 +334,7 @@ class DilBook( DbBook ):
         return self.getProperty(  BOOK.totalPages, 0 )
 
     def getLastPageShown(self) -> int:
-        if self.getPropertyOrSystem( BOOKPROPERTY.layout) == DbKeys.VALUE_PAGES_DOUBLE :
+        if self.getPropertyOrSystem( BOOKPROPERTY.layout) == DbKeys.VALUE_PAGES_SIDE_2 :
             return max( self.getProperty( BOOK.totalPages )-1 , 1 )
         return self.getProperty( BOOK.totalPages ) 
 
@@ -318,10 +362,15 @@ class DilBook( DbBook ):
     def setPageNumber(self, pnum) -> int:
         '''
         This is the only place you should change the current page number.
-        It will accept a number or a string
+        It will accept a number or a string and force the page number to 
+        a valid range (1 -> end of book)
         '''
-        self.thisPage = toInt( pnum, self.thisPage )
-        return self.checkPageNumber()
+        pnum = toInt( pnum, self.thisPage )
+        if self.isValidPage( pnum ):
+            self.thisPage = pnum
+        else:
+            self.thisPage = min( max( 1, self.thisPage) , self.getProperty( BOOK.totalPages, 999) )
+        return self.thisPage
 
     def getBookPath(self, bookPath:str=None)->str:
         if bookPath is None:
@@ -337,23 +386,31 @@ class DilBook( DbBook ):
     def getBookPagePath(self, pageNum=None)->str:
         return self.bookPathFormat.format(toInt( pageNum ))
 
-    ### @lru_cache(5)
-    def getPixmap(self, pageNum)->QPixmap:
+    def clearCache(self):
+        print( "Cache: {}".format( self.tcache.cache_info() ) )
+        #self.tcache.cache_clear()
+
+    def getPixmap(self, pageNum:str)->QPixmap:
         """ read the file and convert it into a pixal map.
             This will cache entries to help speedup pixmap conversion
         """
-        imagePath = self.getBookPagePath(pageNum)
-        if not os.path.isfile( imagePath ):
-            QMessageBox.critical(
-                None,
-                "Image Error",
-                "{} page {} does not exist.".format( self.book[BOOK.name] , pageNum ),
-                QMessageBox.Cancel
-            )
-            return None
-        else:
-            qi= QPixmap(imagePath)
-        return qi
+        if self.isValidPage( pageNum ):
+            imagePath = self.getBookPagePath(pageNum)
+            if os.path.isfile( imagePath ):
+                px = self.tcache.get( imagePath )
+                if px is None:
+                    px = QPixmap( imagePath )
+                    self.tcache.set(imagePath , px )
+                return px
+
+        # QMessageBox.critical(
+        #     None,
+        #     "Image Error",
+        #     "{} page {} does not exist.".format( self.book[BOOK.name] , pageNum ),
+        #     QMessageBox.Cancel
+        # )
+        return None
+        
 
     def getRecent(self):
         self.numberRecent = DbSystem().getValue( DbKeys.SETTING_MAX_RECENT_SIZE , 10 )

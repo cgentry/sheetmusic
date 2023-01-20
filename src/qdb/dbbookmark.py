@@ -59,23 +59,27 @@ class DbBookmark(DbBase):
         ) ORDER BY page DESC LIMIT 1;"""
     
     SQL_IS_EXPANDED=False
+
+    columnNames = None
+    joinView    = None
     
     def __init__(self):
         super().__init__( )
         self.setupLogger()
 
-        self.columnNames = DbConn.getColumnNames( 'Bookmark')
-        self.joinView    = self.columnNames
-        self.joinView.remove('id')
-        self.joinView.extend([ 'Bookmark.id', 'book', 'total_pages'])
+        if DbBookmark.columnNames is None or DbBookmark.joinView is None:
+            DbBookmark.columnNames = DbConn.getColumnNames( 'Bookmark')
+            DbBookmark.joinView    = DbBookmark.columnNames
+            DbBookmark.joinView.remove('id')
+            DbBookmark.joinView.extend([ 'Bookmark.id', 'book', 'total_pages'])
         if not DbBookmark.SQL_IS_EXPANDED:
-            DbBookmark.SQL_BOOKMARK_FOR_ENDS = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_FOR_ENDS,self.joinView)
-            DbBookmark.SQL_BOOKMARK_FOR_PAGE = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_FOR_PAGE,self.joinView)
+            DbBookmark.SQL_BOOKMARK_FOR_ENDS = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_FOR_ENDS,DbBookmark.joinView)
+            DbBookmark.SQL_BOOKMARK_FOR_PAGE = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_FOR_PAGE,DbBookmark.joinView)
 
-            DbBookmark.SQL_BOOKMARK_NEXT     = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_NEXT,self.joinView)
-            DbBookmark.SQL_BOOKMARK_PREVIOUS = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_PREVIOUS,self.joinView)
+            DbBookmark.SQL_BOOKMARK_NEXT     = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_NEXT,DbBookmark.joinView)
+            DbBookmark.SQL_BOOKMARK_PREVIOUS = DbHelper.addColumnNames( DbBookmark.SQL_BOOKMARK_PREVIOUS,DbBookmark.joinView)
 
-            DbBookmark.SQL_SELECT_ALL_BY_ID = DbHelper.addColumnNames( DbBookmark.SQL_SELECT_ALL_BY_ID,self.joinView)
+            DbBookmark.SQL_SELECT_ALL_BY_ID = DbHelper.addColumnNames( DbBookmark.SQL_SELECT_ALL_BY_ID,DbBookmark.joinView)
 
             DbBookmark.SQL_IS_EXPANDED = True
         self.bookID = None
@@ -85,7 +89,7 @@ class DbBookmark(DbBase):
         id = self._getBookID(book)
         if id is None:
             return None
-        rtn = DbHelper.fetchrow( sql , id , fields=self.joinView )
+        rtn = DbHelper.fetchrow( sql , id , db_fields_to_return=DbBookmark.joinView )
         return rtn
     
     def _getBookID(self, book )->int:
@@ -111,7 +115,7 @@ class DbBookmark(DbBase):
 
     def getBookmarkForPage( self, book:str, page:int )->dict:
         bookID = self._getBookID( book )
-        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_FOR_PAGE, [bookID, page] , self.joinView)
+        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_FOR_PAGE, [bookID, page] , DbBookmark.joinView)
         return res
 
     def getLastpageForBookmark( self, book:str, page:int)->int:
@@ -126,12 +130,12 @@ class DbBookmark(DbBase):
 
     def getPreviousBookmarkForPage( self, book:str, page:int )->dict:
         id = self._getBookID( book )
-        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_PREVIOUS, [id, id, page] , self.joinView, debug=False )
+        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_PREVIOUS, [id, id, page] , DbBookmark.joinView, debug=False )
         return res
         
     def getNextBookmarkForPage( self, book:str, page:int )->dict:
         id = self._getBookID(book)
-        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_NEXT, [id, id, page] , self.joinView)
+        res = DbHelper.fetchrow( DbBookmark.SQL_BOOKMARK_NEXT, [id, id, page] , DbBookmark.joinView)
         return res
 
     def addBookmark(self, book:str, bookmark:str, page:int)->bool:
@@ -196,12 +200,12 @@ class DbBookmark(DbBase):
         
     def getAllId(self,book_id:int, order:str='page')->list:
         """ Retrieve a list of all bookmarks by book ID """
-        order = ( order if order in self.columnNames else 'page')
+        order = ( order if order in DbBookmark.columnNames else 'page')
         sql = DbBookmark.SQL_SELECT_ALL_BY_ID.replace(':order', order)
         q = DbHelper.prep(sql)
         q = DbHelper.bind( q , book_id )
         q.exec()
-        return DbHelper.all( q, self.joinView )
+        return DbHelper.all( q, DbBookmark.joinView )
 
     def getTotal( self, book:str )->int:
         """

@@ -18,8 +18,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-import sqlite3
+
 import unittest
 
 from qdb.dbconn import DbConn
@@ -36,7 +35,6 @@ class TestSystem( unittest.TestCase):
         self.setup.initData()
         self.obj = DilPreferences()
         
-
     def tearDown(self):
         self.setup.dropTables()
 

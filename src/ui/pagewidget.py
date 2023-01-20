@@ -19,6 +19,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+### NOTE: There is some weird stuff with 3 pages. C++ deletes PageLabelWidgets
+### even when the references are just fine. There are some sloppy fixes to
+### get around this. Sorry. I'll continue to try and change this.
+
 from PySide6.QtCore    import QSize
 from PySide6.QtGui     import ( QPixmap, Qt )
 from PySide6.QtWidgets import (
@@ -29,7 +33,7 @@ from ui.borderglow     import BorderGlow
 
 
 class PageLabelWidget(QLabel):
-    END_OF_BOOK=999
+    PAGE_NONE=0
     START_OF_BOOK=0
     """ PageLabelWidget is the simple page handler routines for creating a QLabel and 
         populating it with images. It handles aspect ratio and helps keep state for 
@@ -67,7 +71,6 @@ class PageLabelWidget(QLabel):
     def setImage(self, px:QPixmap, pgNumber:int)->bool:
         self.clear()
         if px is None or px is False or px.isNull():
-            self.setPageNumber( self.END_OF_BOOK)
             return False
 
         if self._keepAspectRatio:
@@ -78,7 +81,16 @@ class PageLabelWidget(QLabel):
         self.setPageNumber( pgNumber )
         return True
 
-    def setPageNumber( self, pgNumber:int=None )->None:
+    def copyImage(self, otherPage ):
+        self.clear()
+        self._isClear = True
+        if not otherPage.isClear() :
+            self.setPixmap( otherPage.pixmap() )
+            self._isClear = False
+            self.setPageNumber( otherPage.pageNumber() )
+        return not self._isClear
+
+    def setPageNumber( self, pgNumber:int=PAGE_NONE )->None:
         self._pageNumber = pgNumber
 
     def pageNumber(self)->int:
@@ -91,13 +103,15 @@ class PageWidget():
     """
     FORWARD       = True
     BACKWARD      = False
-    LAYOUT_SINGLE = DbKeys.VALUE_PAGES_SINGLE
-    LAYOUT_DOUBLE = DbKeys.VALUE_PAGES_DOUBLE
-    LAYOUT_SIDE   = DbKeys.VALUE_PAGES_DOUBLE
-    LAYOUT_STACKED= DbKeys.VALUE_PAGES_STACKED
+
+    LAYOUT_WIDTH  = 'width'
+    LAYOUT_HEIGHT = 'height'
+    LAYOUT_PAGES  = 'count'
+    LAYOUT_SETUP  = 'setup'
+    LAYOUT_CREATE = 'layout'
+    ALL_PAGES     = 3
 
     def __init__(self, MainWindow:QMainWindow):
-
         self.borderGlow = BorderGlow()
         self._setupVars( MainWindow )
         self._setSize( MainWindow )
@@ -114,6 +128,7 @@ class PageWidget():
 
         self.pageWidget.addWidget( self.mainPageWidget)
 
+
     def getMainPageWidget(self):
         return self.pageWidget
 
@@ -122,11 +137,12 @@ class PageWidget():
         return self.mainPageWidget
 
     def setKeepAspectRatio(self, flag:bool)->None:
-        self.left.setKeepAspectRatio( flag )
-        self.right.setKeepAspectRatio( flag )
+        self.pageOne.setKeepAspectRatio( flag )
+        self.pageTwo.setKeepAspectRatio( flag )
+        self.pageThree.setKeepAspectRatio( flag )
 
     def keepAspectRatio( self )->bool:
-        return self.left.keepAspectRatio()
+        return self.pageOne.keepAspectRatio()
 
     def _setSize( self, windowSize )->bool:
         """ Save the size for the main window. This will accept
@@ -147,34 +163,53 @@ class PageWidget():
             You should pass the qsize or width in. It will be called on creation
             to set sizes correctly
         """
-        if self._setSize( size ):
-            if self._currentLayoutMode == self.LAYOUT_STACKED:
-                self.page_width = self.windowWidth
-                self.page_height = self.windowHeight/2 if self._isShowingRightPage else self.windowHeight
-            elif self._currentLayoutMode == self.LAYOUT_SIDE:
-                self.page_width = self.windowWidth/2 if self._isShowingRightPage else self.windowWidth
-                self.page_height = self.windowHeight
-            else: # self.LAYOUT_SINGLE
-                self.page_width  = self.windowWidth
-                self.page_height = self.windowHeight
+        if self._setSize(size) and self._currentLayoutMode :
+            if self._setSize( size ):
+                self.page_width = int( self.windowWidth  / self._getLayoutValue( self.LAYOUT_WIDTH ) )
+                self.page_height= int (self.windowHeight / self._getLayoutValue( self.LAYOUT_HEIGHT ) )
+            if self.page_width and self.page_height:
+                self.pageOne.resize(   self.page_width , self.page_height  )
+                self.pageTwo.resize(   self.page_width , self.page_height )
+                self.pageThree.resize( self.page_width , self.page_height )
 
-        if self.page_width and self.page_height:
-            self.left.resize( self.page_width , self.page_height  )
-            if self._isShowingRightPage:
-                self.right.resize( self.page_width , self.page_height )
-                 
     def _setupVars(self, MainWindow:QMainWindow ):
         """ Set any variables that should be set before we startup
             This will not create any objects for display
         """
+        self._layout = {
+            DbKeys.VALUE_PAGES_SINGLE:  { 
+                self.LAYOUT_SETUP:  self.setDisplayOnePage  , 
+                self.LAYOUT_WIDTH:  1 , 
+                self.LAYOUT_HEIGHT: 1 , 
+                self.LAYOUT_PAGES : 1 },
+            DbKeys.VALUE_PAGES_SIDE_2:  { 
+                self.LAYOUT_SETUP:  self.setDisplayTwoPageSide , 
+                self.LAYOUT_WIDTH:  2 , 
+                self.LAYOUT_HEIGHT: 1 , 
+                self.LAYOUT_PAGES : 2 },
+            DbKeys.VALUE_PAGES_SIDE_3:  { 
+                self.LAYOUT_SETUP:  self.setDisplayThreePagesSide  , 
+                self.LAYOUT_WIDTH:  3 , 
+                self.LAYOUT_HEIGHT: 1 , 
+                self.LAYOUT_PAGES : 3 },
+            DbKeys.VALUE_PAGES_STACK_2: { 
+                self.LAYOUT_SETUP:  self.setDisplayTwoPagesStacked , 
+                self.LAYOUT_WIDTH:  1 , 
+                self.LAYOUT_HEIGHT: 2 , 
+                self.LAYOUT_PAGES : 2 },
+            DbKeys.VALUE_PAGES_STACK_3: { 
+                self.LAYOUT_SETUP:  self.setDisplayThreePagesStacked, 
+                self.LAYOUT_WIDTH:  1 , 
+                self.LAYOUT_HEIGHT: 3 , 
+                self.LAYOUT_PAGES : 3 },
+        }
+
         self.direction = self.FORWARD
-        self._isShowingRightPage = False
-        self._isShowingLeftPage = False
-        self.smartTurn = False
+        self._currentLayout = None
         self._currentLayoutMode = None
         self.windowHeight = None
         self.windowWidth = None
-        self.setSmartPageTurn( False )
+        self.smartTurn = False
 
     def createPageSizePolicy(self)->QSizePolicy:
         """ Create the page size policy used for the page display widget"""
@@ -186,10 +221,12 @@ class PageWidget():
 
     def createPages(self):
         """ Create the left and right pages """
-        self.left  = PageLabelWidget(u"left")
-        self.right = PageLabelWidget(u"right")
-  
+        self.pageOne   = PageLabelWidget(u"1")
+        self.pageTwo   = PageLabelWidget(u"2")
+        self.pageThree = PageLabelWidget(u"3")
 
+        self.pageRefs  = [self.pageOne , self.pageTwo , self.pageThree ]
+  
     def createMainPageWidget(self)->QWidget:
         """ This will create the main widget used to hold the pages"""
         self.mainPageWidget = QWidget()
@@ -200,14 +237,14 @@ class PageWidget():
         return self.mainPageWidget
 
     def createSideBySideLayout( self ):
-        self.twoPagesSideLayout = QHBoxLayout()
-        self.twoPagesSideLayout.setObjectName(u"horizontalLayoutWidget")
-        self.twoPagesSideLayout.setContentsMargins(0, 0, 0, 0)
+        self.layoutPagesSide = QHBoxLayout()
+        self.layoutPagesSide.setObjectName(u"horizontalLayoutWidget")
+        self.layoutPagesSide.setContentsMargins(0, 0, 0, 0)
 
     def createStackedLayout(self):
-        self.twoPagesStackedLayout = QVBoxLayout()
-        self.twoPagesStackedLayout.setObjectName(u"VerticalLayoutWidget")
-        self.twoPagesStackedLayout.setContentsMargins(0, 0, 0, 0)
+        self.layoutPagesStacked = QVBoxLayout()
+        self.layoutPagesStacked.setObjectName(u"VerticalLayoutWidget")
+        self.layoutPagesStacked.setContentsMargins(0, 0, 0, 0)
 
     def createPageLayouts(self, MainWindow:QMainWindow)->QWidget:
         """ Create the page layouts without adding the page widgets"""
@@ -216,105 +253,145 @@ class PageWidget():
     
     def hidePages(self)->None:
         """ Remove both pages from the page layout """
-        self._hideLeftPage()
-        self._hideRightPage()
+        self._hidePageOne()
+        self._hidePageTwo()
+        self._hidePageThree()
 
-    def _hideLeftPage(self)->None:
+    def _hidePageOne(self)->None:
         """ Hide the left page and remove from current layout """
-        self.left.hide()
-        if self._isShowingLeftPage:
-            self._currentLayout.removeWidget(self.left)
-            self._isShowingLeftPage = False
+        # self._currentLayout.removeWidget(self.pageOne)
+        # self.pageOne = None
+        # self.pageOne = PageLabelWidget()
+        if self.pageOne.isVisible():
+            self._currentLayout.removeWidget(self.pageOne)
+        self.pageOne.hide()
 
-    def _hideRightPage(self)->None:
+    def _hidePageTwo(self)->None:
         """ Hide the right page and remove from current layout """
-        self.right.hide()
-        if self._isShowingRightPage:
-            self._currentLayout.removeWidget(self.right)
-            self._isShowingRightPage = False
+        if self.pageTwo.isVisible():
+            self._currentLayout.removeWidget(self.pageTwo)
+        self.pageTwo.hide()
+
+    def _hidePageThree(self)->None:
+        """ Hide the right page and remove from current layout """
+        if self.pageThree.isVisible():
+            self._currentLayout.removeWidget(self.pageThree)
+        self.pageThree.hide()
 
     def showPages(self)->None:
-        self._showLeftPage()
-        self._showRightPage()
+        self._showPageOne()
+        self._showPageTwo()
+        self._showPageThree()
 
-    def _showLeftPage(self)->None:
-        if not self._isShowingLeftPage :
-            self._currentLayout.addWidget(self.left, 1)
+    def _showPageOne(self)->None:
+        self.pageOne = PageLabelWidget()
+        if not self.pageOne.isVisible() :
+            self._currentLayout.addWidget(self.pageOne, 1)
             self._isShowingLeftPage = True
-        self.left.show()
+        self.pageOne.show()
 
-    def _showRightPage(self)->None:
+    def _showPageTwo(self)->None:
         """ Add and show the right page if this is not a single page layout and
             page not currently showing
         """
-        if self._currentLayout != self.LAYOUT_SINGLE:
-            if not self._isShowingRightPage:
-                self._currentLayout.addWidget(self.right, 1)
-                self._isShowingRightPage = True
-            self.right.show()
+        if not self.pageTwo.isVisible():
+            self._currentLayout.addWidget(self.pageTwo, 1)
+        self.pageTwo.show()
+
+    def _showPageThree(self)->None:
+        if not self.pageThree.isVisible():
+            self._currentLayout.addWidget(self.pageThree, 1)
+        self.pageThree.show()
+
+    def _getLayoutValue( self , key ):
+        return self._layout[self._currentLayoutMode][ key ]
 
     def pageDisplay(self)->int:
         return self._currentLayoutMode
+
+    def pages(self):
+        return [ self.pageOne.pageNumber() ,self.pageTwo.pageNumber() ,self.pageThree.pageNumber() ]
     
-    def setDisplay( self, layout:int=2)->None:
-        """ Set the widget layout for display. Options are single, side or stacked. """
-        if layout == self.LAYOUT_SINGLE:
-            self.setDisplayOnePage()
-        elif layout == self.LAYOUT_SIDE:
-            self.setDisplayTwoPage()
-        elif layout == self.LAYOUT_STACKED:
-            self.setDisplayStacked()
+    def setDisplay( self, layout:str )->None:
+        """ Set the widget layout for display. Options are single, double, triple, side or stacked. """
+        if layout in self._layout:
+            self._setLayout( layout )
+            self._layout[ layout ][ self.LAYOUT_SETUP ]()
+        else:
+            raise ValueError("Internal error: Unknown layout requested {}".format( layout ))
 
     def _removeCurrentLayout(self)->None:
         if self._currentLayoutMode is not None and self._currentLayout is not None:
-            self.hidePages()                            # Remove all pages from layout
+            ##self.hidePages()                            # Remove all pages from layout
             QWidget().setLayout( self._currentLayout )  # Set current to dummy widget
             self._currentLayout = None
 
-    def _setLayout( self, layout:int=2)->None:
+    def _setLayout( self, layout:str)->None:
         """ This will set the page layout to be either side-by-side or stacked 
             If there is a setup mode already set, it will be removed and replaced
         """
-        if self._currentLayoutMode != layout :
+        if self._currentLayoutMode != layout  or True:
             self._removeCurrentLayout()
+            self.createPages()
             self._currentLayoutMode = layout
 
-            if layout == self.LAYOUT_SINGLE:
+            if layout == DbKeys.VALUE_PAGES_SINGLE:
                 self.createSideBySideLayout()
-                self._currentLayout = self.twoPagesSideLayout
+                self._currentLayout = self.layoutPagesSide
 
-            elif layout == self.LAYOUT_SIDE:
+            elif layout == DbKeys.VALUE_PAGES_SIDE_2:
                 self.createSideBySideLayout()
-                self._currentLayout = self.twoPagesSideLayout
+                self._currentLayout = self.layoutPagesSide
 
-            if layout == self.LAYOUT_STACKED:
+            elif layout == DbKeys.VALUE_PAGES_STACK_2:
                 self.createStackedLayout()
-                self._currentLayout = self.twoPagesStackedLayout
+                self._currentLayout = self.layoutPagesStacked
+            
+            elif layout == DbKeys.VALUE_PAGES_SIDE_3:
+                self.createSideBySideLayout()
+                self._currentLayout = self.layoutPagesSide
+
+            elif layout == DbKeys.VALUE_PAGES_STACK_3:
+                self.createStackedLayout()
+                self._currentLayout = self.layoutPagesStacked
 
             else:
                 self.createSideBySideLayout()
-                self._currentLayout = self.twoPagesSideLayout
+                self._currentLayout = self.layoutPagesSide
 
             self.mainPageWidget.setLayout( self._currentLayout )
 
-            
     def setDisplayOnePage( self )->None:
         """ Setup a one page display, removing the right page from layout if present """
-        self._setLayout(  self.LAYOUT_SINGLE )
-        self._showLeftPage()
+        self._setLayout(  DbKeys.VALUE_PAGES_SINGLE )
+        self._showPageOne()
         self.resize()
 
-    def setDisplayTwoPage( self, showTwoPages:bool=True )->None:
+    def setDisplayTwoPageSide( self, showTwoPages:bool=True )->None:
         """ Setup a two page display and make sure left and right are in layout"""
-        self._setLayout( self.LAYOUT_SIDE )
-        self._showLeftPage()
-        self._showRightPage()
+        self._setLayout( DbKeys.VALUE_PAGES_SIDE_2 )
+        self._showPageOne()
+        self._showPageTwo()
         self.resize()
 
-    def setDisplayStacked( self )->None:
-        self._setLayout(  self.LAYOUT_STACKED )
-        self._showLeftPage()
-        self._showRightPage()
+    def setDisplayThreePagesSide( self, showThreePagesSide:bool=True )->None:
+        self._setLayout( DbKeys.VALUE_PAGES_SIDE_3 )
+        self._showPageOne()
+        self._showPageTwo()
+        self._showPageThree()
+        self.resize()
+
+    def setDisplayTwoPagesStacked( self )->None:
+        self._setLayout(  DbKeys.VALUE_PAGES_STACK_2 )
+        self._showPageOne()
+        self._showPageTwo()
+        self.resize()
+
+    def setDisplayThreePagesStacked(self)->None:
+        self._setLayout(  DbKeys.VALUE_PAGES_STACK_3 )
+        self._showPageOne()
+        self._showPageTwo()
+        self._showPageThree()
         self.resize()
     
     def setSmartPageTurn(self , state:bool)->bool:
@@ -326,73 +403,107 @@ class PageWidget():
     def clear(self):
         """ Clear both left and right pages but do not remove them from layout"""
         self.borderGlow.stopBorderGlow()
-        self.left.clear()
-        self.right.clear()
+        self.pageOne.clear()
+        self.pageTwo.clear()
+        self.pageThree.clear()
+
+
+    def _rollForward( self, pg:int )->bool:
+        """
+            OK, so we have up to 'n' pages loaded but on 'p' pages are 
+            displayed. If we have the page already, promote that by 'rolling'
+            forward.
+            * page must be in list of pages held
+            * can't be displaying all of the pages
+            * page isn't displayed
+        """
+        roll = False
+        while ( pg in self.pages() and 
+                not self.isShown( pg ) and 
+                self._getLayoutValue( self.LAYOUT_PAGES ) != self.ALL_PAGES
+              ):
+            roll = True
+            self.pageOne.copyImage( self.pageTwo ) 
+            self.pageTwo.copyImage( self.pageThree )
+            self.pageThree.clear()
+        return roll
 
     def _simpleNextPage( self, px:QPixmap, pg:int):
-        self.left.setImage( self.right.pixmap() , self.right.pageNumber() )
-        if px is None or px is False or px.isNull():
-            self.setDisplayOnePage()
-        else:
-            self.right.setImage( px , pg )
+        if self._rollForward( pg ):
+            return
+        self.pageOne.copyImage( self.pageTwo ) 
+        self.pageTwo.copyImage( self.pageThree )
+        self.pageThree.setImage( px , pg )
+        
+    def numberPages(self)->int:
+        """ Return how many pages will be shown """
+        if self._currentLayoutMode == None:
+            return None
+        return self._layout[ self._currentLayoutMode ][self.LAYOUT_PAGES ]
 
     def _simplePreviousPage( self, px:QPixmap, pg:int):
-        if px is None or px is False or px.isNull():
-            self.setDisplayOnePage()
-        else:
-            self.right.setImage( self.left.pixmap() , self.left.pageNumber() )
-            self.left.setImage( px, pg  )
+        self.pageThree.copyImage( self.pageTwo )
+        self.pageTwo.copyImage(   self.pageOne )
+        self.pageOne.setImage( px, pg  )
 
     def _smartPage(self, plw:PageLabelWidget, px:QPixmap, pg:int )->None:
         self.borderGlow.stopBorderGlow()
         plw.setImage( px , pg )
         self.borderGlow.startBorderGlow( plw )
 
-    def loadPages( self, pxLeft:QPixmap, pgLeft:int, pxRight:QPixmap , pgRight:int):
+    def loadPages( self, px1:QPixmap, pg1:int, px2:QPixmap , pg2:int, px3:QPixmap, pg3:int):
         """ loadPages should be called whenever a book is opened. It setups for
             either 'smart' page turn or for simple page turning.
         """
         self.clear()
         self.resize()
         self.direction = self.FORWARD
-        self.left.setImage(  pxLeft, pgLeft )
-        self.right.setImage( pxRight, pgRight )
+        self.pageOne.setImage(   px1, pg1 )
+        self.pageTwo.setImage(   px2, pg2 )
+        self.pageThree.setImage( px3, pg3 )
+
+    def pageNumbers(self):
+        return [self.pageOne.pageNumber(), self.pageTwo.pageNumber() , self.pageThree.pageNumber() ]
 
     def staticPage(self , px )->None:
         """ Used only to display a static 'info' page """
         self.setDisplayOnePage()
-        self.left.setImage( px , None)
+        self.pageOne.setImage( px , None)
 
     def nextPage( self, px:QPixmap , pg:int):
-        if self.smartTurn and self._isShowingRightPage:
+        if self.smartTurn and self.pageTwo.isVisible():
             self._smartPage( self.lowestPageLabelWidget(), px, pg )
         else:
             self._simpleNextPage( px, pg )
         self.direction = self.FORWARD
 
     def previousPage( self, px:QPixmap , pg:int):
-        if self.smartTurn and self._isShowingRightPage:
+        if self.smartTurn and self.pageTwo.isVisible():
             self._smartPage( self.highestPageLabelWidget(), px, pg )
         else:
             self._simplePreviousPage( px, pg )
         self.direction = self.BACKWARD
 
     def getHighestPageShown(self):
-        if self._isShowingRightPage:
-            return max( self.left.pageNumber() , self.right.pageNumber() )
-        return self.left.pageNumber()
+        return max( self.pages() )
     
     def getLowestPageShown(self):
-        if self._isShowingRightPage:
-            return min( self.left.pageNumber() , self.right.pageNumber() )
-        return self.left.pageNumber()
+        return min( self.pages() )
+
+    
+    def getPageForPosition(self, position ):
+        return self.pages()[ position-1]
+
+    def isShown( self, page:int)->bool:
+        lpages = self.pages()[ : self._getLayoutValue(self.LAYOUT_PAGES) ]
+        return page in lpages
     
     def highestPageLabelWidget(self)->PageLabelWidget:
-        if not self._isShowingRightPage or self.left.pageNumber() > self.right.pageNumber():
-            return self.left
-        return self.right
+        if not self.pageTwo.isVisible() or self.pageOne.pageNumber() > self.pageTwo.pageNumber():
+            return self.pageOne
+        return self.pageTwo
 
     def lowestPageLabelWidget(self)->PageLabelWidget:
-        if not self._isShowingRightPage or self.left.pageNumber() < self.right.pageNumber():
-            return self.left
-        return self.right
+        if not self.pageTwo.isVisible() or self.pageOne.pageNumber() < self.pageTwo.pageNumber():
+            return self.pageOne
+        return self.pageTwo

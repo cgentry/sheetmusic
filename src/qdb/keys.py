@@ -1,3 +1,5 @@
+import platform
+
 Symbols = {
     'edit'     : '\U0000270D',
     'notebook' : "\U0001F4D4",
@@ -5,11 +7,13 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.2.6"
-    version_main = "0.2"
+    version      = "0.4.0"
+    version_main = "0.4"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
-
+    system       = platform.system()
+    ismacos      = ( platform.system() == 'Darwin')
+    
 class DbKeys():
     """
     Class contains all of the settings for labels and key default values. 
@@ -24,9 +28,13 @@ class DbKeys():
     VALUE_FILE_RES      = '300'
     VALUE_GSDEVICE      = 'png16m'
     VALUE_KEEP_ASPECT   = True
-    VALUE_PAGES_DOUBLE  = "2pages"
-    VALUE_PAGES_SINGLE  = "1page"
-    VALUE_PAGES_STACKED = "2stacked"
+
+    VALUE_PAGES_SINGLE  = "single"
+    VALUE_PAGES_SIDE_2  = "side_2"
+    VALUE_PAGES_SIDE_3  = 'side_3'
+    VALUE_PAGES_STACK_2 = "stack_2"
+    VALUE_PAGES_STACK_3 = "stack_3"
+
     VALUE_SMART_PAGES   = True
     VALUE_REOPEN_LAST   = True
     VALUE_SCRIPT_CMD    = '/bin/bash'
@@ -204,4 +212,13 @@ class BOOKPROPERTY:
     """
     layout          = 'layout'
     fileType        = 'fileType'
+
+class NOTE:
+    id       = "id"
+    note     = "note"
+    location = "location"
+    size     = "size"
+    book_id  = "book_id"
+    page     = "page"
+    seq      = "sequence"
     

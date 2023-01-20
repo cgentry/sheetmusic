@@ -89,6 +89,18 @@ class Setup():
                            name TEXT    NOT NULL UNIQUE )""",
             """Genre     ( id   INTEGER PRIMARY KEY ASC,
                            name TEXT    UNIQUE NOT NULL)
+            """,
+            """Note     ( id        INTEGER PRIMARY KEY ASC,
+                          note      TEXT    DEFAULT '',
+                          location  BLOB    DEFAULT NULL,
+                          size      BLOB    DEFAULT NULL,
+                          book_id   INTEGER NOT NULL,
+                          page      INTEGER NOT NULL DEFAULT 0,
+                          sequence  INTEGER NOT NULL DEFAULT 0,
+                          CONSTRAINT fk_notes
+                                FOREIGN KEY (book_id)
+                                REFERENCES Book(book_id)
+                                ON DELETE CASCADE)
             """
             ]
         ### Non unique indexes    
@@ -96,11 +108,13 @@ class Setup():
             "Book_Composer ON Book     (composer_id)",
             "Book_Genre    ON Book     (genre_id)",
             "Bookmark_Book ON Bookmark (book_id)",
+            "Book_Notes    ON Notes    (book_id, page,sequence)",
         ]
         unique_idx = [
             "Bookmark_PAGE    ON Bookmark    (book_id, page)",
             "Bookmark_MARK    ON Bookmark    (book_id, bookmark)",
             "BookSetting_BOOK ON BookSetting (book_id, key)",
+            "NoteSequence     ON Note        (book_id, page, sequence)",
         ]
         views = [
             """BookView AS 
@@ -116,6 +130,7 @@ class Setup():
                FROM Book
                LEFT JOIN Composer ON Book.composer_id = Composer.id
                LEFT JOIN Genre    ON Book.genre_id = Genre.id
+               LEFT JOIN Note     ON Note.book_id = Book.id AND Note.page = 0 AND Note.sequence = 0
             """,
             """BookmarkView AS
                 SELECT
@@ -175,7 +190,7 @@ class Setup():
             You really don't want to do this casually. It will wipe out ALL the data
         """
         tables = [
-            "Book","Genre","Composer","Bookmark","System","Booksetting"
+            "Book","Genre","Composer","Bookmark","System","Booksetting","Note"
         ]
         views = ["BookView","BookmarkView","BookSettingView"]
 
@@ -190,14 +205,16 @@ class Setup():
         replace_data = {
             DbKeys.SETTING_VERSION:             ProgramConstants.version_main,
         }
+        added = 0
 
         sql         = '''SELECT value FROM System WHERE key=?'''
         sql_replace = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''
+        sql_prepped = DbHelper.prep( sql_replace )
 
         version = DbHelper.fetchone( sql , DbKeys.SETTING_VERSION, default="0.0" )
         if version != ProgramConstants.version_main:
             for key, value in replace_data.items():
-                query = DbHelper.queryList( sql_replace, [ key, value ] )
+                query = DbHelper.bind( sql_prepped, [ key, value ] )
                 if query.exec():
                     added += self.query.numRowsAffected() 
             return True
@@ -296,7 +313,7 @@ class Setup():
             initData will pre-load the database with the default settings. It doesn't
             override values that have been set so is safe to call anytime.
         """
-        
+        self.createTables()
         self.initSystem()
         self.initComposer()
         self.initGenre()

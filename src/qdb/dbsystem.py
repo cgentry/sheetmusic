@@ -20,11 +20,11 @@
 #
 
 #
-# This file is part of verion 0.3 - a move to use the QT Sql framework
+# This file is part of a move to use the QT Sql framework
 # Previous versions used the python SQL. This should allow better integration
 # into the widgets that QT provides
 #
-# There is minimal effort to make this similar to version 0.2
+# There is minimal effort to make this similar to previous versions
 #
 from qdb.dbconn import DbConn
 from qdb.util   import DbHelper

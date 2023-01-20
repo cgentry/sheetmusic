@@ -78,12 +78,12 @@ class TestSetup( unittest.TestCase):
 
         self.assertTrue( self.query.exec(self.sql_get_viewnames) )
         self.query.next()
-        self.assertEqual( 3, self.query.value(0))
+        self.assertEqual( 3, self.query.value(0),"Number of views")
         self.query.finish()
 
         self.assertTrue( self.query.exec(self.sql_get_tablenames) )
         self.query.next()
-        self.assertEqual( 6, self.query.value(0))
+        self.assertEqual( 7, self.query.value(0))
         self.query.finish()
 
     def test_dropTables(self):
@@ -156,7 +156,7 @@ class TestSetup( unittest.TestCase):
         while self.query.next() :
             rows[ self.query.value(0)] = self.query.value(1)
 
-        self.assertEqual( len(rows), 14 )
+        self.assertGreaterEqual( len(rows), 14 ,"System should have at least 14 entries")
 
         self.assertEqual( rows[DbKeys.SETTING_DEFAULT_GSDEVICE]   , DbKeys.VALUE_GSDEVICE )
         self.assertEqual( rows[DbKeys.SETTING_PAGE_LAYOUT]     , DbKeys.VALUE_PAGES_SINGLE )

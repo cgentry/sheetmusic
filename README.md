@@ -1,4 +1,4 @@
-# sheetmusic version 0.2.5
+# sheetmusic version 0.3.6
 A graphical program to display sheet music on a monitor
 
 # Overview
@@ -13,6 +13,30 @@ Features:
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
 
+# 0.4.0:
+Major changes made:
+* Added 3 pages for both side-by-side and stacked
+* Added 'script runner' becasue I got tired of coding tools.
+	script runner finds and loads scripts without a lot of coding
+	Written, currently, for unix-based systems. Tested on MacOS and will test on Linux
+* Added script to fix messed up PDF files using ghostscript.
+* fixed numerous bugs
+NEW BUGS:
+Current program flips pages incorrectly or pages don't display. Broken when page 3 support added.
+TO DO:
+Fix page bug
+Add page note ability
+Add more tool scripts
+
+# 0.3.6:
+* Added in notes, then tore it all apart. Fickle me.
+* Notes have been moved to separate table
+* Save note locations and size (to restore pages)
+* Setup for notes on a page basis, not just for book
+* fix some of the broken tests
+* fix a bug in the qdb/utils
+* Add in icon in status bar for notes.
+  
 # 0.2.5:
 * Help is now included
 * Restructure into src/build/dis directories
@@ -28,9 +52,7 @@ There are specific enhancements planned for the program.
 * Allow annotation to occur directly in the program.
 * Use PDFs directly.
 * update help within the program.
-* add in 'notes' for any page.
-* add in icon in lower right to indicate a 'note'
-* 
+  
 Other enhancements will come as I need them.
 
 # Written in:

@@ -152,7 +152,6 @@ class DbBook(DbBase):
         
         return DbHelper.fetchrows( sql, filter, self.columnView , endquery=self._checkError)
         
-
     def getLike( self, filter:str ):
         sql = DbBook.SQL_SELECT_BOOKVIEW_LIKE.replace( ':filter', filter )
         return DbHelper.fetchrows( sql , None, self.columnView , endquery=self._checkError)
@@ -199,6 +198,7 @@ class DbBook(DbBase):
 
 
     def cleanupArguments( self, kwargs )->dict:
+        """ cleanupArguments will strip out composer and genre, replacing them with composer_id and genre_id"""
         convertEntries = {}
         composerName = kwargs.pop('composer',None)
         genreName = kwargs.pop( 'genre', None)
@@ -228,7 +228,7 @@ class DbBook(DbBase):
         kwargs.update( newAdditions )
         book = kwargs.pop( BOOK.name )
         id = self.getId( book )
-        sql = self._formatUpdateVariable( 'Book', BOOK.name, book, kwargs)
+        sql = self._formatUpdateVariable( 'Book', BOOK.name, kwargs)
         query = DbHelper.prep( sql )
         values = list( kwargs.values() ) 
         values.append( book )

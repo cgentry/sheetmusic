@@ -21,7 +21,7 @@
 import sys
 from tkinter import W
 import unittest
-import sqlite3
+import logging
 
 sys.path.append("../")
 from qdb.dbconn import DbConn
@@ -86,135 +86,137 @@ class TestDbBookSettings(unittest.TestCase):
             if not self.query.exec():
                 raise RuntimeError( self.query.lastError().text() )
         self.query.finish()
-        self.settings = DbBookSettings()
+        self.obj = DbBookSettings()
+        self.obj.showStack(False)
+        self.obj.logger.setLevel( logging.CRITICAL )
     
 
     def tearDown(self):
         pass
 
     def test_getAllSettings(self):
-        rows = self.settings.getAll( 'test1')
+        rows = self.obj.getAll( 'test1')
         self.assertEqual( len(rows), self.test1_count )
 
-        rows = self.settings.getAll( 'test2')
+        rows = self.obj.getAll( 'test2')
         self.assertEqual( len(rows), self.test2_count )
 
 
     def test_getBookSetting_fallback( self ):
-        value = self.settings.getValue('test2','key4')
+        value = self.obj.getValue('test2','key4')
         self.assertIsNotNone( value , "test2 fallback of key4")
         self.assertEqual( value, 'value4')
 
     def test_getBookSetting_notfound( self ):
-        row = self.settings.getValue('test2','key9')
+        row = self.obj.getValue('test2','key9')
         self.assertIsNone( row )
 
     def test_getAll_nobook(self):
-        self.assertRaises( ValueError, self.settings.getAll)
+        self.assertRaises( ValueError, self.obj.getAll)
 
     def test_getBookSetting_found(self):
         for i in range(1,5):
-            value = self.settings.getValue('test1','key{}'.format(i))
+            value = self.obj.getValue('test1','key{}'.format(i))
             self.assertIsNotNone( value )
             self.assertEqual( value, 'value{}'.format(i))
 
     def test_getBookSetting_nokeys(self):
-        self.assertRaises( ValueError, self.settings.getValue)
+        self.assertRaises( ValueError, self.obj.getValue)
 
     def test_getInt(self):
-        ok = self.settings.setValue( 'test1', 'Key42', 42)
+        ok = self.obj.setValue( 'test1', 'Key42', 42)
         self.assertTrue( ok )
-        self.assertEqual( 42, self.settings.getInt('test1','Key42'))
+        self.assertEqual( 42, self.obj.getInt('test1','Key42'))
 
-        ok = self.settings.setValue( 'test1', 'KeyNeg42', -42)
+        ok = self.obj.setValue( 'test1', 'KeyNeg42', -42)
         self.assertTrue( ok )
-        self.assertEqual( -42,self.settings.getInt('test1','KeyNeg42'))
+        self.assertEqual( -42,self.obj.getInt('test1','KeyNeg42'))
 
-        ok = self.assertEqual( 52,self.settings.getInt('test1','noKey', fallback=False,default=52))
-        ok = self.assertEqual( -52,self.settings.getInt('test1','noKey', fallback=False,default=-52))
+        ok = self.assertEqual( 52,self.obj.getInt('test1','noKey', fallback=False,default=52))
+        ok = self.assertEqual( -52,self.obj.getInt('test1','noKey', fallback=False,default=-52))
 
     def test_getBookSettingInt_bad(self):
-        ok = self.settings.setValue( 'test1', 'keyNoWay', 'no way')
+        ok = self.obj.setValue( 'test1', 'keyNoWay', 'no way')
         self.assertTrue( ok )
-        self.assertEqual( 0,self.settings.getInt('test1','keyNoWay'))
+        self.assertEqual( 0,self.obj.getInt('test1','keyNoWay'))
 
     def test_getBool(self):
-        ok = self.settings.setValue( 'test1', 'keyTrue', True)
+        ok = self.obj.setValue( 'test1', 'keyTrue', True)
         self.assertTrue( ok )
-        self.assertTrue( self.settings.getBool('test1','keyTrue'))
+        self.assertTrue( self.obj.getBool('test1','keyTrue'))
 
-        ok = self.settings.setValue( 'test1', 'keyFalse', False)
+        ok = self.obj.setValue( 'test1', 'keyFalse', False)
         self.assertTrue( ok )
-        self.assertFalse( self.settings.getBool('test1','keyFalse'))
+        self.assertFalse( self.obj.getBool('test1','keyFalse'))
 
-        ok = self.assertFalse( self.settings.getBool('test1','noKey', fallback=False,default=False))
-        ok = self.assertTrue( self.settings.getBool('test1','noKey', fallback=False,default=True))
+        ok = self.assertFalse( self.obj.getBool('test1','noKey', fallback=False,default=False))
+        ok = self.assertTrue( self.obj.getBool('test1','noKey', fallback=False,default=True))
 
     def test_getBookSettingBool_bad(self):
-        ok = self.settings.setValue( 'test1', 'keyNoWay', 'no way')
+        ok = self.obj.setValue( 'test1', 'keyNoWay', 'no way')
         self.assertTrue( ok )
-        self.assertFalse( self.settings.getBool('test1','keyNoWay'))
+        self.assertFalse( self.obj.getBool('test1','keyNoWay'))
 
     def test_setValue(self):
-        self.assertTrue(  self.settings.setValue( 'test1', 'keyadd', 'valueadd') , "Insert first record")
-        self.assertFalse( self.settings.setValue( 'test1', 'keyadd', 'valueadd2') , "Insert Duplicate")
+        self.assertTrue(  self.obj.setValue( 'test1', 'keyadd', 'valueadd') , "Insert first record")
+        self.assertFalse( self.obj.setValue( 'test1', 'keyadd', 'valueadd2') , "Insert Duplicate")
 
-        row = self.settings.getValue('test1', 'keyadd')
+        row = self.obj.getValue('test1', 'keyadd')
         self.assertEqual( row, 'valueadd')
-        rtn = self.settings.setValue( 'title5', 'key5', 'value5')
+        rtn = self.obj.setValue( 'title5', 'key5', 'value5')
         self.assertFalse( rtn )
         
     def test_setValue_nokeys(self):    
-        self.assertRaises( ValueError, self.settings.setValue, None)
-        self.assertFalse( self.settings.setValue( ignore=True))
+        self.assertRaises( ValueError, self.obj.setValue, None)
+        self.assertFalse( self.obj.setValue( ignore=True))
 
     def test_setValue(self):
-        self.assertTrue(self.settings.setValue( 'test1', 'keyadd', 'valueadd') )
-        self.assertTrue(self.settings.upsertBookSetting(book='test1', key='keyadd', value='valueadd2'))
+        self.assertTrue(self.obj.setValue( 'test1', 'keyadd', 'valueadd') )
+        self.assertTrue(self.obj.upsertBookSetting(book='test1', key='keyadd', value='valueadd2'))
         
-        row = self.settings.getValue('test1', 'keyadd')
+        row = self.obj.getValue('test1', 'keyadd')
         self.assertEqual( row, 'valueadd2')
 
     def test_upsert_fail(self):
-        self.assertRaises( ValueError, self.settings.upsertBookSetting,None, None,None)
-        self.assertFalse( self.settings.upsertBookSetting(None, ignore=True))
+        self.assertRaises( ValueError, self.obj.upsertBookSetting,None, None,None)
+        self.assertFalse( self.obj.upsertBookSetting(None, ignore=True))
     
     def test_delone(self):
-        row = self.settings.getAll('test1')
+        row = self.obj.getAll('test1')
         self.assertEqual( len(row), self.test1_count)
-        ok=self.settings.deleteValue('test1','key1')
+        ok=self.obj.deleteValue('test1','key1')
         self.assertTrue(ok)
         self.assertEqual( ok, 1 )
-        row = self.settings.getAll('test1')
+        row = self.obj.getAll('test1')
         self.assertEqual( len(row), self.test1_count-1)
 
-        ok=self.settings.deleteValue(book='test1',key='keyx')
+        ok=self.obj.deleteValue(book='test1',key='keyx')
         self.assertFalse( ok )
-        row = self.settings.getAll('test1')
+        row = self.obj.getAll('test1')
         self.assertEqual( len(row), self.test1_count-1)
 
     def test_delone_badcall(self):
-        self.assertRaises(ValueError, self.settings.deleteValue,None, None )
-        self.assertFalse( self.settings.deleteValue('test5', 'key1' ) )
+        self.assertRaises(ValueError, self.obj.deleteValue,None, None )
+        self.assertFalse( self.obj.deleteValue('test5', 'key1' ) )
 
-        ok=self.settings.deleteValue(book=None, key='', ignore=True)
+        ok=self.obj.deleteValue(book=None, key='', ignore=True)
         self.assertEqual(ok, 0 )
 
     def test_delall(self):
-        row = self.settings.getAll('test1')
+        row = self.obj.getAll('test1')
         self.assertEqual( len(row), self.test1_count)
 
-        count = self.settings.deleteAllValues('test1')
+        count = self.obj.deleteAllValues('test1')
         self.assertEqual(count, self.test1_count)
 
-        row = self.settings.getAll('test1')
+        row = self.obj.getAll('test1')
         self.assertEqual( len(row), 0)  
 
     def test_delall_badcall(self):
-        self.assertRaises(ValueError, self.settings.deleteAllValues,None)
-        self.assertEqual(self.settings.deleteAllValues('test5') , -1)
+        self.assertRaises(ValueError, self.obj.deleteAllValues,None)
+        self.assertEqual(self.obj.deleteAllValues('test5') , -1)
 
-        ok=self.settings.deleteAllValues(book=None, ignore=True)
+        ok=self.obj.deleteAllValues(book=None, ignore=True)
         self.assertEqual(ok, -1 )
   
         
