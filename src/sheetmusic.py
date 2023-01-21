@@ -23,7 +23,6 @@
     PNGs (normally) and flips pages. A simple program in Python and QT
 """
 
-import gc
 from genericpath import isfile
 import sys
 import os
@@ -56,24 +55,25 @@ from ui.runscript       import UiRunScriptFile, ScriptKeys
 from util.convert       import toBool
 
 class MainWindow(QMainWindow):
-
+    MAX_PAGES=3
     def __init__(self):
         super().__init__()
         self.smart_pages = False
         
         self.loadUi()
+        
         self.book = DilBook()
         self.system = DbSystem()
         self.bookmark = DilBookmark()
         self._notelist = None
         self.logger = logging.getLogger('main')
+        self.import_dir = self.pref.getValue( DbKeys.SETTING_LAST_IMPORT_DIR  )
         tl = GenerateToolList()
         self.toollist = tl.list()
         del tl
         
     def loadUi(self)->None:
         self.pref = DilPreferences()
-        self.settings = self.pref.getAll()
         self.ui = UiMain()
         self.ui.setupUi(self)
 
@@ -83,25 +83,10 @@ class MainWindow(QMainWindow):
             return True
         px = self.book.getPixmap(bookpage )
         return label.setImage( px , bookpage )
-        # if px is None or px is False or px.isNull():
-            
-        #     label.setText("<h1>IMAGE NOT AVAILABLE</h1>")
-        #     msg = "Could not open page {}.\nTry to re-import at lower resolution".format( bookpage )
-        #     QMessageBox.critical(None, "Image Error", msg , QMessageBox.Close )
-        #     return False
-        # keepAspectRatio = self.book.getAspectRatio()
-        # label.setScaledContents( ( not keepAspectRatio ) )
-        # if keepAspectRatio:
-        #     size = self.ui.mainWindow.size()
-        #     if self.ui.isRightPageShown():
-        #         size.setWidth( size.width()/2 )
-        #     label.resize( size )
-        #     px = px.scaled( size , aspectMode=Qt.KeepAspectRatio, mode=Qt.SmoothTransformation )
-        # label.setPixmap( px )
-        # return True
 
     def pageList( self, start_page, len_list)->list:
-        plist = [0]*3
+        """ pageList creates a list, MAX_PAGES long, of the pages. The first entry will always be the one requests."""
+        plist = [0]*self.MAX_PAGES
         if start_page < 1:
             start_page = 1
         totalpages = self.book.getTotal()
@@ -112,9 +97,10 @@ class MainWindow(QMainWindow):
         return plist
 
     def loadPages( self )->bool:
-        """ Load both pages into the display if the book is open 
-            This will try to optimise the number of pages shown if we hit the end of the book
-            on a load.
+        """ Load all pages into the book at once. This loads the MAX_PAGES every time.
+
+            This attempts to optimise page loads and display by looking at the number of
+            pages we load.
         """
         if self.book.isOpen():
             page = self.book.getAbsolutePage()  
@@ -122,11 +108,10 @@ class MainWindow(QMainWindow):
             totalPages = self.book.getTotal()
             showingPages = self.ui.pageWidget.numberPages()
             if page == totalPages and showingPages and showingPages > 1:
-                plist = self.pageList( page-showingPages+1 , 3 )
-                print( "Page {}, showing: {} , list: {}".format( page, showingPages, plist ))
+                plist = self.pageList( page-showingPages+1 , self.MAX_PAGES )
                 self._loadPageWidgetList( plist )
             else:
-                self._loadPageWidgetList( self.pageList( page , 3 ) )
+                self._loadPageWidgetList( self.pageList( page , self.MAX_PAGES ) )
         return self.book.isOpen()
 
     def reloadPages( self )->bool:
@@ -135,8 +120,8 @@ class MainWindow(QMainWindow):
         return self.book.isOpen()
 
     def _loadPageWidgetList( self, plist:list ):
-        if len( plist ) < 3 :
-            plist.extend( [0] * (3 - len(plist) ))
+        if len( plist ) < self.MAX_PAGES :
+            plist.extend( [0] * (self.MAX_PAGES - len(plist) ))
         return self._loadPageWidget( plist[0], plist[1], plist[2] )
 
     def _loadPageWidget( self, pg1:int, pg2:int, pg3:int ):
@@ -210,15 +195,15 @@ class MainWindow(QMainWindow):
             #self.ui.pageWidget.resize( self.ui.pager.size() )
             self.ui.pageWidget.setDisplay( self.book_layout )
 
-            if self.loadPages():
-                self.setTitle()
-                self.setMenusForBook(True)
-                self.bookmark.open( newBookName )
-                self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
-                self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
-                self.ui.actionSmartPages.setChecked( self.smart_pages )
-                self.updateStatusBar()
-                self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            # if self.loadPages():
+            self.setTitle()
+            self.setMenusForBook(True)
+            self.bookmark.open( newBookName )
+            self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
+            self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
+            self.ui.actionSmartPages.setChecked( self.smart_pages )
+            self.updateStatusBar()
+            self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
         return rtn
 
     def closeBook(self)->None:
@@ -296,40 +281,27 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event)->None:
         """ called when the program is closed """
-        pref = DilPreferences()
-        pref.saveMainWindow( self.ui.mainWindow)
+        self.pref.saveMainWindow( self.ui.mainWindow)
+        self.pref.setValue( DbKeys.SETTING_LAST_IMPORT_DIR , self.import_dir , replace=True )
         self.closeBook()
         DbConn.closeDB()
-
-    def _changePage( self, page:int, inc:int )->None:
-        self.book.setPageNumber( page )
-        if self.book.isValidPage( page + inc  ):  
-            page = page+inc
-            self.ui.pageWidget.nextPage( self.book.getPixmap( page ), page )
-        else:
-            if not self.ui.pageWidget.isShown( page ):
-                self.ui.pageWidget.nextPage( None , page )
-        self.updateStatusBar()
-
         
     def pageBackward(self)->None:
-        lowestPage = self.ui.pageWidget.getPageForPosition(1)
-        pg = max( 1 , lowestPage-1 )
-        if pg != lowestPage:
-            self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg )
+        pg = self.book.getAbsolutePage()-1 
+        if pg < 1:
+            return
+        self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg , end=(pg==1))
         self.book.setPageNumber( pg )
         self.updateStatusBar()
 
     def pageForward(self)->None:
         pg = self.ui.pageWidget.getHighestPageShown()
-        pg = self.ui.pageWidget.getHighestPageShown()
+        if pg == 0:
+            pg = self.book.getAbsolutePage()
         self.book.setPageNumber( pg )
-        if self.book.isValidPage( pg + 1  ):  
-            pg = pg+1
-            self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg )
-        else:
-            if not self.ui.pageWidget.isShown( pg ):
-                self.ui.pageWidget.nextPage( None , pg )
+        pg = pg+1
+        if self.book.isValidPage( pg  ): 
+            self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg , end=(pg==self.book.getTotal()))
         self.updateStatusBar()
     
     def goToPage(self, page )->None:
@@ -524,9 +496,9 @@ class MainWindow(QMainWindow):
         changes = pref.getChanges()
         if len( changes) > 0:
             self.pref.saveAll( changes )
-        self.settings = self.pref.getAll()
-        self.ui.setNavigationShortcuts( self.settings )
-        self.ui.setBookmarkShortcuts( self.settings )
+        settings = self.pref.getAll()
+        self.ui.setNavigationShortcuts( settings )
+        self.ui.setBookmarkShortcuts( settings )
         viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
         self.ui.pageWidget.setDisplay( viewState )
         self.toggleMenuPages( viewState )
@@ -756,10 +728,10 @@ class MainWindow(QMainWindow):
     def actionImportPDF(self)->None:
         from util.toolconvert import UiConvert
         uiconvert = UiConvert()
-        uiconvert.setBaseDirectory( self.pref.getValue( DbKeys.SETTING_LAST_IMPORT_DIR))
+        uiconvert.setBaseDirectory( self.import_dir )
         if uiconvert.exec_():
             self._importPDF( uiconvert.data , uiconvert.getDuplicateList() )
-        self.pref.setValue( DbKeys.SETTING_LAST_IMPORT_DIR , uiconvert.baseDirectory(), replace=True )
+        self.import_dir = str( uiconvert.baseDirectory() )
         del uiconvert
 
     def actionReimportPDF(self)->None:
@@ -768,6 +740,23 @@ class MainWindow(QMainWindow):
             book = self.book.getBook( book = rif.bookName)
             from util.toolconvert import UiConvertFilenames
             uiconvert = UiConvertFilenames( )
+            if not isfile( book[BOOK.source] ) :
+                if QMessageBox.Yes == QMessageBox.critical(None,"",
+                    "Book cannot be located.\nWould you like to find it?",
+                    QMessageBox.No|QMessageBox.Yes ):
+                        
+                        dlg = QFileDialog(caption= book[BOOK.name ] )
+                        dlg.setFileMode( QFileDialog.ExistingFile )
+                        dir = os.path.dirname( book[BOOK.source ] )
+                        if not os.path.isdir( dir ):
+                            dir = self.import_dir
+                        dlg.setDirectory( dir )
+                        if dlg.exec() :
+                            filename = dlg.selectedFiles()[0]
+                            book[ BOOK.source ] = filename
+                            self.book.update( book=book[ BOOK.name ], location=filename )
+                        else:
+                            return False
             if uiconvert.processFile( book[ BOOK.source ] ):
                 self._importPDF(uiconvert.data, uiconvert.getDuplicateList() )
             del uiconvert
@@ -776,10 +765,10 @@ class MainWindow(QMainWindow):
     def actionImportDirectory(self)->None:
         from util.toolconvert import UiConvertDirectory
         uiconvert = UiConvertDirectory()
-        uiconvert.setBaseDirectory( self.pref.getValue( DbKeys.SETTING_LAST_IMPORT_DIR))
+        uiconvert.setBaseDirectory( self.import_dir)
         if uiconvert.exec_():
             self._importPDF( uiconvert.data , uiconvert.getDuplicateList() )
-        self.pref.setValue( DbKeys.SETTING_LAST_IMPORT_DIR , uiconvert.baseDirectory() , replace=True)
+        self.import_dir =  uiconvert.baseDirectory()
         del uiconvert
 
     def actionCheckIncomplete(self)->None:

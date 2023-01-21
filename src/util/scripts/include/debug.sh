@@ -16,10 +16,12 @@ done
 if [ ! -z "$DEBUG" ]; then
 
 cat << END_DEBUG
+
 ======================================================
               Script is in debug mode.
 Statements that would have run will start with DEBUG:
 ======================================================
 
+DEBUG:
 END_DEBUG
 fi

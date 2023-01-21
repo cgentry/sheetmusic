@@ -23,14 +23,11 @@
 # open, or save, settings. The caller can get the information by calling
 # getChanges() which will return either None or a dictionary/list of changes
 #
-# See ToolConvert for script control
-#
 # 22-Sep-2022: Convert to use database
 
 import sys
 import logging
 from os.path import expanduser
-from util.toolconvert   import ToolConvert
 from qdil.preferences    import DilPreferences
 from qdb.keys            import DbKeys, ImportNameSetting
 from PySide6.QtCore     import Qt
@@ -82,7 +79,6 @@ class UiPreferences(QDialog):
 
         self.setWindowTitle("Sheetmusic Preferences")
         self.settings = DilPreferences()
-        self.script = ToolConvert()
         mainLayout = QVBoxLayout()
 
         self.fixedFont = QFont()
@@ -216,7 +212,7 @@ class UiPreferences(QDialog):
         btnBox.addButton( QDialogButtonBox.Help)
         btnBox.addButton( QDialogButtonBox.RestoreDefaults )
         btnBox.addButton( 'Reinitialise' , QDialogButtonBox.ResetRole )
-        btnBox.addButton( "Preview"      , QDialogButtonBox.AcceptRole)
+        #btnBox.addButton( "Preview"      , QDialogButtonBox.AcceptRole)
         btnBox.clicked.connect(self.actionPdf )
 
         return btnBox
@@ -415,8 +411,6 @@ class UiPreferences(QDialog):
         #
         self.formatKeyMods( self.layoutKeyboard, 0  )
 
-        self.textPdfConvert.setPlainText( self.script.readRaw() )
-
     def formatKeyMods(self , layout:QGridLayout, row:int):
         """
             Keymods takes up one tab page
@@ -508,41 +502,7 @@ class UiPreferences(QDialog):
         
         helpDlg.setLayout( helpLayout )
         helpDlg.exec()
-    
-    def actionPdfPreview(self):
-        #   {{source}}   Location of PDF to convert
-        #   {{target}}   File Setting ; Default Directory
-        #   {{name}}     Name for book. Prompted when run
-        #   {{type}}     File Setting ; Filetype
-        #   {{device}}   GS setting for 'Filetype'
-        #                for PNG this should be 'png16m'
-        #   {{debug}}    Set to 'echo' if debug is turned on
-        txt = self.script.expandScript(
-             self.textPdfConvert.toPlainText().strip(),
-             "/directory/of/book.pdf" )
-        if txt != "":
-            previewDlg = QDialog()
-            previewDlg.setMinimumHeight(500)
-
-            def previewActionClose(self):
-                previewDlg.reject()
-            previewLayout = QVBoxLayout()
-
-            txtPreview = QTextEdit()
-            txtPreview.setText(txt)
-            txtPreview.setReadOnly(True)
-            txtPreview.setMinimumWidth(500)
-            txtPreview.setMinimumHeight(500)
-            txtPreview.setFont( self.fixedFont )
-            previewLayout.addWidget( txtPreview)
-
-            btnPreview = QPushButton("Close")
-            previewLayout.addWidget( btnPreview)
-            btnPreview.clicked.connect( previewActionClose )
-
-            previewDlg.setLayout( previewLayout )
-            previewDlg.exec()
-
+   
     def actionPdf(self, button):
         txt = button.text().strip()
         if txt == 'Restore Defaults':
@@ -552,8 +512,6 @@ class UiPreferences(QDialog):
                 from qdb.setup import Setup
                 Setup().RestoreDefaultPdfScript()
                 self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
-        elif txt == 'Preview':
-            self.actionPdfPreview()
         elif txt == 'Help':
             self.actionHelp()
         else:

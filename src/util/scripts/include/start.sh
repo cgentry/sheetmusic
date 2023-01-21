@@ -18,3 +18,33 @@ Fatal Error:
 END_ERROR_TEXT
     exit $2
 }
+
+require_var(){
+# Simple check for an empty variable
+# require_var "{{VAR}}" "-v var"    
+    if [ -z "$1" ]; then
+        echo "Variable not passed with ${2}" >&2
+        exit 10
+    fi
+}
+
+dir_exists(){
+#   check_dir "{{VAR}}" "VAR"
+    require_var "$1" "$2"
+    if [ ! -d "$1" ]; then
+        echo "Directory ${1} does not exist." >&2
+        exit 1
+    fi
+}
+
+file_exists(){
+    require_var "$1" "$2"
+    if [ ! -e "$1" ]; then
+        echo "File $1 does not exist." >&2
+        exit 2
+    fi
+    if [ ! -r "$1" ]; then
+        echo "File ${1} is not readable." >&2
+        exit 3
+    fi
+}

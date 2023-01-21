@@ -14,7 +14,7 @@
 ## if not, use the -Z option
 SCRIPT_DIR=`cd $(dirname $0) && pwd`
 SCRIPT=$(basename $0)
-INCLUDE="${SCRIPT_DIR}/include"
+INCLUDE_DIR="${SCRIPT_DIR}/include"
 
 usage(){
     cat <<ENDUSAGE
@@ -22,13 +22,13 @@ $0 : Fix PDF files by running them through ghostscript
 ENDUSAGE
 }
 
-. ${SCRIPT_DIR}/include/start.sh "$@"
-. ${SCRIPT_DIR}/include/debug.sh "$@"
-. ${SCRIPT_DIR}/include/info.sh  "$@"
+. ${INCLUDE_DIR}/start.sh "$@"
+. ${INCLUDE_DIR}/debug.sh "$@"
+. ${INCLUDE_DIR}/info.sh  "$@"
 
-INCLUDE_USAGE=$(SEDCMD="s|^${INCLUDE}/||g"
+INCLUDE_USAGE=$(SEDCMD="s|^${INCLUDE_DIR}/||g"
 echo "<code>"
-grep -r '#:usage ' "${INCLUDE}" | sort | sed -e 's/:#:usage/ . . . . Usage:/g' -e "${SEDCMD}" -e 's|$||g')
+grep -r '#:usage ' "${INCLUDE_DIR}" | sort | sed -e 's/:#:usage/ . . . . Usage:/g' -e "${SEDCMD}" -e 's|$||g')
 
 cat <<END_SCRIPTING_INFO
 <pre>
@@ -36,6 +36,7 @@ cat <<END_SCRIPTING_INFO
 . . . . . . . . . . . . . . . SCRIPTING INFORMATION . . . . . . . . . . . . . . . 
 ==================================================================================
 Scripts are held in the directory . ${SCRIPT_DIR}
+Include scripts are in directory  . ${INCLUDE_DIR}
 Scripting program . . . . . . . . . ${SCRIPT_PGM}    VERSION: ${SCRIPT_VERSION}
 Scripting exected by  . . . . . . . ${SCRIPT_RUN}
 QT Version . . . . . . . . . . . .  ${QT_VERSION}

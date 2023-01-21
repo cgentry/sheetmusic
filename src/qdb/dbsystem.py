@@ -113,6 +113,7 @@ class DbSystem(DbBase):
     
     def setValue( self, key:str, value:str=None , replace:bool=False, ignore:bool=False )->bool:
         """
+            Insert a value into the dbtable System.
             if the value is None, the key will be deleted from the database
             True or false will be returned if the operation is a success
         """
@@ -132,7 +133,6 @@ class DbSystem(DbBase):
         query.prepare( sql )
         query.addBindValue( key )
         query.addBindValue( value )
-        query.exec()
         self._checkError(query )
         query.finish()
         del query

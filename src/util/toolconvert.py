@@ -18,12 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#
-# ToolConvert contains routines that take PDF files and convert to
-# scripts. It relies on conversion program (ghostscript) to do the
-# conversion. A GUI is written that allows full display and status
-# of the process.
-
 from fileinput import filename
 from genericpath import isdir
 from os import path, chmod
@@ -36,7 +30,6 @@ import sys
 import tempfile
 import time
 
-from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import (
         QApplication,       QDialog, 
         QDialogButtonBox ,  QFileDialog,
@@ -47,103 +40,10 @@ from PySide6.QtWidgets import (
 from qdb.dbbook       import DbBook
 from qdb.keys         import BOOK, DbKeys, ImportNameSetting
 from qdil.preferences import DilPreferences
-
-class ToolConvert():
-   # _script = 'convert-pdf.smc'
+from ui.runscript     import UiRunScript
+from util.utildir     import get_scriptpath
     
-    def __init__(self):
-        self.pref = DilPreferences()
-        self.path = self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
-
-    # def _scriptPath( self, file ):
-    #     if file is None:
-    #         return path.expanduser(
-    #             path.join(
-    #                 self.path, 
-    #                 self._script
-    #             )
-    #         )
-    #     return path.expanduser( file )
-    # def scriptExists( self, file:str=None )->bool:
-    #     return path.exists( self._scriptPath( file ) )
-    # def writeRaw( self, script, file=None ):
-    #     file = self._scriptPath( file )
-    #     with open(file, 'w') as scriptFile:
-    #         scriptFile.writelines(script)
-
-    def setPath( self, path:str):
-        self.path = path
-
-    def default(self):
-        return self.readRaw()
-
-    
-    def readRaw(self , setup=True ) -> str:
-        """
-            Read and return the raw script from the database
-        """
-        raw = self.pref.getValue( DbKeys.SETTING_PDF_SCRIPT )
-        if not raw and setup:
-            from qdb.setup import Setup
-            sy = Setup()
-            sy.insertPdfScript()
-            raw = self.readRaw( False )
-        return raw
-        
-    def readExpanded( self, sourceFile:str, file=None, name=None, debug=False):
-        """ Read and expand the conversion template
-        
-        sourceFile: the PDF filename
-        name: The name you want to output to be called
-        debug: the debug flag. True to make this file not really be run.
-        
-        """
-        return self.expandScript(  self.readRaw( file ), sourceFile, name, debug=debug )
-
-
-    def expandScript( self, script:str, sourceFile:str, name=None, debug=False )->str:
-        """ 
-        expand the conversion template passed to us
-        
-        settings: the preferences settings
-        script: the template script
-        sourceFile: the PDF filename
-        name: The name you want to output to be called
-        debug: the debug flag. True to make this file not really be run.
-
-        """
-        #   {{source}}   Location of PDF to convert
-        #   {{target}}   File Setting ; Default Directory
-        #   {{name}}     Name for book. Prompted when run
-        #   {{type}}     File Setting ; Filetype
-        #   {{device}}   GS setting for 'Filetype'
-        #                for PNG this should be 'png16m'
-        #   {{debug}}    Set to 'echo' if debug is True
-        script = script.strip()
-        sourceFile = sourceFile.strip()
-
-        if script != "" and sourceFile != "":
-            debugReplace = ""
-            debugState = ""
-            if debug:
-                debugReplace = "echo "
-                debugState = '(Running in Debug mode)'
-            if name is None or not name:
-                name = PurePath( sourceFile).stem
-            script = script.replace("{{debug}}" , debugReplace)
-            script = script.replace("{{debug-state}}", debugState )
-            script = script.replace("{{device}}", self.pref.getValue(DbKeys.SETTING_DEFAULT_GSDEVICE,"png16m") )
-            script = script.replace("{{name}}"  , name)
-            script = script.replace("{{source}}", sourceFile )
-            script = script.replace("{{target}}", self.pref.getValue(DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR) ) 
-            script = script.replace("{{type}}"  , self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE) )
-            self.bookPath = os.path.join( 
-                self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC ),
-                name 
-            )
-        return script
-    
-class UiBaseConvert():
+class UiBaseConvert( UiRunScript ):
     """
         UiBaseConvert contains code to process a list of PDF files and store them
         in the sheetmusic directory. Directory prompts should occur in the derived classes
@@ -151,37 +51,35 @@ class UiBaseConvert():
     # The following are only used to give labels to our return status
     RETURN_CANCEL=False
     RETURN_CONTINUE=True
+    SCRIPT="importpdf.sh"
+
+    CONVERT_DEVICE='d'
+    CONVERT_SOURCE='s'
+    CONVERT_TARGET='t'
+    CONVERT_TYPE='y'
+    CONVERT_RES='r'
 
 
     def __init__(self)->None:
+        super().__init__( get_scriptpath(UiBaseConvert.SCRIPT) )
         self.pref = DilPreferences()
         self.status  = self.RETURN_CANCEL
-        self._process = None
-        self.rawScript = ""
-        self.script = ""
-        self.debugFlag = False
-        self.bookType = self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE)
+        self.setOutput( 'text')
+
+        self.bookType   = self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE)
+        self.page_suffix = self.pref.getValue( DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE )
+        self.music_path = self.pref.getMusicDir()
         self.baseDir = '~'
         self.data = []
         self.duplicateList = []
-        self.page_suffix = self.pref.getValue( DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE )
-
+        
     def setBaseDirectory(self, dir:str):
         if dir is not None:
             self.baseDir = dir
+            print("Directory should now be", dir )
 
     def baseDirectory(self)->str:
         return ( self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR )
-
-    def getScript(self, inputFile: str, outputName: str, debugFlag=False) -> str:
-        if not self.rawScript:
-            toolConvert = ToolConvert()
-            self.rawScript = toolConvert.readRaw()
-        self.script = toolConvert.expandScript(
-            self.rawScript, inputFile, outputName, debug=debugFlag)
-        self.bookPath = toolConvert.bookPath
-        del toolConvert
-        return self.script
 
     def isBookDirectory( self, bookDir:str )->bool:
         """
@@ -194,7 +92,8 @@ class UiBaseConvert():
         return pages > 0   
 
     def _cleanupName(self, bookName:str, level:int )->str:
-        ## first ALWAYS replace invalid characters
+        """ This takes a book name and gets rid of bad characters in prep for filename"""
+
         bookName = re.sub(r'[\n\t\r]+', '', bookName )          # No newline, returns or tabs
         bookName = re.sub(r'[#%{}<>*?$!\'":@+\\|=/]+', ' ' , bookName)      ## bad characters
         bookName = re.sub(r'\s+',       ' ' , bookName)         ## Only one space when multiples
@@ -209,6 +108,8 @@ class UiBaseConvert():
         return bookName.strip()
     
     def _getInfoPDF(self, sourceFile , default:int=1):
+        """ Try to get info from PDF direct. uses PyPDF2 if installed. """
+
         endPage = default
         bookName = PurePath( sourceFile ).stem
         importNameSetting = ImportNameSetting()
@@ -226,6 +127,7 @@ class UiBaseConvert():
         return { BOOK.numberEnds: endPage , BOOK.name: bookName }
 
     def _fillInFromCurrent( self, sourceFile:str)->bool:
+        """ This will read data from the database if the file has been imported before"""
         book = DbBook().getBookByColumn( BOOK.source , sourceFile )
         if book is None:
             currentFile = {}
@@ -241,8 +143,9 @@ class UiBaseConvert():
 
         return currentFile
 
-
     def _fillInDefaults( self, filelist:list ):
+        """ Fill in default information, then get info from current entry if exists """
+        
         for sourceFile in filelist :      
             currentFile = { 
                 BOOK.source:        sourceFile , 
@@ -257,6 +160,7 @@ class UiBaseConvert():
             This will go through all of the files and prompt the user
             for properties. If then fills in the information in the data array
         """
+
         from ui.properties import UiProperties
         fileInfo = UiProperties()
         self.status = self.RETURN_CONTINUE
@@ -304,6 +208,7 @@ class UiBaseConvert():
             If the location doesn't exist but the name does then we need to
             fix the names.    
         """
+
         dbb = DbBook()
         musicPath = self.pref.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
         for index, entry in enumerate( self.data ):
@@ -329,186 +234,36 @@ class UiBaseConvert():
             self.fixDuplicateNames()
             for index, entry in enumerate( self.data ):
                 baseName = os.path.basename( entry[ BOOK.source ] )
-                startMsg = "{}\n{}{}\n{}".format( "="*50 , " "*3 , baseName , "="*50 )
-                self._run( startMsg , self.getScript( entry[ BOOK.source ], entry[ BOOK.name ], False) ) 
-                if self.status == self.RETURN_CANCEL :
+                self.reset()
+                self.addVariable( 's', entry[ BOOK.source ])
+                self.addVariable( 't', entry[ BOOK.name   ])
+                self.bookPath = path.join( self.music_path , entry[ BOOK.name ])
+                if self.run( ) == self.RETURN_CANCEL :
                     break
+                if self.isDebug():
+                    return self.RETURN_CANCEL
                 self.data[ index ].update( { BOOK.location: self.bookPath} )
                 if self.isBookDirectory( self.bookPath ):
                     self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
                 else:
                     self.data[ index ][ BOOK.totalPages ] = 0
-                if 'debug' in self.data[ index ] :
-                    self.data[ index ].pop( 'debug')
         return self.status
    
-    def _processMessage(self, msgText:str)->None:
-        self.text.appendPlainText(msgText)
+    def addFinalVars( self ):
+        # self.addVariableFlag( self.CONVERT_TYPE , self.bookType )
+        # varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
+        # if varString is None:
+        #     raise RuntimeError("No script variables found")
+        # vars = varString.split( DbKeys.VALUE_SCRIPT_SPLIT )
+        # ## fun 'macro' expansion. This can take a keyname and fill in from database
+        # for index, var in enumerate( vars ):
+        #     if var.startswith('::'):
+        #         if var == '::script':
+        #             vars[ index ] = scriptFilename
+        #         else: ## fill in from database
+        #             vars[ index ] = self.pref.getValue( var[2:], '' )
 
-    def _processStderr(self)->None:
-        data = self._process.readAllStandardError()
-        msg = bytes(data).decode("utf8")
-        self._processMessage(msg)
-
-    def _processStdout(self)->None:
-        data = self._process.readAllStandardOutput()
-        msg = bytes(data).decode("utf8")
-        self._processMessage(msg)
-
-    def _processState(self, state)->None:
-        if state == QProcess.Starting:
-            self.timeStart = time.perf_counter()
-        if state == QProcess.Running:
-            self._processMessage("Running script\n{}".format( "=" * 40))
-
-    def _processFinished(self)->None:
-        totalTime = time.perf_counter() - self.timeStart
-        min, sec = divmod(totalTime, 60)
-        hour, min = divmod(min, 60)
-        self._processMessage("{}\nScript done. Total time: {:2.0f}:{:02.0f}:{:02.0f}".format("="*40, hour, min, sec) )
-        self._process= None
-        self.scriptFile.close()
-        del self.scriptFile
-        
-    def _processError(self, error)->None:
-        self.scriptFile.close()
-        del self.scriptFile
-        match error:
-            case QProcess.FailedToStart:
-                msg = "Program didn't start. Check script for errors."
-            case QProcess.Crashed:
-                msg = "Process crashed."
-            case QProcess.Timedout:
-                msg = "While waitFor calls, timeout"
-            case QProcess.WriteError:
-                msg = "While writing from script"
-            case QProcess.ReadError:
-                mesg = "While reading from script"
-            case _:
-                msg = "General script error"
-
-        QMessageBox.critical(None,
-            "",
-             "Error running script\n" + msg, 
-             QMessageBox.StandardButton.Cancel )
-
-    def _getButtonList( self, btnBox:QDialogButtonBox ):
-        btnList = {}
-        for button in btnBox.buttons():
-            btnList[ button.text() ] = button
-        return btnList
-
-    def _runButtons(self ):
-        btnBox = QDialogButtonBox()
-        btnBox.addButton( "Execute", QDialogButtonBox.AcceptRole)
-        btnBox.addButton( QDialogButtonBox.Close)
-        btnBox.addButton( QDialogButtonBox.Cancel)
-        btnList = self._getButtonList( btnBox )
-        btnList['Close'].hide()
-        return (btnBox,btnList)
-    
-    def _runTabLayout(self):
-        tabLayout = QTabWidget()
-
-        tabLayout.addTab(self.text,"Output")
-        tabLayout.setTabText( 0 , "Output")
-
-        tabLayout.addTab(self.textScript, "Script")
-        tabLayout.setTabText(1 , "Script")
-        return tabLayout
-
-    def _run(self, startMsg:str, script )->bool:
-        """
-        _run is the interface between the dialog box displaying information and the
-        actual process that will be executed.
-        """
-        def buttonClicked(button):
-            match button.text().strip():
-                case 'Execute':
-                    self.status = self.RETURN_CONTINUE
-                    self.start_process()
-                    btnList['Close'].show()
-                    btnList['Cancel'].hide()
-                    # don't close dialog box!
-                case 'Cancel':
-                    self.status = self.RETURN_CANCEL
-                    dlgRun.reject()     
-                case _:
-                    self.status = self.RETURN_CONTINUE
-                    dlgRun.accept()
-
-        self.text = QPlainTextEdit()
-        self.text.setReadOnly(True)
-        self._processMessage( startMsg  )
-
-        self.textScript = QPlainTextEdit()
-        self.textScript.setPlainText( script)
-
-        tabLayout = self._runTabLayout()
-        (btnBox, btnList ) = self._runButtons()
-        btnBox.clicked.connect( buttonClicked)
-    
-        runLayout = QVBoxLayout()
-        runLayout.addWidget(tabLayout)
-        runLayout.addWidget(btnBox)
-
-        dlgRun = QDialog()
-        dlgRun.setLayout(runLayout)
-        dlgRun.setMinimumHeight(500)
-        dlgRun.setMinimumWidth(500)
-        dlgRun.exec()
-        return self.status
-
-    def scriptVars( self , scriptFilename: str ):
-        varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
-        if varString is None:
-            raise RuntimeError("No script variables found")
-        vars = varString.split( DbKeys.VALUE_SCRIPT_SPLIT )
-        ## fun 'macro' expansion. This can take a keyname and fill in from database
-        for index, var in enumerate( vars ):
-            if var.startswith('::'):
-                if var == '::script':
-                    vars[ index ] = scriptFilename
-                else: ## fill in from database
-                    vars[ index ] = self.pref.getValue( var[2:], '' )
-
-        return vars
-
-    def start_process(self):
-        """
-        start_process will setup and execute the shell script that is in the 'script' text box.
-
-        This will let the user make modifications before it is run.
-        """
-        if self._process is None:  # No process running.
-            self._process= QProcess()  # Keep a reference to the QProcess (e.g. on self) while it's running.
-            self._process.readyReadStandardOutput.connect(self._processStdout)
-            self._process.readyReadStandardError.connect(self._processStderr)
-            self._process.stateChanged.connect(self._processState)
-            self._process.errorOccurred.connect(self._processError)
-            self._process.finished.connect(self._processFinished)  # Clean up once complete.
-            
-            ## write script to temporary file
-            script = self.textScript.toPlainText().strip()
-            self.scriptFile = tempfile.NamedTemporaryFile(mode="w+")
-            try:
-                shell = self.pref.getValue( DbKeys.SETTING_DEFAULT_SCRIPT , None )
-                if shell is None or shell == "":
-                    raise RuntimeError("No script found")
-                vars = self.scriptVars( self.scriptFile.name )
-                self.scriptFile.write( script  )
-                self.scriptFile.flush()
-                chmod( self.scriptFile.name , 0o550  )
-                ### Command should be 'shell vars scriptfilename'
-                ###         /bin/bash -c tmp_file
-                self._process.start(shell, vars)
-
-            except Exception as err:
-                QMessageBox.critical(None,
-                "Runtime Error",
-                str(err) , 
-                QMessageBox.StandardButton.Cancel )
-                self.scriptFile.close()
+        pass
 
     def getDuplicateList(self)->list:
         """

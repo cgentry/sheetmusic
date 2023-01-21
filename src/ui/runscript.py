@@ -244,7 +244,8 @@ class RunScriptBase():
         Called when processing completes
     notify_script_change( script_file:str )->None
         When the script is changed, this is called. 
-
+    addFinalVars()->None
+        Derived class can add other parms to list (Prefer to end)
     """
 
 
@@ -291,6 +292,11 @@ class RunScriptBase():
 
     def processStatus(self, msg ):
         ''' override '''
+        pass
+
+    def addFinalVars():
+        """ override- optional Child class last chance to add more variables """
+
         pass
 
     def _close_temporary_file(self):
@@ -348,6 +354,12 @@ class RunScriptBase():
             self.vars.append(  self.varFlag( tag ))
             self.vars.append(  value )
 
+    prefkeys = {
+        'pdf-res':      [ 'E' , DbKeys.SETTING_FILE_RES ],
+        'pdf-type':     [ 'I' , DbKeys.SETTING_FILE_TYPE ],
+        'pdf-device':   [ 'G' , DbKeys.SETTING_DEFAULT_GSDEVICE ],
+        'backup':       [ 'U' , DbKeys.SETTING_LAST_BACKUP ],             
+    }
     def addSystemToVars(self):
         """ Add to vars list based on '#:system' tag in script file """
         if self.script_parms.isSet( ScriptKeys.SYSTEM):
@@ -355,12 +367,19 @@ class RunScriptBase():
             import PySide6
             import sys
             sy = SystemPreferences()
+            pref = DilPreferences()
             for key in self.script_parms.getOptions( ScriptKeys.SYSTEM) :
+                if key in self.prefkeys:
+                    flag=self.prefkeys[key][0]
+                    val=pref.getValue( self.prefkeys[key][1] )
+                    self.addVariable( flag , val )
+                    continue
+
                 if key ==ScriptKeys.DBFILE:
-                    self.addVariable( key , sy.getPathDB() )
+                    self.addVariable( key , pref.getPathDB() )
 
                 if key == ScriptKeys.MUSIC :
-                    self.addVariable( key , sy.getDirectory() )
+                    self.addVariable( key , pref.getMusicDir() )
 
                 if key == ScriptKeys.VERSION:
                     self.addVariable( key , ProgramConstants.version )
@@ -424,6 +443,12 @@ class RunScriptBase():
         self.addVariable( ScriptKeys.SCRIPT , path.dirname( self.script_file ) )
         self.notify_script_change( ( script if isFile else None) )
         return True
+    
+    def reset(self):
+        """ This clears the variables, resets the key ones from the script """
+        self.vars = []
+        self.addSystemToVars()
+        self.addVariable( ScriptKeys.SCRIPT , path.dirname( self.script_file ) )
 
     def start_process(self):
         """
@@ -442,6 +467,7 @@ class RunScriptBase():
             
             try:
                 self.addScriptToVars()
+                self.addFinalVars()
                 self._process.start(self.shell(), self.vars)
             except Exception as err:
                 self._close_temporary_file()
@@ -581,8 +607,6 @@ class DialogSettings( ):
             dlg.setWindowFlag( Qt.WindowStaysOnTopHint, True)
 
 
-
-
 class UiRunScript( RunScriptBase ):
     """
         Run a script based on values in the script file. This does not provide any prompting for files/dirs/etc.
@@ -624,7 +648,7 @@ class UiRunScript( RunScriptBase ):
         outputDestination must be a 'none', 'stdout' or 'plain'
         """
         super().__init__()
-
+        self.debug_mode = False
         self.createTextFields()
         if self.setScript( script, vars, isFile=isFile ):
             width  = min( 2048, toInt( self.script_parms.settingValue(ScriptKeys.WIDTH , '600' ) ,600 ) )
@@ -641,6 +665,7 @@ class UiRunScript( RunScriptBase ):
 
     def notify_end(self, endMessage:str )->None:
         """ Write the end message on the text file line and move cursor to top of output """
+        self.output_message("Script complete.")
         self.textScriptName.setText( endMessage  )
         self.text.moveCursor( QTextCursor.Start )
 
@@ -759,19 +784,24 @@ class UiRunScript( RunScriptBase ):
                 self.textScript.setPlainText( self._script_save )
                 del self._script_save
 
+    def isDebug( self )->bool:
+        return self.debug_mode
+    
     def run(self, startMsg:str="Hit Execute button to run program" )->bool:
         """
-        fun is the interface between the dialog box displaying information and the
+        run is the interface between the dialog box displaying information and the
         actual process that will be executed.
 
         It returns True to continue, False to Cancel
         """
+
         def buttonClicked(button):
             match button.text().strip():
                 case 'Execute':
                     self.status = self.RETURN_CONTINUE
                     btnList['Execute'].setDisabled(True)
-                    self.addDebugToVars( self.btnDebug.isChecked() )
+                    self.debug_mode = self.btnDebug.isChecked()
+                    self.addDebugToVars( self.debug_mode  )
                     self.text.clear()
                     self.output_message("Starting program<br/>{}<br/>".format( "-"*50),'html')
                     self.start_process()
@@ -895,6 +925,7 @@ class UiRunScriptFile( UiRunScript ):
             return not required
 
         dlg = QFileDialog(caption=prompt, filter=filter)
+        dlg.setFileMode( QFileDialog.ExistingFile )
         self.floatText( prompt )
         if dlg.exec() :
             filenames = dlg.selectedFiles()
@@ -968,6 +999,7 @@ class UiRunSimpleNote( RunScriptBase ):
 
     def notify_end(self, endMessage:str )->None:
         """ Move cursor to top of output """
+        self.output_message("Script complete.")
         self.text.moveCursor( QTextCursor.Start )
 
     def output_message(self, msgText:str , override=None)->None:

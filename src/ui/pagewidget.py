@@ -428,15 +428,27 @@ class PageWidget():
             self.pageThree.clear()
         return roll
 
+    def _rollForwardZeros(self, endpage:int):
+        if endpage != 0:
+            while self.pageOne.pageNumber() == 0:
+                self.pageOne.copyImage( self.pageTwo ) 
+                self.pageTwo.copyImage( self.pageThree )
+                self.pageThree.clear()
+
     def _simpleNextPage( self, px:QPixmap, pg:int):
-        if self._rollForward( pg ):
-            return
-        self.pageOne.copyImage( self.pageTwo ) 
-        self.pageTwo.copyImage( self.pageThree )
-        self.pageThree.setImage( px , pg )
+        pageshown = self.numberPages()
+        if pageshown == 1:
+            self.pageOne.setImage( px , pg )
+        elif pageshown == 2:
+            self.pageOne.copyImage( self.pageTwo )
+            self.pageTwo.setImage( px , pg )
+        else:
+            self.pageOne.copyImage( self.pageTwo )
+            self.pageTwo.copyImage( self.pageThree )
+            self.pageThree.setImage( px , pg )
         
     def numberPages(self)->int:
-        """ Return how many pages will be shown """
+        """ Return how many pages will be shown for this layout """
         if self._currentLayoutMode == None:
             return None
         return self._layout[ self._currentLayoutMode ][self.LAYOUT_PAGES ]
@@ -459,8 +471,10 @@ class PageWidget():
         self.resize()
         self.direction = self.FORWARD
         self.pageOne.setImage(   px1, pg1 )
-        self.pageTwo.setImage(   px2, pg2 )
-        self.pageThree.setImage( px3, pg3 )
+        if self.numberPages() > 1:
+            self.pageTwo.setImage(   px2, pg2 )
+            if self.numberPages() > 2:    
+                self.pageThree.setImage( px3, pg3 )
 
     def pageNumbers(self):
         return [self.pageOne.pageNumber(), self.pageTwo.pageNumber() , self.pageThree.pageNumber() ]
@@ -470,40 +484,64 @@ class PageWidget():
         self.setDisplayOnePage()
         self.pageOne.setImage( px , None)
 
-    def nextPage( self, px:QPixmap , pg:int):
-        if self.smartTurn and self.pageTwo.isVisible():
+    def nextPage( self, px:QPixmap , pg:int, end:bool=False):
+        if end and self.isShown( pg) :
+            return 
+        if self.smartTurn and self.numberPages() > 1:
             self._smartPage( self.lowestPageLabelWidget(), px, pg )
         else:
             self._simpleNextPage( px, pg )
         self.direction = self.FORWARD
 
-    def previousPage( self, px:QPixmap , pg:int):
-        if self.smartTurn and self.pageTwo.isVisible():
+    def previousPage( self, px:QPixmap , pg:int, end:bool=False ):
+        if end and self.isShown( pg) :
+            return 
+        if self.smartTurn and self.numberPages() > 1:
             self._smartPage( self.highestPageLabelWidget(), px, pg )
         else:
             self._simplePreviousPage( px, pg )
         self.direction = self.BACKWARD
 
     def getHighestPageShown(self):
-        return max( self.pages() )
+        return max( self.pages()[0:self.numberPages()] )
     
     def getLowestPageShown(self):
-        return min( self.pages() )
+        """ Return the lowest page in the array that can be seen"""
+        return min( self.pages()[0:self.numberPages()] )
 
-    
     def getPageForPosition(self, position ):
         return self.pages()[ position-1]
 
-    def isShown( self, page:int)->bool:
+    def isShown( self, page:int)->dict:
         lpages = self.pages()[ : self._getLayoutValue(self.LAYOUT_PAGES) ]
         return page in lpages
     
+    def getOrderedWidget(self)->list:
+        """ 
+        Return the widgets in page order
+
+        Created to handle any number of pages. Bit over the top but didn't
+        want to rewrite it again.
+        """
+
+        pnum = self.numberPages()
+        if pnum == 1:
+            return [ self.pageOne ]
+        
+        key_pages = {}
+        ordered  = []
+
+        for page in [ self.pageOne, self.pageTwo, self.pageThree ][ 0 : pnum ]:
+            key_pages[ page.pageNumber()] = page
+
+        for key in sorted( key_pages ):
+            ordered.append(   key_pages[ key ] )
+        return ordered
+
+    
     def highestPageLabelWidget(self)->PageLabelWidget:
-        if not self.pageTwo.isVisible() or self.pageOne.pageNumber() > self.pageTwo.pageNumber():
-            return self.pageOne
-        return self.pageTwo
+        ordered = self.getOrderedWidget()
+        return ordered[ len(ordered)-1 ]
 
     def lowestPageLabelWidget(self)->PageLabelWidget:
-        if not self.pageTwo.isVisible() or self.pageOne.pageNumber() < self.pageTwo.pageNumber():
-            return self.pageOne
-        return self.pageTwo
+        return self.getOrderedWidget()[0]

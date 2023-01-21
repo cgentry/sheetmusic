@@ -12,6 +12,19 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+# 0.4.2:
+Major changes:
+* Altered import to use script instead of hard code
+* Added ability to display simple message pane
+* Added scripts to display new information
+Fix:
+* Fix problem wihen original source is moved
+* Page change functions now working
+* Numerous small fixes
+
+Todo:
+* General fixes for bugs
+
 
 # 0.4.0:
 Major changes made:

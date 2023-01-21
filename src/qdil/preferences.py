@@ -132,6 +132,8 @@ class DilPreferences( ):
         """ Return the path to the help documents (~/sheetmusic/sheetmusic_doc) """
         return self.sy.getHelpDir()
 
+    def getMusicDir(self)->str:
+        return self.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
 
     def getValue( self, key:str, default:str=None)->str:
         """
@@ -173,7 +175,7 @@ class DilPreferences( ):
         if self.sy.contains(key):
             self.sy.setValue( key , value )
         else:
-            self.dbsystem.setValue( key, value, replace=replace, ignore=ignore )
+            rtn = self.dbsystem.setValue( key, value, replace=replace, ignore=ignore )
         return value 
 
     def setValue64( self, key:str, value:str=None , replace:bool=True, ignore:bool=False)->str:

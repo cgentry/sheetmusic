@@ -83,12 +83,14 @@ class DbBase():
         return self._wasError
     
     def lastError(self)->QSqlError:
+        """ Return last error returned from database operation"""
         return self._lastError
 
     def isError(self)->bool:
         return self._wasError
 
     def wasGood(self)->bool:
+        """ Returns True if no error was reported """
         return not self._wasError
 
     def logmsg( self  )->str:

@@ -20,7 +20,6 @@
 
 import os
 from collections        import OrderedDict
-from functools          import lru_cache
 from qdb.dbbook         import DbBook
 from qdb.dbbooksettings import DbBookSettings
 from qdb.dbsystem       import DbSystem
@@ -32,7 +31,6 @@ from PySide6.QtGui      import QPixmap
 class TinyCache(  ):
 
     def __init__(self , size=6):
-        print("CACHE SIZE=",size)
         self.cache = OrderedDict()
         self.size( size)
         self.hits = 0
@@ -45,6 +43,9 @@ class TinyCache(  ):
     def label(self, name )->None:
         self.label = name 
 
+    def is_set( self, key ):
+        return key in self.cache
+    
     def get(self, key ):
         if key in self.cache:
             self.hits = self.hits + 1
@@ -58,6 +59,7 @@ class TinyCache(  ):
             self.cache.popitem( last=True ) # pop last entry
         self.cache[key] = value
         self.cache.move_to_end(key, last=False) # Move to first location
+        return value
 
     def cache_clear(self):
         """ Clear will wipe out all entries. You don't really need to call this """
@@ -68,12 +70,12 @@ class TinyCache(  ):
         return "CacheInfo(hits={}, misses={}, maxsize={}, currsize={})".format( 
             self.hits, self.miss, self.max, len(self.cache))
 
-
 class DilBook( DbBook ):
     """
         DilBook is a data interface layer that will act as the general
         data interface between the program or UI and the database layer
     """
+    CACHE_SIZE = 5
     def __init__(self):
         super().__init__()
         self.tcache = TinyCache(size=self.CACHE_SIZE)
@@ -86,8 +88,6 @@ class DilBook( DbBook ):
         
         self.clear()
     
-    CACHE_SIZE = 2
-
     def _formatPrettyName(self, name):
         ''' Only called when you want to split apart a page name to something nicer'''
         pname = name.capitalize()
@@ -109,6 +109,8 @@ class DilBook( DbBook ):
 
     def setPaths(self):
         """
+        Split the directory path up into paths used by the Book class
+
         take a directory path (e.g. /users/yourname/sheetmusic/mybook) and split it up.
         The directory (/users/yourname/sheetmusic/mybook) is the book directory
         the first part (..../sheetmusic) is the home to all your books
@@ -116,6 +118,7 @@ class DilBook( DbBook ):
         We then get bookPageName (the page plus three digit extension)
         and the complete path formatter string
         """
+
         self.dirPath        = os.path.normpath(self.book[BOOK.location])
         self.bookPageName   = "".join( [self.page_prefix , "-{0:03d}"] )
         self.pageFormat     = "".join( [self.bookPageName,".",self.page_suffix]) 
@@ -126,11 +129,7 @@ class DilBook( DbBook ):
   
     def openBook(self, book:str, page=None, fileType="png", onError=None):
         """
-            openBook will close the previous book and then read the book data
-            from BookView. It needs the bookname, not the location on disk.
-            page will be set to either the last read or to the page passed
-            onerror=what will be returned, or None for message box to appear
-            It will handle error displays etc. 
+            Close current book and open new one. Use BookView for data
 
             Each book read will also include all the BookSettings
         """
@@ -176,6 +175,7 @@ class DilBook( DbBook ):
         """ closeBook will clear caches, values, and name paths. 
             Values will be saved to the Book or BookSettings tables
         """
+
         if self.book is not None:
             super().updateReadDate( self.book[ BOOK.book] )
             self.changes[ BOOK.lastRead] = self.getAbsolutePage()
@@ -202,7 +202,6 @@ class DilBook( DbBook ):
         for key, value in settings.items():
             self.dbooksettings.upsertBookSetting( id=recId, key=key, value=value )
         return super().getBook( book=bookname )
-
 
     def updateIncompleteBooksUI(self):
         """
@@ -387,41 +386,27 @@ class DilBook( DbBook ):
         return self.bookPathFormat.format(toInt( pageNum ))
 
     def clearCache(self):
-        print( "Cache: {}".format( self.tcache.cache_info() ) )
         #self.tcache.cache_clear()
+        pass
+
 
     def getPixmap(self, pageNum:str)->QPixmap:
         """ read the file and convert it into a pixal map.
-            This will cache entries to help speedup pixmap conversion
         """
+        px = None
         if self.isValidPage( pageNum ):
             imagePath = self.getBookPagePath(pageNum)
             if os.path.isfile( imagePath ):
-                px = self.tcache.get( imagePath )
-                if px is None:
-                    px = QPixmap( imagePath )
-                    self.tcache.set(imagePath , px )
-                return px
-
-        # QMessageBox.critical(
-        #     None,
-        #     "Image Error",
-        #     "{} page {} does not exist.".format( self.book[BOOK.name] , pageNum ),
-        #     QMessageBox.Cancel
-        # )
-        return None
+                if self.tcache.is_set( imagePath ):
+                    return self.tcache.get( imagePath )
+                px = QPixmap( imagePath )
+                self.tcache.set( imagePath , px )
+        return px
         
 
     def getRecent(self):
         self.numberRecent = DbSystem().getValue( DbKeys.SETTING_MAX_RECENT_SIZE , 10 )
         return super().getRecent( limit=self.numberRecent )
-
-    def writeBookConfig(self):
-        configPath = os.path.join(self.dirPath, "config.ini")
-        if self.bookConfigIsValid:
-            with open(configPath, 'w') as configfile:
-                self.config.write(configfile)
-        return True
 
     def getAspectRatio(self)->bool:
         return (BOOK.aspectRatio not in self.book or self.book[BOOK.aspectRatio] == 1 )

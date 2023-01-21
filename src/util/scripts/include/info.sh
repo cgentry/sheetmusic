@@ -1,12 +1,21 @@
 #!/bin/bash
 #:usage Fill in data from optional '#:system' request: scriptrun version python qt music os
 FILE_PATH=""
-
+IMG_RES=300
 while (( $# ))
 do
     case $1 in
     -D  )
         shift; DBFILE="$1"
+        ;;
+    -E  )
+        shift; IMG_RES="$1"
+        ;;
+    -G )
+        shift; PDF_DEVICE="$1"
+        ;;
+    -I  )
+        shift; IMG_TYPE="$1"
         ;;
     -M  )
         shift; MUSIC_DIR="$1"
