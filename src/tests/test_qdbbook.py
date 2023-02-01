@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 

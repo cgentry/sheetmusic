@@ -1,4 +1,4 @@
-# sheetmusic version 0.3.6
+# sheetmusic version 0.5.2
 A graphical program to display sheet music on a monitor
 
 # Overview
@@ -12,6 +12,21 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+
+# 0.5.2:
+Major changes:
+* Revised how scripts are run.
+* Making more scripts for previous coded functions: check PDF and backup.
+* Major cleanup on number of modules
+* Started making it conform to Python naming convention rather than mixing styles
+* Cleanup sections of old code
+TODO:
+* Finish cleanup of names
+* remove obsolete code that has been moved to scripts
+* Cleanup code and review - again.
+* Make 'build' versions to run on LINUX and MacOS (all testing currently on MacOS)
+* Add page notes
+
 # 0.4.2:
 Major changes:
 * Altered import to use script instead of hard code
@@ -24,7 +39,6 @@ Fix:
 
 Todo:
 * General fixes for bugs
-
 
 # 0.4.0:
 Major changes made:

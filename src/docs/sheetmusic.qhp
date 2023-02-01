@@ -39,6 +39,9 @@
             <keyword name="Reimport"        		    ref="import.html#reimport" />
             <keyword name="Script (Prefs)"              ref="prefs.html#script" />
             <keyword name="Script Settings (Prefs)"     ref="prefs.html#script-settings" />
+            <keyword name="Scripting (external)"        ref="scripts.html" />
+            <keyword name="Scripting - Tags (external)" ref="scripts.html#script-dialog-tags" />
+            <keyword name="Scripting - Options (external)" ref="scripts.html#script-dialog-options" />
             <keyword name="Smart Page Turn"             ref="usage.html#menu-view-smart-page" />
         </keywords>
         <files>
@@ -51,6 +54,7 @@
             <file>ghostscript.html</file>
             <file>page-numbering.html</file>
             <file>prefs.html</file>
+            <file>scripts.html</file>
             <file>usage.html</file>
             <file>css/general.css</file>
             <file>images/bookmark-name-prompt.png</file>

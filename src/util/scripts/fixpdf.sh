@@ -1,6 +1,6 @@
 #!/bin/bash
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 # Licensed under GPL 3.0
 #
 #:title   Fix PDF files
@@ -9,28 +9,28 @@
 #:comment also wipe out any change locks that you have put on. It is not
 #:comment guaranteed to be 100% but should correct a number of problems.
 #:comment The old file will be saved with the suffix '-old.pdf'
-#:file-prompt Select the PDF file to be repaired.
-#:file-filter (*.pdf *.PDF)
-#:require file debug
-#:width 1024
-#:heigth 920
+#:dialog  "type='file' label='Select the PDF file to be repaired:' option='require' filter='(*.pdf *.PDF)' width='120'"
+#:dialog  "type='title' label='Fix errors in PDF file'"
+#:dialog  "type='size' width='600'"
+#: require file debug
+#: width 1024
+#: heigth 920
 #
-# -f file is the only required parameter.
-# a temporary file in the directory will be created then files will be moved around
+args=( "$@" )
+while (( ${#args[@]} ))
+do
+    if [ "${args[0]}" == '-S' ]; then
+        INCLUDE_SYSTEM="${args[@]:1:1}"
+        break
+    fi
+    args=("${args[@]:1}")
+done
 
-## the following should work for bash and zsh.
-## if not, use the -Z option
-SCRIPT_DIR=`cd $(dirname $0) && pwd`
-SCRIPT=$(basename $0)
-
-usage(){
-    cat <<ENDUSAGE
-$0 : Fix PDF files by running them through ghostscript
-ENDUSAGE
-}
-
-. ${SCRIPT_DIR}/include/start.sh "$@"
-. ${SCRIPT_DIR}/include/debug.sh "$@"
+if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
+    echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
+    exit 99 
+fi
+. ${INCLUDE_SYSTEM}/start.sh "$@" 
 . ${SCRIPT_DIR}/include/require_file.sh "$@"
 . ${SCRIPT_DIR}/include/unique_file.sh "$@"
 
@@ -53,4 +53,5 @@ cat <<END_FIX_PDF
 Fixed PDF file:  '${FILE_NAME}'
 Original now  :  '${UNIQUE_NAME}'
 END_FIX_PDF
+echo .
 . ${SCRIPT_DIR}/include/finish.sh "$@"

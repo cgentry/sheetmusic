@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -99,16 +99,16 @@ class UiProperties(QDialog):
     
 
     def createButtons(self):
-        self.skipButton = QPushButton( self.btnTxtIgnore )
-        self.applyButton = QPushButton( self.btnTxtApply )
-        self.cancelButton = QPushButton( self.btnTxtCancel)
+        self.btn_skip = QPushButton( self.btnTxtIgnore )
+        self.btn_apply = QPushButton( self.btnTxtApply )
+        self.btn_cancel = QPushButton( self.btnTxtCancel)
         self.buttons = QDialogButtonBox()
-        self.buttons.addButton(self.skipButton, QDialogButtonBox.ResetRole)
-        self.buttons.addButton( self.applyButton, QDialogButtonBox.YesRole)
-        self.buttons.addButton( self.cancelButton , QDialogButtonBox.RejectRole)
-        self.buttons.clicked.connect(self.buttonClicked)
+        self.buttons.addButton(self.btn_skip, QDialogButtonBox.ResetRole)
+        self.buttons.addButton( self.btn_apply, QDialogButtonBox.YesRole)
+        self.buttons.addButton( self.btn_cancel , QDialogButtonBox.RejectRole)
+        self.buttons.clicked.connect(self.button_clicked)
        
-    def buttonClicked(self, btn ):
+    def button_clicked(self, btn ):
         if btn.text() == self.btnTxtIgnore:
             self.changes={}
             self.accept()
@@ -150,9 +150,9 @@ class UiProperties(QDialog):
 
     def defaultButton(self):
         apply = (len( self.changes ) > 0 )
-        self.applyButton.setDefault(apply)
-        self.applyButton.setEnabled( apply )
-        self.skipButton.setDefault( ( not apply ) )
+        self.btn_apply.setDefault(apply)
+        self.btn_apply.setEnabled( apply )
+        self.btn_skip.setDefault( ( not apply ) )
 
     def changedName(self, value):
         self.changes[ BOOK.name ] = self._cleanupName( value )

@@ -1,0 +1,245 @@
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+	<link rel="stylesheet" type="text/css" href="css/general.css" />
+	<title>Sheetmusic Scripts</title>
+    <style>
+        td,
+        th {
+            text-align: left;
+            padding: 10px;
+        }   
+    </style>
+</head>
+
+<body>
+	<p>
+		<center>
+			<h2>SheetMusic</h2>
+		</center>
+	</p>
+	<p>
+		Scripts allow a simple way to create utilities with GUI screens but run shell scripts. Each script must contain special flags
+        in order to allow interaction between the program and the script.
+	</p>
+    <a id="script-location" />
+    <h3>Location</h3>
+    <p>Scripts that come with SheetMusic will reside within the program directory and should not be changed. 
+        Scripts can be added in a directory defined in a user-defined directory. (This can be set in the preferences settings, script.)<br/>
+        The directory structure is:
+        <ul>
+            <li><i>script directory/</i>>&nbsp;-&nbsp;Top level directory to place user created scripts</li>
+            <li><i>script directory/</i>/include</b>&nbsp;-&nbsp;sub-directory to place common scripting utilities</li>
+        </ul>
+    </p>
+    <a id="script-passed-parms" />
+    <h3>Parameters passed to script</h3> 
+    <p>
+        Parameters are passed to the script in a simple, standard format. A number of them are passed when flags are present, but some are always passed. Flags are passed in a way that UNIX/LINUX shell scripts can understand.
+    <br/>
+    <table>
+        <tr>
+            <th>Parameter</th>
+            <th>Script Variable</th>
+            <th>Description</th>
+        </td>
+        <tr>
+            <td>-D path</td>
+            <td>DBFILE</td>
+            <td> - Path to database file</td> 
+        </tr>
+        <tr>
+            <td>-E resolution</td>
+            <td>IMG_RES</td>
+            <td>Image reolution for ghostscript</td>
+        </tr>
+        <tr>
+            <td>-G device</td>
+            <td>PDF_DEVICE</td>
+            <td>Device for ghostscript</td>
+        </tr>
+        <tr>
+            <td>-I extension</td>
+            <td>IMG_TYPE</td>
+            <td>Type of image ghostscript should output (e.g. png)</td>
+        </tr>
+        <tr>
+            <td>-M dir</td>
+            <td>MUSIC_DIR</td>
+            <td>Directory where sheet music is stored</td>
+        </tr>
+        <tr>
+            <td>-P python</td>
+            <td>PYTHON_VERSION</td>
+            <td> - Pyton version number</td>
+        </tr>
+        <tr>
+            <td>-Q version</td>
+            <td>QT_VERSION</td>
+            <td>QT version number</td>
+        </tr>
+        <tr>
+            <td>-S system</td>
+            <td>SYSTEM_OS</td>
+            <td> - System ID (darwin, linux, win)</td>
+        </tr>
+        <tr>
+            <td>-U path</td>
+            <td>INCLUDE_USER</td>
+            <td>Path to user includes. Script: INCLUDE_USER</td>
+        </tr>
+        <tr>
+            <td>-v version</td>
+            <td>SHEETMUSIC_VERSION</td>
+            <td>Version of sheetmusic program running</td>
+        </tr>
+        <tr>
+            <td>-X</td>
+            <td>DEBUG</td>
+            <td>Debug flag</td> 
+        </tr>
+        <tr>
+            <td>-Y script</td>
+            <td>SCRIPT_DIR</td>
+            <td>Path for this script</td>
+        </tr>
+        <tr>
+            <td>-Z path</td>
+            <td>DEBUG</td></td>
+            <td>Debug flag. This sets the var $DEBUG to an echo command.</td>
+        </tr>
+    </table>
+    <br/>
+    The following are standard parameters that are passed when information is requsted through dialogs. 
+    The flags used can be overridden by including the 'tag' keyword. The value '_nn' represents the n'th
+    keyword that was encountered.
+    </th>
+    <table>
+        <tr>
+            <th>Parameter</th>
+            <th>Script Variable</th>
+            <th>Description</th>
+        </tr>
+        <tr>
+            <td>-CHECK_nn</td>
+            <td>CHECK_nn</td>
+            <td>Details the n'th return from type='check'.</td>
+        </tr>
+        <tr>
+            <td>-DIR_nn</td>
+            <td>DIR_nn</td>
+            <td>Details the n'th return from type='dir'.</td>
+        </tr>
+        <tr>
+            <td>-DROP_nn</td>
+            <td>DROP_nn</td>
+            <td>Details the n'th return from type='dropdown'.</td>
+        </tr>
+        <tr>
+            <td>-FILE_nn</td>
+            <td>FILE_nn</td>
+            <td>Details the n'th return from type='file'.</td>
+        </tr>
+    </table>
+    </p>
+
+    <a id="script-tags" />
+    <h3>Tags</h3>
+    <p>
+        Tags are used to indicate to the script runner what functions and data you require. Tags that are used to control UI dialogs
+        are covered in <a href="#script-dialog">Tags for Dialogs</a>. All tags are in the format of #:<i>keyword</i> (hash colon keyword).
+        The keywords are:<br/>
+        <ul>
+            <li></li>
+        </ul>
+    </p>
+        
+    <a id="script-dialog" />
+    <h3>Dialogs</h3>
+    <p>
+        While developing, it was determined that promping for files, directories, or multiple requests was difficult within a Mac.
+        (Requres for files and directories do not have dialog headers.) This made it confusing to use, so a way to generate 
+        very simple dialogs was made. This allows much easier, and better, ways to interact with the user. A series of special Tags
+        was created. Each dialog tag must begin with #:dialog. The format of the dialog tag is:<br/>
+        <center>#:dialog 
+            type='<a href='#script-dialog-type'>type'</a>&nbsp;
+            label='<a href='#script-dialog-label'>label'</a>&nbsp;
+            tag='<a href='#script-dialog-tag'>name&nbsp;for&nbsp;script&nbsp;parameter'</a>&nbsp;
+            value='<a href='#script-dialog-value'>initial value'</a>&nbsp;
+            option='<a href='#script-dialog-option'>list&nbsp;of&nbsp;options'</a>&nbsp;
+            drop='<a href='#script-dialog-drop'>list&nbsp;of&nbsp;dropdown&nbsp;values'</a>&nbsp;
+            data='<a href='#script-dialog-data'>list&nbsp;of&nbsp;dropdown&nbsp;values&nbsp;to&nbsp;return</a>
+        </center>
+        <a id="script-dialog-type" />
+        <h4>Types for dialog</h4>
+        <p>
+        These control what is displayed and what options the user can see.
+        <ul>
+            <li><b>title</b>&nbsp;-&nbsp;Display this title for the dialog.<br>
+                Required:
+                <ul>
+                    <li>
+                        <a href='#script-dialog-label'>label</a>='text for title'
+                    </li>
+                </ul>
+                Optional: None
+            </li>
+            <li><b>check</b>&nbsp;-&nbsp;Display a check box.<br>
+                Required:
+                <ul>
+                    <li>
+                        <a href='#script-dialog-label'>label</a>='text for checkbox label' This will appear to the right of the checkbox.
+                    </li>
+                </ul>
+                Optional:
+                <ul>
+                    <li>
+                        <a href='#script-dialog-value'>value</a>='boolean'. Boolean values encoded as 'true', 'yes', '1' , 'check', 'checked', or 'ok' for a the box to be checked. 
+                        Anything else will be considered 'false'. The default is 'false'.
+                    </li>
+                </ul>
+            </li>
+        </ul>
+        </p>
+        <a id="script-dialog-options" />
+        <h4>Options for dialog 'type'</h4>
+        <p>
+            <ul>
+                <a id="script-dialog-data" />
+                <li><b>data</b>
+                    <br/>Required: dropdown
+                    <br/>Optional: None
+                    <br/>Define
+                </li>
+                <a id="script-dialog-drop" />
+                <li><b>drop</b>
+                    <br/>Required: dropdown
+                    <br/>Optional: None
+                    <br/>Define
+                </li>
+                <a id="script-dialog-label" />
+                <li><b>label</b>
+                    <br/>Required: check, dir, file, dropdown, title
+                    <br/>Optional: none
+                    <br/>Define
+                </li>
+                <a id="script-dialog-tag" />
+                <li><b>tag</b>
+                    <br/>Required: None
+                    <br/>Optional: check, dir, file, dropdown, title
+                    <br/>Define
+                </li>
+                <a id="script-dialog-option" />
+                <li><b>option</b>
+                </li>
+                <a id="script-dialog-value" />
+                <li><b>value</b>
+                    <br/>Required: None
+                    <br/>Optional: check, dir, file, dropdown, title
+                    <br/>Define
+                </li>
+            </ul>
+        </p>
+    </p>
+    <br/>

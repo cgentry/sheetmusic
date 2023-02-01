@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -217,49 +217,76 @@ class UiPreferences(QDialog):
 
         return btnBox
 
-    def formatDirectory(self , layout:QGridLayout, row:int ):
+    def formatDirectory(self , layout:QGridLayout, row:int )->int:
         '''
             Location of where to store music files
 
         '''
-        hlayout = QHBoxLayout()
+        # Create and add Default path to music options
         self.lblDefaultDir = QLabel( self.settings.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR) )
         self.lblDefaultDir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
-        self.btnChangeDefaultDir = QPushButton("Change...")
-        self.btnResetDefaultDir  = QPushButton("Restore Defaults")
+        self.btn_change_default_dir = QPushButton("Change...")
+        self.btn_reset_default_dir  = QPushButton("Restore Defaults")
 
+        self.btn_change_default_dir.pressed.connect( self.actionChangeDefaultDir )
+        self.btn_reset_default_dir.pressed.connect(  self.actionResetDefaultDir )
+
+        hlayout = QHBoxLayout()
         hlayout.addWidget( self.lblDefaultDir )
-        hlayout.addWidget( self.btnChangeDefaultDir )
-        hlayout.addWidget( self.btnResetDefaultDir )
-
-        self.btnChangeDefaultDir.pressed.connect( self.actionChangeDefaultDir )
-        self.btnResetDefaultDir.pressed.connect(  self.actionResetDefaultDir )
+        hlayout.addWidget( self.btn_change_default_dir )
+        hlayout.addWidget( self.btn_reset_default_dir )
 
         layout.addLayout( hlayout, row , 1 ,alignment=Qt.AlignLeft)
+        row += 1
+        return row
+    
+    def formatUserScriptDir( self, layout:QGridLayout, row:int )->int:
 
-    def formatDatabaseDir(self , layout:QGridLayout, row:int ):
+        # create and add User Script path to music options
+        self.label_user_script_dir = QLabel( self.settings.getValue( DbKeys.SETTING_PATH_USER_SCRIPT, DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR) )
+        self.label_user_script_dir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
+        self.btn_change_default_dir = QPushButton("Change...")
+        self.btn_reset_user_script_dir  = QPushButton("Restore Defaults")
+        self.btnChangeUserScriptDir.pressed.connect( self.actionChangeUserscriptDir )
+        self.btn_reset_user_script_dir.pressed.connect(  self.actionResetUserScriptDir )
+
+        hlayout = QHBoxLayout()
+        hlayout.addWidget( self.label_user_script_dir )
+        hlayout.addWidget( self.label_user_script_dir )
+        hlayout.addWidget( self.btn_reset_user_script_dir )
+
+        layout.addLayout( hlayout, row , 1 ,alignment=Qt.AlignLeft)
+        row += 1
+        return row
+
+
+    def formatDatabaseDir(self , layout:QGridLayout, row:int )->int:
         hlayout = QHBoxLayout()
 
         self.lblDbDir = QLabel( self.settings.getDirectoryDB() )
         self.lblDbDir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
-        self.btnChangeDbDir = QPushButton("Change...")
-        self.btnResetDbDir  = QPushButton("Restore Defaults")
+        self.btn_change_database_dir = QPushButton("Change...")
+        self.btn_reset_database_dir  = QPushButton("Restore Defaults")
 
         hlayout.addWidget( self.lblDbDir )
-        hlayout.addWidget( self.btnChangeDbDir )
-        hlayout.addWidget( self.btnResetDbDir )
+        hlayout.addWidget( self.btn_change_database_dir )
+        hlayout.addWidget( self.btn_reset_database_dir )
 
-        self.btnChangeDbDir.pressed.connect( self.actionChangeDbDir )
-        self.btnResetDbDir.pressed.connect( self.actionResetDbDir )
+        self.btn_change_database_dir.pressed.connect( self.actionChangeDbDir )
+        self.btn_reset_database_dir.pressed.connect( self.actionResetDbDir )
 
         layout.addLayout( hlayout, row , 1 ,alignment=Qt.AlignLeft)
+        row += 1
+        return row
 
-    def formatRecentFiles( self, layout:QGridLayout, row:int ):
+    def formatRecentFiles( self, layout:QGridLayout, row:int )->int:
         values = [ str(x) for x in range(DbKeys.VALUE_RECENT_SIZE_MIN, DbKeys.VALUE_RECENT_SIZE_MAX+1)]
         current = self.settings.getValue( DbKeys.SETTING_MAX_RECENT_SIZE , DbKeys.VALUE_RECENT_SIZE_DEFAULT)
         self.cmbRecentFiles = UiGenericCombo( isEditable=False, fill=values, currentValue=current , name=DbKeys.SETTING_MAX_RECENT_SIZE)
         self.cmbRecentFiles.currentTextChanged.connect( self.actionRecentFiles )
         layout.addWidget( self.cmbRecentFiles, row, 1 )
+        row += 1
+        return row
 
     def formatFiletype( self, layout:QGridLayout, row:int  )->int:
         self.cmbType = QComboBox()
@@ -382,6 +409,7 @@ class UiPreferences(QDialog):
         return row+1
         
     def formatScriptVars(self, layout:QGridLayout, row:int)->int:
+        """ create the inputs for the script runner (system shell) and parms to pass to the runner"""
         self.txtScriptVars  = QLineEdit()
         self.txtScriptVars.setObjectName(DbKeys.SETTING_DEFAULT_SCRIPT_VAR )
         self.txtScriptVars.setText(  self.settings.getValue(DbKeys.SETTING_DEFAULT_SCRIPT_VAR)  )
@@ -392,10 +420,11 @@ class UiPreferences(QDialog):
         return row+2
 
     def formatData(self ):
+        """ Format all the directory inputs: music, database, scripts, etc."""
         #
-        self.formatDirectory(   self.layoutFile, 0 )
-        self.formatDatabaseDir( self.layoutFile, 1 )
-        self.formatRecentFiles( self.layoutFile, 2 )
+        row = self.formatDirectory(   self.layoutFile, 0 )
+        row = self.formatDatabaseDir( self.layoutFile, row )
+        row = self.formatRecentFiles( self.layoutFile, row )
         #
         row = self.formatFiletype( self.layoutBook, 0 )
         row = self.formatLayout(self.layoutBook, row  )
@@ -408,6 +437,7 @@ class UiPreferences(QDialog):
         row = self.formatFileDevice( self.layoutShellScript, row )
         row = self.formatResolution( self.layoutShellScript, row )
         row = self.formatNameImport( self.layoutShellScript, row )
+        row = self.formatUserScriptDir( self.layoutShellScript, row )
         #
         self.formatKeyMods( self.layoutKeyboard, 0  )
 
@@ -519,31 +549,45 @@ class UiPreferences(QDialog):
     
     def actionChangeDefaultDir(self):
         cdir = self.lblDefaultDir.text()
-        newDirName = QFileDialog.getExistingDirectory(
+        new_directory_name = QFileDialog.getExistingDirectory(
             self,
             "Change Sheetmusic Directory",
             dir=cdir,
             options=QFileDialog.Option.ShowDirsOnly)
-        if newDirName:
-            self.lblDefaultDir.setText( newDirName )
+        if new_directory_name:
+            self.lblDefaultDir.setText( new_directory_name )
             self.lblDefaultDir.show()
             self.flagChanged = True
-            self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC ] = newDirName
-        self.btnChangeDefaultDir.setDown( False)
+            self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC ] = new_directory_name
+        self.btn_change_default_dir.setDown( False)
+
+    def actionChangeDefaultDir(self):
+        cdir = self.label_user_script_dir.text()
+        new_directory_name = QFileDialog.getExistingDirectory(
+            self,
+            "Change User Script Directory",
+            dir=cdir,
+            options=QFileDialog.Option.ShowDirsOnly)
+        if new_directory_name:
+            self.label_user_script_dir.setText( new_directory_name )
+            self.label_user_script_dir.show()
+            self.flagChanged = True
+            self.states[ DbKeys.SETTING_PATH_USER_SCRIPT ] = new_directory_name
+        self.btnChangeUserScriptDir.setDown( False)
 
     def actionChangeDbDir(self):
         cdir = self.lblDbDir.text()
-        newDirName = QFileDialog.getExistingDirectory(
+        new_directory_name = QFileDialog.getExistingDirectory(
             self,
             "Change Database Directory",
             dir=cdir,
             options=QFileDialog.Option.ShowDirsOnly)
-        if newDirName:
-            self.lblDbDir.setText( newDirName )
+        if new_directory_name:
+            self.lblDbDir.setText( new_directory_name )
             self.lblDbDir.show()
             self.flagChanged = True
-            self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB ] = newDirName
-        self.btnChangeDbDir.setDown( False)
+            self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB ] = new_directory_name
+        self.btn_change_database_dir.setDown( False)
 
     def actionResetDefaultDir(self):
         cdir = expanduser(  DbKeys.VALUE_DEFAULT_DIR)

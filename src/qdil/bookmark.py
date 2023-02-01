@@ -1,7 +1,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -147,22 +147,21 @@ class DilBookmark( DbBookmark):
         uiBookmark.close()
         return bookm
     
-    def addBookmarkDialog( self, dlg ):
-        try:
-            self.addBookmarkDialogx( dlg )
-        except Exception as err:
-            raise( err )
+    # def addBookmarkDialog( self, dlg ):
+    #     try:
+    #         self.addBookmarkDialogx( dlg )
+    #     except Exception as err:
+    #         raise( err )
 
-    def addBookmarkDialogx( self, dlg ):
-        while dlg.exec() == QDialog.Accepted:
-            changes = dlg.getChanges()
-            dlg.clear()
-            currentBookmark = self.getNameForPage( self.bookName , page=changes[ BOOKMARK.page ] )
-            if currentBookmark :
-                dlg.setupFields( changes[BOOKMARK.name])
-                dlg.error("<b>Duplicate Bookmarked page {}:<br>{}</b>".format( changes[BOOKMARK.page ] , currentBookmark))
-                continue
-            else:
-                self.saveBookmark( bookmarkName=changes[ BOOKMARK.name ],pageNumber=changes[ BOOKMARK.page ])
-                if dlg.buttonClicked == dlg.BtnSave: # One shot operation
-                    break
+    # def addBookmarkDialogx( self, dlg ):
+    #     while dlg.exec() == QDialog.Accepted:
+    #         changes = dlg.getChanges()
+    #         dlg.clear()
+    #         currentBookmark = self.getNameForPage( self.bookName , page=changes[ BOOKMARK.page ] )
+    #         if currentBookmark :
+    #             dlg.setupFields( changes[BOOKMARK.name])
+    #             dlg.error("<b>Duplicate Bookmarked page {}:<br>{}</b>".format( changes[BOOKMARK.page ] , currentBookmark))
+    #         else:
+    #             self.saveBookmark( bookmarkName=changes[ BOOKMARK.name ],pageNumber=changes[ BOOKMARK.page ])
+    #             if dlg.buttonClicked == dlg.BtnSave: # One shot operation
+    #                 break

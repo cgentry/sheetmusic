@@ -26,20 +26,20 @@ class Initialise( QDialog ):
         self.exec()
     
     def create_output(self)->None:
-        self.layout = QVBoxLayout()
+        self._dialog_layout = QVBoxLayout()
         self.setWindowTitle( "Setup Sheetmusic")
         #windowsize = self.sreen().availableGeometry()
         self.resize( 500,300)
         
         self.status = QTextEdit()
         self.status.setReadOnly(True)
-        self.layout.addWidget( self.status )
+        self._dialog_layout.addWidget( self.status )
 
         self.btnbox = QDialogButtonBox(QDialogButtonBox.Close )
         self.btnbox.clicked.connect( self.accept )
         self.btnbox.setHidden(True)
-        self.layout.addWidget( self.btnbox)
-        self.setLayout( self.layout )
+        self._dialog_layout.addWidget( self.btnbox)
+        self.setLayout( self._dialog_layout )
 
     def destroy_output(self):
         self.output("\n<b>Setup complete</b>")

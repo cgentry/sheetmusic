@@ -1,7 +1,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -64,7 +64,7 @@ class UiBaseConvert( UiRunScript ):
         super().__init__( get_scriptpath(UiBaseConvert.SCRIPT) )
         self.pref = DilPreferences()
         self.status  = self.RETURN_CANCEL
-        self.setOutput( 'text')
+        self.set_output( 'text')
 
         self.bookType   = self.pref.getValue(DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE)
         self.page_suffix = self.pref.getValue( DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE )
@@ -235,12 +235,12 @@ class UiBaseConvert( UiRunScript ):
             for index, entry in enumerate( self.data ):
                 baseName = os.path.basename( entry[ BOOK.source ] )
                 self.reset()
-                self.addVariable( 's', entry[ BOOK.source ])
-                self.addVariable( 't', entry[ BOOK.name   ])
+                self.add_variable( 's', entry[ BOOK.source ])
+                self.add_variable( 't', entry[ BOOK.name   ])
                 self.bookPath = path.join( self.music_path , entry[ BOOK.name ])
                 if self.run( ) == self.RETURN_CANCEL :
                     break
-                if self.isDebug():
+                if self.is_debug():
                     return self.RETURN_CANCEL
                 self.data[ index ].update( { BOOK.location: self.bookPath} )
                 if self.isBookDirectory( self.bookPath ):
@@ -249,7 +249,7 @@ class UiBaseConvert( UiRunScript ):
                     self.data[ index ][ BOOK.totalPages ] = 0
         return self.status
    
-    def addFinalVars( self ):
+    def add_final_vars( self ):
         # self.addVariableFlag( self.CONVERT_TYPE , self.bookType )
         # varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
         # if varString is None:

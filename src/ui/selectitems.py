@@ -22,10 +22,10 @@ class SelectItems( QDialog ):
 
 
     def setDialog( self, *args ):
-        self.layout = QVBoxLayout()
+        self._dialog_layout = QVBoxLayout()
         for element in args:
-            self.layout.addWidget( element )
-        self.setLayout( self.layout )
+            self._dialog_layout.addWidget( element )
+        self.setLayout( self._dialog_layout )
 
     def createTitle(self, heading:str=None)->QLabel:
         self.lblHeading =  QLabel()
@@ -39,10 +39,10 @@ class SelectItems( QDialog ):
 
     def createButtonBox(self)->QDialogButtonBox:
         self.buttonBox = QDialogButtonBox()
-        self.buttonYes = QPushButton('Yes')
-        self.buttonNo  = QPushButton('No')
-        self.buttonBox.addButton( self.buttonYes, QDialogButtonBox.AcceptRole )
-        self.buttonBox.addButton( self.buttonNo , QDialogButtonBox.RejectRole )
+        self.btn_yes = QPushButton('Yes')
+        self.btn_no  = QPushButton('No')
+        self.buttonBox.addButton( self.btn_yes, QDialogButtonBox.AcceptRole )
+        self.buttonBox.addButton( self.btn_no , QDialogButtonBox.RejectRole )
         self.buttonBox.accepted.connect( self.actionAccepted )
         self.buttonBox.rejected.connect( self.actionRejected )
         return self.buttonBox
@@ -51,9 +51,9 @@ class SelectItems( QDialog ):
         if heading:
             self.lblHeading.setText( heading )
 
-    def setButtonText( self, buttonYes:str='Yes', buttonNo:str='No' ):
-        self.buttonYes.setText( buttonYes)
-        self.buttonNo.setText( buttonNo)
+    def setButtonText( self, btn_yes:str='Yes', btn_no:str='No' ):
+        self.btn_yes.setText( btn_yes)
+        self.btn_no.setText( btn_no)
 
     def _widgetFromDatum( self, label )->QListWidgetItem:
         lim = QListWidgetItem()

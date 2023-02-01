@@ -1,7 +1,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -28,8 +28,11 @@ from qdb.dbsystem import DbSystem
 
 class TestSystem( unittest.TestCase):
     def setUp(self):
-        DbConn.openDB(':memory:')
-        self.setup = Setup(":memory:")
+        dbfile = '/tmp/test.sql'
+        # dbfile = ':memory:'
+        DbConn.openDB( dbfile )
+        
+        self.setup = Setup(dbfile)
         self.setup.dropTables()
         self.setup.createTables()
         self.obj = DbSystem()
@@ -85,7 +88,6 @@ class TestSystem( unittest.TestCase):
         self.assertTrue( self.obj.setValue( key, 'myvalue', ignore=True) )
         self.assertEqual( 'myvalue', self.obj.getValue(key) )
 
-
     def test_setValue_delete(self):
         key = 'mykey'
         self.assertTrue( self.obj.setValue( key, 'myvalue', ignore=True) )
@@ -111,21 +113,24 @@ class TestSystem( unittest.TestCase):
 
     def test_saveAll_dictionary( self ):
         data = {
-            'K1': 'v1',
-            'K2': 'v2',
-            'K3': 'v3',
-            'K4': 'v4',
+            'K1': 'sall-1',
+            'K2': 'sall-2',
+            'K3': 'sall-3',
+            'K4': 'sall-4',
         }
-        self.assertEqual( 4 , self.obj.saveAll( data ) )
+        self.assertEqual( 4, self.obj.saveAll( data ) )
         rtnData = self.obj.getAll()
         self.assertEqual( len( rtnData ) , 4 )
-        self.assertEqual( rtnData['K1'], 'v1')
-        self.assertEqual( rtnData['K2'], 'v2')
-        self.assertEqual( rtnData['K3'], 'v3')
-        self.assertEqual( rtnData['K4'], 'v4')
+        self.assertEqual( rtnData['K1'], 'sall-1')
+        self.assertEqual( rtnData['K2'], 'sall-2')
+        self.assertEqual( rtnData['K3'], 'sall-3')
+        self.assertEqual( rtnData['K4'], 'sall-4')
 
     def test_saveall_fail(self):
-        self.assertRaises(ValueError, self.obj.saveAll, 'hello') 
+        with self.assertRaises( ValueError ) as cm:
+            self.obj.saveAll( 'hello') 
+        ex = cm.exception
+        self.assertEqual( str(ex) , "saveAll: Invalid type passed '<class 'str'>'" )
 
 if __name__ == "__main__":
     sys.path.append("../")

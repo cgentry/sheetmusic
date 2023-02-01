@@ -1,7 +1,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -141,53 +141,53 @@ class UiMain(object):
         self.statusbar = QStatusBar(MainWindow)
         self.statusbar.setObjectName(u"statusbar")
 
-        self.lblPageRelative = QLabel()
-        self.lblPageRelative.setObjectName(u'pageRelative')
-        self.lblPageRelative.setText("")
+        self.label_page_relative = QLabel()
+        self.label_page_relative.setObjectName(u'pageRelative')
+        self.label_page_relative.setText("")
 
-        self.lblBookNote = QLabel()
-        self.lblBookNote.setObjectName( u'bookNote')
+        self.label_book_note = QLabel()
+        self.label_book_note.setObjectName( u'bookNote')
         self.setBookNote(True )
 
-        self.lblPageNote = QLabel()
-        self.lblPageNote.setObjectName( u'pageNote')
+        self.label_page_note = QLabel()
+        self.label_page_note.setObjectName( u'pageNote')
         self.setPageNote(True)
 
-        self.statusProgress = QSlider()
-        self.statusProgress.setObjectName(u'progressbar')
-        self.statusProgress.setMinimum(1)
-        self.statusProgress.setOrientation(Qt.Horizontal)
-        self.statusProgress.setTracking( True )
+        self.slider_position_page = QSlider()
+        self.slider_position_page.setObjectName(u'progressbar')
+        self.slider_position_page.setMinimum(1)
+        self.slider_position_page.setOrientation(Qt.Horizontal)
+        self.slider_position_page.setTracking( True )
 
-        self.lblPageAbsolute = QLabel()
-        self.lblPageAbsolute.setObjectName(u'pageAbsolute')
-        self.lblPageAbsolute.setToolTip("Absolute book page")
+        self.label_page_absolute = QLabel()
+        self.label_page_absolute.setObjectName(u'pageAbsolute')
+        self.label_page_absolute.setToolTip("Absolute book page")
 
-        self.lblBookmark = QPushButton()
-        self.lblBookmark.setObjectName(u'bookmark')
-        self.lblBookmark.setToolTip("Current bookmark")
-        self.lblBookmark.setFlat( True )
+        self.btn_bookmark = QPushButton()
+        self.btn_bookmark.setObjectName(u'bookmark')
+        self.btn_bookmark.setToolTip("Current bookmark")
+        self.btn_bookmark.setFlat( True )
 
-        self.statusbar.addWidget( self.lblPageRelative)
-        self.statusbar.addWidget( self.lblBookNote )
-        self.statusbar.addWidget( self.lblPageNote )
-        self.statusbar.addWidget( self.statusProgress,100)
-        self.statusbar.addWidget( self.lblBookmark )
-        self.statusbar.addWidget( self.lblPageAbsolute)
+        self.statusbar.addWidget( self.label_page_relative)
+        self.statusbar.addWidget( self.label_book_note )
+        self.statusbar.addWidget( self.label_page_note )
+        self.statusbar.addWidget( self.slider_position_page,100)
+        self.statusbar.addWidget( self.btn_bookmark )
+        self.statusbar.addWidget( self.label_page_absolute)
 
         MainWindow.setStatusBar(self.statusbar)
     
     def setBookNote(self, flag:bool):
         if flag:
-            self.lblBookNote.setText( "\U0001F4D9" )
+            self.label_book_note.setText( "\U0001F4D9" )
         else:
-            self.lblBookNote.setText( " ")
+            self.label_book_note.setText( " ")
 
     def setPageNote(self, flag:bool):
         if flag:
-            self.lblPageNote.setText( "\U0001F4DD" )
+            self.label_page_note.setText( "\U0001F4DD" )
         else:
-            self.lblPageNote.setText( " ")
+            self.label_page_note.setText( " ")
 
     def createTriggers(self):
         self.setMarkBookmark    = self.actionBookmarkCurrentPage.triggered.connect

@@ -1,7 +1,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -49,7 +49,7 @@ from ui.properties      import UiProperties
 from ui.bookmark        import UiBookmark
 from ui.file            import Openfile, Deletefile, DeletefileAction, Reimportfile
 from ui.note            import UiNote
-from util.toollist      import GenerateToolList
+from util.toollist      import GenerateToolList, ToolScript
 from ui.runscript       import UiRunScriptFile, ScriptKeys
 
 from util.convert       import toBool
@@ -132,12 +132,12 @@ class MainWindow(QMainWindow):
 
     def updatePageNumbers(self, absolutePageNumber:int=None )->None:
         if  self.book.isPageRelative(absolutePageNumber):
-            self.ui.lblPageAbsolute.setText( " |{:4d} |".format( absolutePageNumber ))
+            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolutePageNumber ))
             lbl = "Page"
         else:
-            self.ui.lblPageAbsolute.clear()
+            self.ui.label_page_absolute.clear()
             lbl = "Book page"
-        self.ui.lblPageRelative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage(absolutePageNumber)))
+        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage(absolutePageNumber)))
         
     def updateBookmarkMenuNav( self, bookmark=None ):
         if self.bookmark.getTotal() < 1 :
@@ -154,12 +154,12 @@ class MainWindow(QMainWindow):
             absolutePageNumber = self.ui.pageWidget.getLowestPageShown()
 
         if  self.book.isPageRelative(absolutePageNumber):
-            self.ui.lblPageAbsolute.setText( " |{:4d} |".format( absolutePageNumber))
+            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolutePageNumber))
             lbl = "Page"
         else:
-            self.ui.lblPageAbsolute.clear()
+            self.ui.label_page_absolute.clear()
             lbl = "Book page"
-        self.ui.lblPageRelative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage()))
+        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage()))
         #self.updateBookmarkMenuNav( self.bookmakr )
         
         nlist = self.getNoteList( self.book.getID())
@@ -167,8 +167,8 @@ class MainWindow(QMainWindow):
         self.ui.setBookNote( (0 in nlist and nlist[0] > 0 ))
         self.ui.setPageNote( (absolutePageNumber in nlist and nlist[ absolutePageNumber] > 0 ))
 
-        self.ui.statusProgress.setMaximum( self.book.getTotal())
-        self.ui.statusProgress.setValue( absolutePageNumber)
+        self.ui.slider_position_page.setMaximum( self.book.getTotal())
+        self.ui.slider_position_page.setValue( absolutePageNumber)
 
     def restoreWindowFromSettings(self)->None:
         self.pref.restoreMainWindow( self.ui.getWindow() ) 
@@ -342,7 +342,7 @@ class MainWindow(QMainWindow):
         #self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         self.ui.actionPreviousBookmark.triggered.connect( self.goPreviousBookmark )
         self.ui.actionNextBookmark.triggered.connect( self.goNextBookmark )
-        self.ui.lblBookmark.clicked.connect( self.actionClickedBookmark )
+        self.ui.btn_bookmark.clicked.connect( self.actionClickedBookmark )
 
         self.ui.actionOpen.triggered.connect(self.actionFileOpen)
         self.ui.menuOpenRecent.aboutToShow.connect( self.actionOpenRecentUpdateFiles)
@@ -372,8 +372,8 @@ class MainWindow(QMainWindow):
         self.ui.actionDown.triggered.connect(self.pageForward)
         self.ui.actionUp.triggered.connect( self.pageBackward)
 
-        self.ui.statusProgress.valueChanged.connect( self.actionProgressChanged)
-        self.ui.statusProgress.sliderReleased.connect(self.actionProgressReleased)
+        self.ui.slider_position_page.valueChanged.connect( self.actionProgressChanged)
+        self.ui.slider_position_page.sliderReleased.connect(self.actionProgressReleased)
 
         #self.ui.twoPagesSide.installEventFilter( self)
 
@@ -526,7 +526,7 @@ class MainWindow(QMainWindow):
             DbConn.openDB()
 
     def actionClickedBookmark(self)->None:
-        if self.ui.lblBookmark.text() != "":
+        if self.ui.btn_bookmark.text() != "":
             self.actionGoBookmark()
 
     def actionMakeBookmark(self)->None:
@@ -537,9 +537,9 @@ class MainWindow(QMainWindow):
         
     def actionAddBookmark(self)->None:
         from ui.bookmark import UiBookmarkAdd
-        dlg = UiBookmarkAdd( totalPages=self.book.getTotal() , numberingOffset=self.book.getRelativePageOffset() )
-        dlg.setWindowTitle( "Add Bookmark for '{}'".format( self.book.getTitle()) )
-        self.bookmark.addBookmarkDialog( dlg )
+        dlg_add_bookmark = UiBookmarkAdd( totalPages=self.book.getTotal() , numberingOffset=self.book.getRelativePageOffset() )
+        dlg_add_bookmark.setWindowTitle( "Add Bookmark for '{}'".format( self.book.getTitle()) )
+        self.bookmark.addBookmarkDialog( dlg_add_bookmark )
         self.updateBookmarkMenuNav()
     # end actionAddBookmark
     
@@ -612,11 +612,10 @@ class MainWindow(QMainWindow):
             if action.text() in self.toollist:
                 from ui.runscript import ScriptKeys, UiRunSimpleNote, UiRunScriptFile
                 key = action.text()
-                path = self.toollist[key][ 'path']
-                if self.toollist[key][ScriptKeys.SIMPLE ]:
-                    runner = UiRunSimpleNote( path )
+                if self.toollist[key].isSimple() :
+                    runner = UiRunSimpleNote( self.toollist[key].path() )
                 else:
-                    runner = UiRunScriptFile( path  )
+                    runner = UiRunScriptFile( self.toollist[key].path()  )
                 runner.run()
 
     def actionToolScriptUpdateList(self)->None:

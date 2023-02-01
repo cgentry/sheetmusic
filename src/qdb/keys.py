@@ -7,8 +7,8 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.4.2"
-    version_main = "0.4"
+    version      = "0.5.2"
+    version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
     system       = platform.system()
@@ -23,6 +23,7 @@ class DbKeys():
     """
     VALUE_DEFAULT_DB_FILENAME     = 'sheetmusic.sql'
     VALUE_DEFAULT_DIR   = "~/sheetmusic"
+    VALUE_DEFAULT_USER_SCRIPT_DIR = "~/sheetmusic/scripts"
     VALUE_FILE_PREFIX   = 'page'
     VALUE_FILE_TYPE     = 'png'
     VALUE_FILE_RES      = '300'
@@ -65,6 +66,7 @@ class DbKeys():
     ###
     SETTING_DEFAULT_GSDEVICE    = 'gsdevice'       ## Which ghostscript device will we use 
     SETTING_DEFAULT_PATH_MUSIC  = 'sheetmusicPath' ## Where is the music folder?
+    SETTING_PATH_USER_SCRIPT    = 'userScriptDir'  ## Where to store user scripts?
     SETTING_DEFAULT_SCRIPT      = 'script'         ## What we will run for conversion
     SETTING_DEFAULT_SCRIPT_VAR  = 'scriptvar'      ## What 'extra' variables we will run
     SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix

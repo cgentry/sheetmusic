@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -240,8 +240,7 @@ class UiBookmarkSingle(QDialog):
             self.error( "(Book page is {})".format(page  ))
 
     def actionButtonClicked(self, button ):
-        self.buttonClicked = button.text()
-        if self.buttonClicked == 'Cancel' :
+        if self.button.text() == 'Cancel' :
             self.changes = {}
             self.reject()
 

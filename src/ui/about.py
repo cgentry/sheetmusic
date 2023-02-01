@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -78,24 +78,23 @@ class UiAbout(QDialog):
     
     def buttonbox(self)->QDialogButtonBox:
         self.buttons = QDialogButtonBox()
-        self.btnLicense = QPushButton('License')
-        self.buttons.addButton(self.btnLicense, QDialogButtonBox.ApplyRole )
+        self.btn_license = QPushButton('License')
+        self.buttons.addButton(self.btn_license, QDialogButtonBox.ApplyRole )
         self.buttons.addButton(QDialogButtonBox.Ok   )
         self.buttons.clicked.connect( self.close )
         return self.buttons
 
     def close(self, button ):
-        buttonClicked = button.text()
-        if buttonClicked == 'OK':
+        if button.text() == 'OK':
             self.accept()
         else:
-            if self.btnLicense.text() == 'License':
+            if self.btn_license.text() == 'License':
                 dir = os.path.dirname( os.path.dirname( __file__ ) )
                 with open( dir + "/docs/license.html","rt") as fh:
                     self.infobox.clear()
                     self.infobox.insertHtml( fh.read() )
-                self.btnLicense.setText('About')
+                self.btn_license.setText('About')
             else:
                 self.infobox.clear()
                 self.infobox.insertHtml( self.formatAbout() )
-                self.btnLicense.setText('License')
+                self.btn_license.setText('License')

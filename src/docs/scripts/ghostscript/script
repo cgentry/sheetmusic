@@ -4,7 +4,7 @@
 # version 0.1
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 

@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -54,7 +54,7 @@ class UiNote(QDialog):
         self.setMinimumHeight(300)
         self.setMinimumWidth( 500 )
 
-    def setSize( self, size:QSize , scale=.5)->None:
+    def set_size( self, size:QSize , scale=.5)->None:
         self.resize( int(size.width() *scale), int(size.height()* scale) ) 
 
     def createTextField(self):
@@ -67,28 +67,28 @@ class UiNote(QDialog):
         self.textField.clear()
 
     def createButtons(self)->None:
-        self.btnClear = QPushButton(  self.btnTxtClear )
-        self.btnSave = QPushButton(   self.btnTxtSave )
-        self.btnCancel = QPushButton( self.btnTxtCancel)
-        self.btnDelete = QPushButton( self.btnTxtDelete )
+        self.btn_clear = QPushButton(  self.btnTxtClear )
+        self.btn_save = QPushButton(   self.btnTxtSave )
+        self.btn_cancel = QPushButton( self.btnTxtCancel)
+        self.btn_delete = QPushButton( self.btnTxtDelete )
 
-        self.btnClear.setObjectName('clear')
-        self.btnSave.setObjectName( 'save')
-        self.btnCancel.setObjectName('cancel')
-        self.btnDelete.setObjectName('delete')
-        self.btnSave.setDefault(True)
+        self.btn_clear.setObjectName('clear')
+        self.btn_save.setObjectName( 'save')
+        self.btn_cancel.setObjectName('cancel')
+        self.btn_delete.setObjectName('delete')
+        self.btn_save.setDefault(True)
 
         self.buttons = QDialogButtonBox()
-        self.buttons.addButton( self.btnSave,    QDialogButtonBox.YesRole)
-        self.buttons.addButton( self.btnCancel , QDialogButtonBox.RejectRole)
-        self.buttons.addButton( self.btnClear,   QDialogButtonBox.ResetRole)
-        self.buttons.addButton( self.btnDelete,  QDialogButtonBox.DestructiveRole)
+        self.buttons.addButton( self.btn_save,    QDialogButtonBox.YesRole)
+        self.buttons.addButton( self.btn_cancel , QDialogButtonBox.RejectRole)
+        self.buttons.addButton( self.btn_clear,   QDialogButtonBox.ResetRole)
+        self.buttons.addButton( self.btn_delete,  QDialogButtonBox.DestructiveRole)
         
         self.buttons.accepted.connect(self.accept() )
         self.buttons.rejected.connect(self.reject() )
-        self.buttons.clicked.connect(self.buttonClicked)
+        self.buttons.clicked.connect(self.button_clicked)
 
-    def buttonClicked(self, btn:QAbstractButton ):
+    def button_clicked(self, btn:QAbstractButton ):
         if btn.text() == self.btnTxtClear :
             self.clear()
 
@@ -99,9 +99,9 @@ class UiNote(QDialog):
             self._action = self.actionCancel
             self.reject()
         if btn.text() == self.btnTxtDelete:
-            self.confirmDelete()
+            self.confirm_delete()
 
-    def confirmDelete(self):
+    def confirm_delete(self):
         if QMessageBox.Yes == QMessageBox.warning(
             None, "",
             "Delete note for page?",
@@ -112,7 +112,7 @@ class UiNote(QDialog):
 
     def setID( self, id:int ):
         self._id = id
-        self.btnDelete.setEnabled( not self._id is None)
+        self.btn_delete.setEnabled( not self._id is None)
 
     def ID(self)->int:
         return self._id
@@ -172,7 +172,7 @@ class UiNoteView(QTextEdit):
         self.setMinimumHeight(300)
         self.setMinimumWidth( 500 )
 
-    def setSize( self, size:QSize , scale=.5)->None:
+    def set_size( self, size:QSize , scale=.5)->None:
         self.resize( int(size.width() *scale), int(size.height()* scale) ) 
 
     def setupTextField(self):

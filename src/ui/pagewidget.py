@@ -2,7 +2,7 @@
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 # This file is part of Sheetmusic. 
 
@@ -114,7 +114,7 @@ class PageWidget():
     def __init__(self, MainWindow:QMainWindow):
         self.borderGlow = BorderGlow()
         self._setupVars( MainWindow )
-        self._setSize( MainWindow )
+        self._set_size( MainWindow )
         
         self.createMainPageWidget()
         self.createPages()
@@ -144,7 +144,7 @@ class PageWidget():
     def keepAspectRatio( self )->bool:
         return self.pageOne.keepAspectRatio()
 
-    def _setSize( self, windowSize )->bool:
+    def _set_size( self, windowSize )->bool:
         """ Save the size for the main window. This will accept
             QMainWindow, QSize. Do not call this
             directly; resize will call it and it should be called first
@@ -163,8 +163,8 @@ class PageWidget():
             You should pass the qsize or width in. It will be called on creation
             to set sizes correctly
         """
-        if self._setSize(size) and self._currentLayoutMode :
-            if self._setSize( size ):
+        if self._set_size(size) and self._currentLayoutMode :
+            if self._set_size( size ):
                 self.page_width = int( self.windowWidth  / self._getLayoutValue( self.LAYOUT_WIDTH ) )
                 self.page_height= int (self.windowHeight / self._getLayoutValue( self.LAYOUT_HEIGHT ) )
             if self.page_width and self.page_height:

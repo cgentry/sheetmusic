@@ -234,15 +234,15 @@ class FileBase(QDialog):
         return lbl
 
     def createGridLayout( self)->QGridLayout:
-        self.layoutGrid = QGridLayout()
-        self.layoutGrid.addWidget( self.createLinkLabel('Name'),     0 , 0 )
-        self.layoutGrid.addWidget( self.createLinkLabel('Genre'),    0 , 1 )
-        self.layoutGrid.addWidget( self.createLinkLabel('Composer'), 0 , 2 )
-        self.layoutGrid.addWidget( self.createLinkLabel(''),         0 , 3 )
-        self.layoutGrid.addWidget( self.createNameFilter(),    1, 0 )
-        self.layoutGrid.addWidget( self.createComboGenre(),    1, 1 )
-        self.layoutGrid.addWidget( self.createComboComposer(), 1, 2)
-        return self.layoutGrid
+        grid_layout = QGridLayout()
+        grid_layout.addWidget( self.createLinkLabel('Name'),     0 , 0 )
+        grid_layout.addWidget( self.createLinkLabel('Genre'),    0 , 1 )
+        grid_layout.addWidget( self.createLinkLabel('Composer'), 0 , 2 )
+        grid_layout.addWidget( self.createLinkLabel(''),         0 , 3 )
+        grid_layout.addWidget( self.createNameFilter(),    1, 0 )
+        grid_layout.addWidget( self.createComboGenre(),    1, 1 )
+        grid_layout.addWidget( self.createComboComposer(), 1, 2)
+        return grid_layout
 
     def createComboGenre(self)->QComboBox:
         self.comboGenre = QComboBox()

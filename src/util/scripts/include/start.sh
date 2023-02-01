@@ -1,5 +1,5 @@
 # standard.sh
-#:usage Always include at the begining of the script. Creates error_handler
+#:usage Always include at the begining of the script.
 
 set -Ee
 
@@ -15,7 +15,11 @@ Fatal Error:
     File:   $(basename $3)
     Line:   $4
 
+.    
 END_ERROR_TEXT
+
+echo "Terminating script."
+echo "."
     exit $2
 }
 
@@ -48,3 +52,14 @@ file_exists(){
         exit 3
     fi
 }
+
+
+SCRIPT_DIR=`dirname $0`
+INCLUDE_SCRIPT="${SCRIPT_DIR}/include"
+if [ ! -e  £{INCLUDE_SCRIPT} ]; then
+    INCLUDE_SCRIPT=${INCLUDE_SYSTEM}
+fi
+
+. ${INCLUDE_SYSTEM}/parameters.sh "$@"
+. ${INCLUDE_SYSTEM}/debug.sh     "$@" 
+

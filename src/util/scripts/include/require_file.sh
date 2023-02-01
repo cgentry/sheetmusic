@@ -4,6 +4,8 @@
 #   FILE_PATH - File dir + name
 #   FILE_NAME - File name only
 #   FILE_DIR  - File directory only
+#
+#   INPUT TAGS can be: -f (simple) -FILE (longer) or -FILE_1 (autogen from simplescript)
 
 FILE_PATH=""
 
@@ -15,6 +17,12 @@ do
         FILE_PATH="$1"
         break
         ;;
+    -FILE)
+        shift; FILE_PATH="$1"
+        ;;
+    -FILE_1)
+        shift; FILE_PATH="$1"
+        ;;    
      *)  ;;
     esac
     shift

@@ -14,12 +14,12 @@ class AddBookDirectory( ):
         """
         defaultMusic = DilPreferences().getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
         type = DilPreferences().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
-        newDirName = QFileDialog.getExistingDirectory(
+        new_directory_name = QFileDialog.getExistingDirectory(
             None,
             "Scan Directory for Music",
             dir=defaultMusic ,
             options=QFileDialog.Option.ShowDirsOnly)
-        return newDirName
+        return new_directory_name
     
     def questionAddDetail(self, message:str )->bool:
         """

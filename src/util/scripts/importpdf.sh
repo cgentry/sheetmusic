@@ -4,7 +4,7 @@
 # version 0.2
 #
 # This file is part of SheetMusic
-# Copyright: 2022 by Chrles Gentry
+# Copyright: 2022,2023 by Chrles Gentry
 #
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
@@ -23,13 +23,13 @@ EndScript()
 
 SCRIPT_DIR=`cd $(dirname $0) && pwd`
 SCRIPT=$(basename $0)
-INCLUDE_DIR="${SCRIPT_DIR}/include"
+INCLUDE_SYSTEM="${SCRIPT_DIR}/include"
 
 DOES_NOT_EXIST="does not exist. Quiting import process."
 
-. ${INCLUDE_DIR}/start.sh "$@"
-. ${INCLUDE_DIR}/debug.sh "$@"
-. ${INCLUDE_DIR}/info.sh  "$@"
+. ${INCLUDE_SYSTEM}/start.sh "$@"
+. ${INCLUDE_SYSTEM}/debug.sh "$@"
+. ${INCLUDE_SYSTEM}/info.sh  "$@"
 
 ## Roll-you-own getopts. Not as efficient but it always ignores errors (which some versions don't)
 ## options:
@@ -79,4 +79,4 @@ Total disk space taken:
 END_GHOSTSCRIPT
 ls *.${IMG_TYPE} | sort | xargs du -ch
 fi
-. ${INCLUDE_DIR}/finish.sh
+. ${INCLUDE_SYSTEM}/finish.sh

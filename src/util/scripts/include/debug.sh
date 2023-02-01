@@ -2,17 +2,7 @@
 #:usage Handle debug flag (-X) (Debug is selected on Execute screen)
 # (c) Copyright 2023 Charles Gentry
 
-DEBUG=''
-
-while (( $# ))
-do
-    case $1 in
-    -X) DEBUG="echo DEBUG: " ;;
-     *)  ;;
-    esac
-    shift
-done
-
+# DEBUG is set by the -X flag in parameters.sh
 if [ ! -z "$DEBUG" ]; then
 
 cat << END_DEBUG
