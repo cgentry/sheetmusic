@@ -1,6 +1,8 @@
 # sheetmusic version 0.5.2
 A graphical program to display sheet music on a monitor
 
+WARNING: 0.5.2 may be very unstable. a large number of structural changes have been made which should be corrected in 0.5.3
+
 # Overview
 The purpose of this program is to display music and allow easy navigation. It will either display 1 page, or 2 pages side-by-side. Bookmarks can be added for any page without limits. I wanted to write this because most of the programs I've tried are ok but I've wanted additional features. Since I've been coding in a variety of languages I decided to pick up Python and try my hand. 
 
