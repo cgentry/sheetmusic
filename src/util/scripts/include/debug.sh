@@ -1,5 +1,5 @@
 # DEBUG INCLUDE FILE
-#:usage Handle debug flag (-X) (Debug is selected on Execute screen)
+#:usage Output a message indicating debug mode. (Debug is selected on Execute screen)
 # (c) Copyright 2023 Charles Gentry
 
 # DEBUG is set by the -X flag in parameters.sh

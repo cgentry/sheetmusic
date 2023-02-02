@@ -55,13 +55,15 @@ class GenerateToolList():
             'user'   : get_user_scriptdir() }
 
     def list(self)->dict:
+        """ Scan the directories, if required, and return the dictionary """
         self.scanDirectory()
         return GenerateToolList.toolDictionary
 
-    def rescan(self):
-        self.toolScanned = False
-        self.toolDictionary = {}
-        self.scanDirectory(self )
+    def rescan(self)->dict:
+        """ Clear the 'scanned' status flags and rescan"""
+        GenerateToolList.toolScanned = False
+        GenerateToolList.toolDictionary = {}
+        return self.list()
 
     def find_script(self, script_name:str )->str:
         """ Find the full script path in the script list"""

@@ -43,71 +43,79 @@
             <th>Parameter</th>
             <th>Script Variable</th>
             <th>Description</th>
+            <th>Script Flag</th>
         </td>
         <tr>
             <td>-D path</td>
             <td>DBFILE</td>
             <td> - Path to database file</td> 
+            <td>#:system dbfile</td>
         </tr>
         <tr>
             <td>-E resolution</td>
             <td>IMG_RES</td>
             <td>Image reolution for ghostscript</td>
+            <td>#:system pdf-res</td>
         </tr>
         <tr>
             <td>-G device</td>
             <td>PDF_DEVICE</td>
             <td>Device for ghostscript</td>
+            <td>#:system pdf-device</td>
         </tr>
         <tr>
             <td>-I extension</td>
             <td>IMG_TYPE</td>
             <td>Type of image ghostscript should output (e.g. png)</td>
+            <td>#:system pdf-type</td>
         </tr>
         <tr>
             <td>-M dir</td>
             <td>MUSIC_DIR</td>
             <td>Directory where sheet music is stored</td>
+            <td>#:system music</td>
         </tr>
         <tr>
             <td>-P python</td>
             <td>PYTHON_VERSION</td>
             <td> - Pyton version number</td>
+            <td>#:system python</td>
         </tr>
         <tr>
             <td>-Q version</td>
             <td>QT_VERSION</td>
             <td>QT version number</td>
+            <td>#:system qt</td>
         </tr>
         <tr>
             <td>-S system</td>
             <td>SYSTEM_OS</td>
             <td> - System ID (darwin, linux, win)</td>
+            <td>#:system os</td>
         </tr>
         <tr>
             <td>-U path</td>
             <td>INCLUDE_USER</td>
             <td>Path to user includes. Script: INCLUDE_USER</td>
+            <td>Always passed</td>
         </tr>
         <tr>
             <td>-v version</td>
             <td>SHEETMUSIC_VERSION</td>
             <td>Version of sheetmusic program running</td>
+            <td>#:system version</td>
         </tr>
         <tr>
             <td>-X</td>
             <td>DEBUG</td>
             <td>Debug flag</td> 
+            <td>Added if checkbox on screen is set, or if #:system debug is included </td>
         </tr>
         <tr>
             <td>-Y script</td>
-            <td>SCRIPT_DIR</td>
-            <td>Path for this script</td>
-        </tr>
-        <tr>
-            <td>-Z path</td>
-            <td>DEBUG</td></td>
-            <td>Debug flag. This sets the var $DEBUG to an echo command.</td>
+            <td>SCRIPT_RUN</td>
+            <td>Path for the shell script program (e.g. /bin/bash)</td>
+            <td>Always passed </td>
         </tr>
     </table>
     <br/>

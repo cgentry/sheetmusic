@@ -10,19 +10,20 @@ def get_scriptdir()->str:
     """ Return the path of the system script directory """
     return path.join( get_utildir(), 'scripts')
 
-def get_scriptinc()->str:
-    """ Return the path of the system script include directory """
-    return  path.join( get_utildir() , 'scripts', 'include' )
-
-def get_scriptpath( filename:str)->str:
-    return path.join( get_utildir(), 'scripts' ,filename )
-
 def get_user_scriptdir()->str:
     """ Return the full path of user scripts or None if directory doesn't exist """
     from qdil.preferences import DilPreferences
     from qdb.keys import DbKeys
     pref = DilPreferences()
     uscripts =  path.realpath( pref.getValue( DbKeys.SETTING_PATH_USER_SCRIPT , DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR))
-    if not path.isdir( uscripts ):
-        return None
-    return uscripts
+    return uscripts if path.isdir( uscripts ) else None
+
+def get_scriptinc()->str:
+    """ Return the path of the system script include directory """
+    return  path.join( get_utildir() , 'scripts', 'include' )
+
+def get_user_scriptinc()->str:
+    return path.join( str(get_user_scriptdir() ), 'include' )
+
+def get_scriptpath( filename:str)->str:
+    return path.join( str(get_utildir()), 'scripts' ,filename )

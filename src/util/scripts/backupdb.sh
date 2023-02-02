@@ -1,7 +1,7 @@
 # (c) 2023 Charles Gentry
 # Part of SheetMusic system.
 #
-#:title   Backup the SheetMusic database file
+#:title   Database: Make a backup
 #:comment This will make a backup of the key database file used by sheetmusic.
 #:comment The backup will be called 'sheetmusic-backup' and will have the
 #:comment extension of '.bak'.

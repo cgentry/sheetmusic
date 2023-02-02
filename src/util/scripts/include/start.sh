@@ -53,13 +53,27 @@ file_exists(){
     fi
 }
 
+file_size(){
+    # first parm is file to size.
+    FSIZE=`${PYTHON} -c 'import os;import sys;print("{:,}".format(os.path.getsize(sys.argv[1])));'  "${1}"`
+}
 
+## Get THIS script directory and THIS include directory
+## Note that SCRIPT_USER and INCLUDE_USER are set using -U option
 SCRIPT_DIR=`dirname $0`
-INCLUDE_SCRIPT="${SCRIPT_DIR}/include"
-if [ ! -e  £{INCLUDE_SCRIPT} ]; then
-    INCLUDE_SCRIPT=${INCLUDE_SYSTEM}
+INCLUDE_DIR="${SCRIPT_DIR}/include"
+if [ ! -e  £{INCLUDE_DIR} ]; then
+    INCLUDE_DIR=${INCLUDE_SYSTEM}
 fi
+SCRIPT_SYSTEM=`dirname ${INCLUDE_SYSTEM}`
 
 . ${INCLUDE_SYSTEM}/parameters.sh "$@"
 . ${INCLUDE_SYSTEM}/debug.sh     "$@" 
 
+PYTHON="echo Can't find program 'python': "
+for python_try in python3 python; do
+    if  [ -x "$(command -v ${python_try})" ]; then
+        PYTHON=${python_try}
+        break
+    fi
+done

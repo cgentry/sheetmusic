@@ -25,6 +25,7 @@
 
 import logging
 import os.path
+import os
 
 from qdb.dbconn import DbConn
 from qdb.keys   import DbKeys, ProgramConstants
@@ -221,6 +222,8 @@ class Setup():
         return False
         
     def initSystem(self)->bool:
+        user_script_dir = os.path.expanduser(DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR)
+        user_script_inc = os.path.join( user_script_dir , 'include')
         data = {
             DbKeys.SETTING_KEEP_ASPECT:         DbKeys.VALUE_KEEP_ASPECT,
             DbKeys.SETTING_DEFAULT_PATH_MUSIC:  os.path.expanduser(DbKeys.VALUE_DEFAULT_DIR),
@@ -253,6 +256,9 @@ class Setup():
 
         self.insertPdfScript( )
         DbConn.commit()
+        ## Make sure user script dirs are created.
+        ## 750 = Owner: Read/Write/Exe , Group: Read/Exe, Other: No access
+        os.makedirs( user_script_inc, mode=0o750, exist_ok=True )
         return (added > 0 )
 
     def initGenre(self)->bool:
@@ -321,9 +327,9 @@ class Setup():
         DbConn.commit()
 
     def RestoreDefaultPdfScript(self):
-        sql = '''DELETE FROM System WHERE key="{}"'''
+        sql = '''DELETE OR IGNORE FROM System WHERE key="{}"'''
         self.query.exec( sql.format( DbKeys.SETTING_PDF_SCRIPT))
-        self.insertPdfScript()
+        # self.insertPdfScript()
 
     def insertPdfScript( self ):
         sql = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''

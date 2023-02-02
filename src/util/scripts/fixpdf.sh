@@ -3,7 +3,7 @@
 # Copyright: 2022,2023 by Chrles Gentry
 # Licensed under GPL 3.0
 #
-#:title   Fix PDF files
+#:title   PDF: Fix errors in document
 #:comment This will take PDF files that have errors, such as bad counters,
 #:comment bad metadata, possibly broken fields and try to repair it. It will
 #:comment also wipe out any change locks that you have put on. It is not

@@ -76,7 +76,7 @@ from qdil.preferences   import DilPreferences, SystemPreferences
 from ui.simpledialog    import SimpleDialog, SDOption
 from util.convert       import toInt
 from util.simpleparse   import SDEntry
-from util.utildir       import get_scriptinc
+from util.utildir       import get_scriptinc, get_user_scriptinc
 
 
 
@@ -103,11 +103,13 @@ class ScriptKeys:
 
     # 'INFORMATION' requests (after #:SYSTEM )
     DBFILE      = 'dbfile'
+    DEBUG       = 'debug'
     MUSIC       = 'music'
     OS          = 'os'
     PYTHON      = 'python'
     PYTHONRUN   = 'pythonrun'
     QT          = 'qt'
+    USERSCRIPT  = 'userscript'
     VERSION     = 'version'
 
     # DISPLAY CONTROL 
@@ -373,9 +375,10 @@ class RunScriptBase():
 
     def add_includes_to_vars( self ):
         pref = DilPreferences()
+        self.macro_replace[ScriptKeys.SCRIPTNAME ] = self._shell
         self.add_variable( ScriptKeys.SCRIPTNAME, self.script_file )
-        self.macro_replace[ ScriptKeys.SCRIPTNAME ] = self._shell
         self.add_variable( ScriptKeys.INC_SYS   , get_scriptinc() )
+        self.add_variable( ScriptKeys.INC_USER  , get_user_scriptinc() )
 
     def add_system_to_vars(self):
         """ Add to vars list based on '#:system' tag in script file """
@@ -398,6 +401,9 @@ class RunScriptBase():
                     self.macro_replace[ upkey ] = pref.getPathDB()
                     self.add_variable( key , pref.getPathDB() )
 
+                elif key == ScriptKeys.DEBUG:
+                    self.add_debug_to_vars()
+                    
                 elif key == ScriptKeys.MUSIC :
                     self.macro_replace[ upkey ] = pref.getMusicDir()
                     self.add_variable( key , pref.getMusicDir() )
@@ -1017,7 +1023,7 @@ class UiRunSimpleNote( RunScriptBase ):
         #:dialog    ".....( passed to simple dialogue )
 
     """
-    def __init__(self, script:str, vars:list=None, isFile=True, outputDestination='plain') -> None:
+    def __init__(self, script:str, vars:list=None, isFile=True, outputDestination='text') -> None:
         """
         Setup the runscript values
 

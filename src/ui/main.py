@@ -124,8 +124,9 @@ class UiMain(object):
         self.actionBookmarkCurrentPage  = action(u"BookmarkCurrentPage", title=u'Bookmark current page')
         self.actionAdd_Bookmark         = action(u"Add_Bookmark",        title=u'Add Bookmark...')
         self.actionCheckIncomplete      = action( u"CheckIncomplete",    title=u'Check for incomplete entries ...')
-        self.actionCleanDB              = action(u'CleanDB',             title=u'Clean Database')
-        self.actionDumpDB               = action(u'DumpDB',              title=u'Backup Database...')
+        self.actionToolRefresh          = action( u"RefreshTool",        title=u'Refresh script list')
+        #self.actionCleanDB              = action(u'CleanDB',             title=u'Clean Database')
+        #self.actionDumpDB               = action(u'DumpDB',              title=u'Backup Database...')
         self.actionToolScript           = action(u'Script')
         # HELP actions
         self.actionHelp = action( u"Help")
@@ -153,11 +154,11 @@ class UiMain(object):
         self.label_page_note.setObjectName( u'pageNote')
         self.setPageNote(True)
 
-        self.slider_position_page = QSlider()
-        self.slider_position_page.setObjectName(u'progressbar')
-        self.slider_position_page.setMinimum(1)
-        self.slider_position_page.setOrientation(Qt.Horizontal)
-        self.slider_position_page.setTracking( True )
+        self.slider_page_position = QSlider()
+        self.slider_page_position.setObjectName(u'progressbar')
+        self.slider_page_position.setMinimum(1)
+        self.slider_page_position.setOrientation(Qt.Horizontal)
+        self.slider_page_position.setTracking( True )
 
         self.label_page_absolute = QLabel()
         self.label_page_absolute.setObjectName(u'pageAbsolute')
@@ -171,7 +172,7 @@ class UiMain(object):
         self.statusbar.addWidget( self.label_page_relative)
         self.statusbar.addWidget( self.label_book_note )
         self.statusbar.addWidget( self.label_page_note )
-        self.statusbar.addWidget( self.slider_position_page,100)
+        self.statusbar.addWidget( self.slider_page_position,100)
         self.statusbar.addWidget( self.btn_bookmark )
         self.statusbar.addWidget( self.label_page_absolute)
 
@@ -228,6 +229,7 @@ class UiMain(object):
         self.menuReimportPDF = menuElement( u'ReimportPDF', 'Reimport Book from PDF', top=False)
         self.menuImportDirectory = menuElement( u'ScanDir', 'Scan and import books from directory', top=False )
         self.menuToolScript  = menuElement( u'Scripts'    , 'Run Script...', top=False)
+        self.menuToolRefresh = menuElement( u'ToolRefresh' , 'Refresh script list', top=False)
 
     def addActions(self, MainWindow)->None:
         ## Add top level menus to the menubar
@@ -299,8 +301,9 @@ class UiMain(object):
         self.menuTools.addAction(self.actionAdd_Bookmark)
         self.menuTools.addSeparator()   # -------------------
         self.actionToolScript = self.menuTools.addMenu( self.menuToolScript )
-        self.menuTools.addAction( self.actionCleanDB )
-        self.menuTools.addAction( self.actionDumpDB )
+        self.menuTools.addAction( self.actionToolRefresh )
+        #self.menuTools.addAction( self.actionCleanDB )
+        #self.menuTools.addAction( self.actionDumpDB )
 
     def addHelpActions(self)->None:
         self.menuHelp.addAction(self.actionAbout)

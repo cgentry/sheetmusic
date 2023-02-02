@@ -130,14 +130,14 @@ class MainWindow(QMainWindow):
             page3 = self.book.getPixmap( pg3)
             self.ui.pageWidget.loadPages( page1, pg1 , page2, pg2 ,page3, pg3)
 
-    def updatePageNumbers(self, absolutePageNumber:int=None )->None:
-        if  self.book.isPageRelative(absolutePageNumber):
-            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolutePageNumber ))
+    def updatePageNumbers(self, absolute_page_number:int=None )->None:
+        if  self.book.isPageRelative(absolute_page_number):
+            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number ))
             lbl = "Page"
         else:
             self.ui.label_page_absolute.clear()
             lbl = "Book page"
-        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage(absolutePageNumber)))
+        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage(absolute_page_number)))
         
     def updateBookmarkMenuNav( self, bookmark=None ):
         if self.bookmark.getTotal() < 1 :
@@ -147,29 +147,31 @@ class MainWindow(QMainWindow):
             self.ui.actionPreviousBookmark.setDisabled( self.bookmark.isFirst( bookmark) )
             self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bookmark ))
 
+    def _update_note_indicator(self, page_number:int):
+        nlist = self.getNoteList( self.book.getID())
+        self.ui.setBookNote( (0 in nlist and nlist[0] > 0 ))
+        self.ui.setPageNote( (page_number in nlist and nlist[ page_number] > 0 ))
+
     def updateStatusBar(self)->None:
         if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
-            absolutePageNumber = self.ui.pageWidget.getHighestPageShown()
+            absolute_page_number = self.ui.pageWidget.getHighestPageShown()
         else:
-            absolutePageNumber = self.ui.pageWidget.getLowestPageShown()
+            absolute_page_number = self.ui.pageWidget.getLowestPageShown()
 
-        if  self.book.isPageRelative(absolutePageNumber):
-            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolutePageNumber))
+        self.ui.slider_page_position.setMaximum( self.book.getTotal())
+        self.ui.slider_page_position.setValue( absolute_page_number)
+
+        if  self.book.isPageRelative(absolute_page_number):
+            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number))
             lbl = "Page"
         else:
             self.ui.label_page_absolute.clear()
             lbl = "Book page"
+
         self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage()))
-        #self.updateBookmarkMenuNav( self.bookmakr )
-        
-        nlist = self.getNoteList( self.book.getID())
-        
-        self.ui.setBookNote( (0 in nlist and nlist[0] > 0 ))
-        self.ui.setPageNote( (absolutePageNumber in nlist and nlist[ absolutePageNumber] > 0 ))
+        self._update_note_indicator(absolute_page_number)
 
-        self.ui.slider_position_page.setMaximum( self.book.getTotal())
-        self.ui.slider_position_page.setValue( absolutePageNumber)
-
+        
     def restoreWindowFromSettings(self)->None:
         self.pref.restoreMainWindow( self.ui.getWindow() ) 
         self.pref.restoreShortcuts( self.ui )  
@@ -181,9 +183,9 @@ class MainWindow(QMainWindow):
             self._notelist = dbnote.getNoteForBook( book_id )
         return self._notelist
 
-    def openBook(self, newBookName:str, page=None):
+    def open_book(self, newBookName:str, page=None):
         """ """
-        self.closeBook()
+        self.close_book()
         rtn = self.book.openBook(newBookName, page )
         if rtn == QMessageBox.Ok:
             self.book_layout = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
@@ -202,11 +204,11 @@ class MainWindow(QMainWindow):
             self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
             self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
             self.ui.actionSmartPages.setChecked( self.smart_pages )
-            self.updateStatusBar()
             self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            self.updateStatusBar()
         return rtn
 
-    def closeBook(self)->None:
+    def close_book(self)->None:
         """ Close the book, save a pointer to it, and hide the menu items. """
         self._notelist = None
         if self.book.isOpen():
@@ -281,9 +283,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event)->None:
         """ called when the program is closed """
-        self.pref.saveMainWindow( self.ui.mainWindow)
+        self.pref.saveMainWindow( self.ui.getWindow() )
         self.pref.setValue( DbKeys.SETTING_LAST_IMPORT_DIR , self.import_dir , replace=True )
-        self.closeBook()
+        self.close_book()
         DbConn.closeDB()
         
     def pageBackward(self)->None:
@@ -334,10 +336,13 @@ class MainWindow(QMainWindow):
         self.ui.actionBookmarkCurrentPage.triggered.connect(self.actionMakeBookmark)
         self.ui.actionShowBookmarks.triggered.connect(self.actionShowBookmark)
         self.ui.actionAdd_Bookmark.triggered.connect(self.actionAddBookmark)
-        self.ui.actionCleanDB.triggered.connect( self.actionCleanDB )
-        self.ui.actionDumpDB.triggered.connect( self.actionDumpDB )
+        #  self.ui.actionCleanDB.triggered.connect( self.actionCleanDB )
+        #  self.ui.actionDumpDB.triggered.connect( self.actionDumpDB )
+        self.ui.actionToolRefresh.triggered.connect( self.action_tool_refresh )
+
         self.ui.menuToolScript.aboutToShow.connect( self.actionToolScriptUpdateList)
         self.ui.menuToolScript.triggered.connect(self.actionToolScript )
+        
 
         #self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         self.ui.actionPreviousBookmark.triggered.connect( self.goPreviousBookmark )
@@ -372,8 +377,8 @@ class MainWindow(QMainWindow):
         self.ui.actionDown.triggered.connect(self.pageForward)
         self.ui.actionUp.triggered.connect( self.pageBackward)
 
-        self.ui.slider_position_page.valueChanged.connect( self.actionProgressChanged)
-        self.ui.slider_position_page.sliderReleased.connect(self.actionProgressReleased)
+        self.ui.slider_page_position.valueChanged.connect( self.actionProgressChanged)
+        self.ui.slider_page_position.sliderReleased.connect(self.actionProgressReleased)
 
         #self.ui.twoPagesSide.installEventFilter( self)
 
@@ -399,7 +404,7 @@ class MainWindow(QMainWindow):
         if self.pref.getValueBool( DbKeys.SETTING_LAST_BOOK_REOPEN, True) :
             recent = self.book.getRecent()
             if recent is not None and len(recent) > 0 :
-                self.openBook(recent[0][BOOK.name])    
+                self.open_book(recent[0][BOOK.name])    
 
     def setTitle( self, bookmark=None )->None:
         """ Title is made of the title and bookmark if there is one """
@@ -543,25 +548,25 @@ class MainWindow(QMainWindow):
         self.updateBookmarkMenuNav()
     # end actionAddBookmark
     
-    def actionCleanDB(self)->None:
-        DbConn.cleanDB()
-        QMessageBox.information(None,"","Database cleaned", QMessageBox.Ok )
+    # def actionCleanDB(self)->None:
+    #     DbConn.cleanDB()
+    #     QMessageBox.information(None,"","Database cleaned", QMessageBox.Ok )
 
-    def actionDumpDB(self)->None:
-        selectFilter = 'Backup Files (*.bak)'
-        filters = ";;".join( [selectFilter, 'All files (*)'])
+    # def actionDumpDB(self)->None:
+    #     selectFilter = 'Backup Files (*.bak)'
+    #     filters = ";;".join( [selectFilter, 'All files (*)'])
         
-        filename = QFileDialog.getSaveFileName(
-            None,
-            "Select Database Backup File",
-            QDir.currentPath(),
-            filters , selectFilter )[0]
-        if filename :
-            DbConn.dump( filename )
-            if os.path.isfile( filename ):
-                self.system.setValue( DbKeys.SETTING_LAST_BACKUP, filename )
-                msg = "Backup file {} written. Size: {:,}".format( filename, os.path.getsize( filename ))
-                QMessageBox.information(None,"",msg, QMessageBox.Ok )
+    #     filename = QFileDialog.getSaveFileName(
+    #         None,
+    #         "Select Database Backup File",
+    #         QDir.currentPath(),
+    #         filters , selectFilter )[0]
+    #     if filename :
+    #         DbConn.dump( filename )
+    #         if os.path.isfile( filename ):
+    #             self.system.setValue( DbKeys.SETTING_LAST_BACKUP, filename )
+    #             msg = "Backup file {} written. Size: {:,}".format( filename, os.path.getsize( filename ))
+    #             QMessageBox.information(None,"",msg, QMessageBox.Ok )
 
     def actionShowBookmark( self )->None:
         from ui.bookmark import UiBookmark, UiBookmarkEdit
@@ -600,12 +605,18 @@ class MainWindow(QMainWindow):
         of = Openfile()
         of.exec()
         if of.bookName is not None:
-            self.openBook( of.bookName )
+            self.open_book( of.bookName )
             
     def actionOpenRecent(self, action:QAction )->None:
         if action is not None:
-            if self.openBook( action.data() ) == QMessageBox.Retry:
+            if self.open_book( action.data() ) == QMessageBox.Retry:
                 self.actionFileOpen()
+
+    def action_tool_refresh( self, action:QAction )->None:
+        tl = GenerateToolList()
+        self.toollist = tl.rescan()
+        self.ui.menuToolScript.clear()
+        print("Refresh list\n", str( self.toollist ))
 
     def actionToolScript(self, action:QAction )->None:
         if action is not None:
@@ -640,7 +651,7 @@ class MainWindow(QMainWindow):
         self.ui.menuOpenRecent.setEnabled( (len( fileNames ) > 0) )    
 
     def actionClose(self)->None:
-        self.closeBook()
+        self.close_book()
         self.actionOpenRecentUpdateFiles()
     
     def actionDelete(self)->None:

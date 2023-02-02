@@ -46,7 +46,12 @@ do
         PYTHON_RUN=${ARG};  
         args=("${args[@]:2}")
         ;;
-    -S ) # HANDLE IN MAIN
+    -S ) # HANDLE IN MAIN: INCLUDE_SYSTEM="${args[@]:1:1}
+        args=("${args[@]:2}")
+        ;;
+    -U )
+        INCLUDE_USER=${ARG}
+        SCRIPT_USER=`dirname ${INCLUDE_USER}`
         args=("${args[@]:2}")
         ;;
     -v )

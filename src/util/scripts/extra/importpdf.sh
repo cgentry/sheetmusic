@@ -6,30 +6,43 @@
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
+# NOTE: This is an early test and shows how to import using passed params. 
+# The program has much more extensive functions.
+
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
-EndScript()
-{
-    echo "Conversion ending."
-}
 #:title Import PDF to Sheetmusic
 #:comment This program will run the free utility Ghostscript to read and convert PDFs 
 #:comment into one-page images.
-#:require debug
-#:system  music pdf-res pdf-type pdf-device
+#:require debug ontop
+#:system  music pdf-res pdf-type pdf-device 
 #:width   600
 #:height  700
-#:require ontop
 
-SCRIPT_DIR=`cd $(dirname $0) && pwd`
-SCRIPT=$(basename $0)
-INCLUDE_SYSTEM="${SCRIPT_DIR}/include"
+#:dialog "type='file' label='PDF File to convert' tag='SOURCE_FILE'option='require' width='120'"
+#:dialog "type='dir' label='Select directory for conversion' option='require' width='120' tag='TARGET_DIR'"
+#:dialog "type='title' label='Import PDF to system'"
+#:dialog "type='size' width='600'"
 
-DOES_NOT_EXIST="does not exist. Quiting import process."
 
-. ${INCLUDE_SYSTEM}/start.sh "$@"
-. ${INCLUDE_SYSTEM}/debug.sh "$@"
-. ${INCLUDE_SYSTEM}/info.sh  "$@"
+## the following should work for bash and zsh.
+## Standard parms passed:
+##      -S system-side script include directory
+args=( "$@" )
+while (( ${#args[@]} ))
+do
+    if [ "${args[0]}" == '-S' ]; then
+        INCLUDE_SYSTEM="${args[@]:1:1}"
+        break
+    fi
+    args=("${args[@]:1}")
+done
+
+if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
+    echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
+    exit 99 
+fi
+. ${INCLUDE_SYSTEM}/start.sh "$@" 
 
 ## Roll-you-own getopts. Not as efficient but it always ignores errors (which some versions don't)
 ## options:

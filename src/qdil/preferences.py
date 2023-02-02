@@ -212,13 +212,14 @@ class DilPreferences( ):
         Called when window moved, resized, or closed.
         '''
         
-        self.setValuePickle( DbKeys.SETTING_WINDOW_STATE_SAVED, win.saveState() )
         self.setValuePickle( DbKeys.SETTING_WIN_STATE, win.saveState())
+        self.setValuePickle( DbKeys.SETTING_WIN_GEOMETRY , win.saveGeometry() )
         self.setValuePickle( DbKeys.SETTING_WIN_ISMAX, win.isMaximized())
+        self.setValueBool(   DbKeys.SETTING_WINDOW_STATE_SAVED, True )
+    
         if not win.isMaximized() == True:
             self.setValuePickle(DbKeys.SETTING_WIN_POS, win.pos())
             self.setValuePickle(DbKeys.SETTING_WIN_SIZE, win.size())
-        self.setValueBool( DbKeys.SETTING_WINDOW_STATE_SAVED, True )
 
     def restoreMainWindow(self, win):
         '''

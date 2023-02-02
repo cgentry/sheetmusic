@@ -30,7 +30,6 @@ from qdb.dbconn import DbConn
 from qdb.util   import DbHelper
 from qdb.base   import DbBase
 from PySide6.QtSql import QSqlQuery
-import logging
 
 class DbSystem(DbBase):
     """
