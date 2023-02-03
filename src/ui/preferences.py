@@ -204,7 +204,7 @@ class UiPreferences(QDialog):
 
         self.textPdfConvert.setFont( self.fixedFont )
         self.widgetPdfConvert.setLayout( self.layoutPdfConvert)
-        self.textPdfConvert.textChanged.connect( self.actionTextChanged )
+        self.textPdfConvert.textChanged.connect( self.action_text_changed )
         return self.widgetPdfConvert
 
     def btnPdfConvert(self) -> QDialogButtonBox:
@@ -213,7 +213,7 @@ class UiPreferences(QDialog):
         btnBox.addButton( QDialogButtonBox.RestoreDefaults )
         btnBox.addButton( 'Reinitialise' , QDialogButtonBox.ResetRole )
         #btnBox.addButton( "Preview"      , QDialogButtonBox.AcceptRole)
-        btnBox.clicked.connect(self.actionPdf )
+        btnBox.clicked.connect(self.action_pdf )
 
         return btnBox
 
@@ -223,18 +223,18 @@ class UiPreferences(QDialog):
 
         '''
         # Create and add Default path to music options
-        self.lblDefaultDir = QLabel( self.settings.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR) )
-        self.lblDefaultDir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
-        self.btn_change_default_dir = QPushButton("Change...")
-        self.btn_reset_default_dir  = QPushButton("Restore Defaults")
+        self.lblSheetmusicDir = QLabel( self.settings.getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR) )
+        self.lblSheetmusicDir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
+        self.btn_change_sheetmusic_dir = QPushButton("Change...")
+        self.btn_reset_sheetmusic_dir  = QPushButton("Restore Defaults")
 
-        self.btn_change_default_dir.pressed.connect( self.actionChangeDefaultDir )
-        self.btn_reset_default_dir.pressed.connect(  self.actionResetDefaultDir )
+        self.btn_change_sheetmusic_dir.pressed.connect( self.action_change_sheetmusic_dir )
+        self.btn_reset_sheetmusic_dir.pressed.connect(  self.action_reset_sheetmusic_dir )
 
         hlayout = QHBoxLayout()
-        hlayout.addWidget( self.lblDefaultDir )
-        hlayout.addWidget( self.btn_change_default_dir )
-        hlayout.addWidget( self.btn_reset_default_dir )
+        hlayout.addWidget( self.lblSheetmusicDir )
+        hlayout.addWidget( self.btn_change_sheetmusic_dir )
+        hlayout.addWidget( self.btn_reset_sheetmusic_dir )
 
         layout.addLayout( hlayout, row , 1 ,alignment=Qt.AlignLeft)
         row += 1
@@ -245,10 +245,11 @@ class UiPreferences(QDialog):
         # create and add User Script path to music options
         self.label_user_script_dir = QLabel( self.settings.getValue( DbKeys.SETTING_PATH_USER_SCRIPT, DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR) )
         self.label_user_script_dir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
-        self.btn_change_default_dir = QPushButton("Change...")
+        self.btn_change_user_script_dir = QPushButton("Change...")
         self.btn_reset_user_script_dir  = QPushButton("Restore Defaults")
-        self.btnChangeUserScriptDir.pressed.connect( self.actionChangeUserscriptDir )
-        self.btn_reset_user_script_dir.pressed.connect(  self.actionResetUserScriptDir )
+
+        self.btn_change_user_script_dir.pressed.connect( self.action_change_user_script_dir )
+        self.btn_reset_user_script_dir.pressed.connect(  self.action_reset_user_script_dir )
 
         hlayout = QHBoxLayout()
         hlayout.addWidget( self.label_user_script_dir )
@@ -263,17 +264,17 @@ class UiPreferences(QDialog):
     def formatDatabaseDir(self , layout:QGridLayout, row:int )->int:
         hlayout = QHBoxLayout()
 
-        self.lblDbDir = QLabel( self.settings.getDirectoryDB() )
-        self.lblDbDir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
+        self.lbl_database_dir = QLabel( self.settings.getDirectoryDB() )
+        self.lbl_database_dir.setObjectName( DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
         self.btn_change_database_dir = QPushButton("Change...")
         self.btn_reset_database_dir  = QPushButton("Restore Defaults")
 
-        hlayout.addWidget( self.lblDbDir )
+        hlayout.addWidget( self.lbl_database_dir )
         hlayout.addWidget( self.btn_change_database_dir )
         hlayout.addWidget( self.btn_reset_database_dir )
 
-        self.btn_change_database_dir.pressed.connect( self.actionChangeDbDir )
-        self.btn_reset_database_dir.pressed.connect( self.actionResetDbDir )
+        self.btn_change_database_dir.pressed.connect( self.action_change_database_dir )
+        self.btn_reset_database_dir.pressed.connect(  self.action_reset_database_dir )
 
         layout.addLayout( hlayout, row , 1 ,alignment=Qt.AlignLeft)
         row += 1
@@ -283,7 +284,7 @@ class UiPreferences(QDialog):
         values = [ str(x) for x in range(DbKeys.VALUE_RECENT_SIZE_MIN, DbKeys.VALUE_RECENT_SIZE_MAX+1)]
         current = self.settings.getValue( DbKeys.SETTING_MAX_RECENT_SIZE , DbKeys.VALUE_RECENT_SIZE_DEFAULT)
         self.cmbRecentFiles = UiGenericCombo( isEditable=False, fill=values, currentValue=current , name=DbKeys.SETTING_MAX_RECENT_SIZE)
-        self.cmbRecentFiles.currentTextChanged.connect( self.actionRecentFiles )
+        self.cmbRecentFiles.currentTextChanged.connect( self.action_recent_files )
         layout.addWidget( self.cmbRecentFiles, row, 1 )
         row += 1
         return row
@@ -300,7 +301,7 @@ class UiPreferences(QDialog):
         if idx > -1:
             self.cmbType.setCurrentIndex( idx )
         layout.addWidget( self.cmbType, row, 1)
-        self.cmbType.currentIndexChanged.connect(self.actionTypeChanged)
+        self.cmbType.currentIndexChanged.connect(self.action_type_changed)
         return row+1
     
     def formatResolution( self, layout:QGridLayout, row:int )->int:
@@ -313,7 +314,7 @@ class UiPreferences(QDialog):
         if idx > -1:
             self.cmbRes.setCurrentIndex( idx )
         layout.addWidget( self.cmbRes, row, 1)
-        self.cmbRes.currentIndexChanged.connect(self.actionResChanged)
+        self.cmbRes.currentIndexChanged.connect(self.action_res_changed)
         return row+1
 
 
@@ -330,14 +331,14 @@ class UiPreferences(QDialog):
         idx = self.cmbDevice.findData( ftype )
         if idx > -1:
             self.cmbDevice.setCurrentIndex( idx )
-        self.cmbDevice.currentIndexChanged.connect(self.actionDeviceChanged)
+        self.cmbDevice.currentIndexChanged.connect(self.action_device_changed)
         return row+1
 
     def formatNameImport(self, layout:QGridLayout, row:int)->int:
         currentValue = self.settings.getValue( DbKeys.SETTING_NAME_IMPORT , DbKeys.VALUE_NAME_IMPORT_FILE_1 )
         self.cmbNameImport = UiGenericCombo( False, ImportNameSetting().forImportName, currentValue, name=DbKeys.SETTING_NAME_IMPORT )
         layout.addWidget( self.cmbNameImport , row, 1 )
-        self.cmbNameImport.currentTextChanged.connect(self.actionNameImport )
+        self.cmbNameImport.currentTextChanged.connect(self.action_name_import )
         return row+1
 
     def formatReopenLastBook( self , layout:QGridLayout, row:int )->int:
@@ -348,7 +349,7 @@ class UiPreferences(QDialog):
     
         self.checkReopen.setChecked(self.settings.getValueBool( DbKeys.SETTING_LAST_BOOK_REOPEN, DbKeys.VALUE_REOPEN_LAST ))
         layout.addWidget( self.checkReopen, row, 1)
-        self.checkReopen.stateChanged.connect( self.actionReopenLastBook)
+        self.checkReopen.stateChanged.connect( self.action_reopen_last_book)
         return row+1
 
     def formatAspectRatio( self , layout:QGridLayout, row:int)->int:
@@ -358,7 +359,7 @@ class UiPreferences(QDialog):
         self.checkAspect.setCheckable(True)
         self.checkAspect.setChecked(self.settings.getValueBool( DbKeys.SETTING_KEEP_ASPECT, DbKeys.VALUE_KEEP_ASPECT))
         layout.addWidget( self.checkAspect, row, 1 )
-        self.checkAspect.stateChanged.connect(self.actionAspectRatio )
+        self.checkAspect.stateChanged.connect(self.action_aspect_ratio )
         return row+1
 
     def formatSmartPages( self, layout:QGridLayout, row:int)->int:
@@ -368,7 +369,7 @@ class UiPreferences(QDialog):
         self.checkSmartPages.setCheckable(True)
         self.checkSmartPages.setChecked(self.settings.getValueBool( DbKeys.SETTING_SMART_PAGES, DbKeys.VALUE_SMART_PAGES))
         layout.addWidget( self.checkSmartPages, row, 1 )
-        self.checkSmartPages.stateChanged.connect(self.actionSmartPages )
+        self.checkSmartPages.stateChanged.connect(self.action_smart_pages )
         return row+1
 
     def formatLayout(self , layout:QGridLayout, row:int)->int:
@@ -399,7 +400,7 @@ class UiPreferences(QDialog):
         layout.addLayout( btnLayout , row,1 )
         return row+1
 
-        self.btnBox.buttonClicked.connect( self.actionLayout)
+        self.btnBox.buttonClicked.connect( self.action_layout)
 
     def formatScript(self, layout:QGridLayout, row:int )->int:
         self.txtScriptShell = QLineEdit()
@@ -492,7 +493,7 @@ class UiPreferences(QDialog):
     def createMainButtons(self):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Cancel | QDialogButtonBox.Save)
-        self.buttons.clicked.connect(self.actionMainButtonClicked)
+        self.buttons.clicked.connect(self.action_main_button_clicked)
 
 
     def editItem(self, item:QWidget):
@@ -507,17 +508,17 @@ class UiPreferences(QDialog):
         elif DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB in self.states:
                 self.states.pop(  DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
     
-    def actionTextChanged(self):
+    def action_text_changed(self):
         pdftxt = self.textPdfConvert.toPlainText()
         if isinstance( pdftxt, str) and pdftxt.strip() != self.settings.getValue(DbKeys.SETTING_PDF_SCRIPT ).strip():
             self.states[ DbKeys.SETTING_PDF_SCRIPT] = self.textPdfConvert.toPlainText().strip()
 
-    def actionHelp(self):
+    def action_help(self):
         helpLayout = QVBoxLayout()
         helpDlg = QDialog()
         helpDlg.setMinimumHeight(500)
 
-        def actionHelpClose(self):
+        def action_help_close(self):
             helpDlg.reject()
 
         helpPdf = QTextEdit()
@@ -528,12 +529,12 @@ class UiPreferences(QDialog):
         helpLayout.addWidget( helpPdf)
         btnPdf = QPushButton("Close")
         helpLayout.addWidget( btnPdf)
-        btnPdf.clicked.connect( actionHelpClose )
+        btnPdf.clicked.connect( action_help_close )
         
         helpDlg.setLayout( helpLayout )
         helpDlg.exec()
    
-    def actionPdf(self, button):
+    def action_pdf(self, button):
         txt = button.text().strip()
         if txt == 'Restore Defaults':
             self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
@@ -543,25 +544,25 @@ class UiPreferences(QDialog):
                 Setup().RestoreDefaultPdfScript()
                 self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
         elif txt == 'Help':
-            self.actionHelp()
+            self.action_help()
         else:
             logging.error("Runtime error. Unknown button: {}".format( txt) )
     
-    def actionChangeDefaultDir(self):
-        cdir = self.lblDefaultDir.text()
+    def action_change_sheetmusic_dir(self):
+        cdir = self.lblSheetmusicDir.text()
         new_directory_name = QFileDialog.getExistingDirectory(
             self,
             "Change Sheetmusic Directory",
             dir=cdir,
             options=QFileDialog.Option.ShowDirsOnly)
         if new_directory_name:
-            self.lblDefaultDir.setText( new_directory_name )
-            self.lblDefaultDir.show()
+            self.lblSheetmusicDir.setText( new_directory_name )
+            self.lblSheetmusicDir.show()
             self.flagChanged = True
             self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC ] = new_directory_name
-        self.btn_change_default_dir.setDown( False)
+        self.btn_change_sheetmusic_dir.setDown( False)
 
-    def actionChangeDefaultDir(self):
+    def action_change_user_script_dir(self):
         cdir = self.label_user_script_dir.text()
         new_directory_name = QFileDialog.getExistingDirectory(
             self,
@@ -575,75 +576,82 @@ class UiPreferences(QDialog):
             self.states[ DbKeys.SETTING_PATH_USER_SCRIPT ] = new_directory_name
         self.btnChangeUserScriptDir.setDown( False)
 
-    def actionChangeDbDir(self):
-        cdir = self.lblDbDir.text()
+    def action_change_database_dir(self):
+        cdir = self.lbl_database_dir.text()
         new_directory_name = QFileDialog.getExistingDirectory(
             self,
             "Change Database Directory",
             dir=cdir,
             options=QFileDialog.Option.ShowDirsOnly)
         if new_directory_name:
-            self.lblDbDir.setText( new_directory_name )
-            self.lblDbDir.show()
+            self.lbl_database_dir.setText( new_directory_name )
+            self.lbl_database_dir.show()
             self.flagChanged = True
             self.states[ DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB ] = new_directory_name
         self.btn_change_database_dir.setDown( False)
 
-    def actionResetDefaultDir(self):
+    def action_reset_sheetmusic_dir(self):
         cdir = expanduser(  DbKeys.VALUE_DEFAULT_DIR)
-        self.lblDefaultDir.setText( cdir )
+        self.lblSheetmusicDir.setText( cdir )
         self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC] = cdir
         self.flagChanged = True
 
-    def actionResetDbDir(self):
+    def action_reset_database_dir(self):
         cdir = DbKeys.VALUE_DEFAULT_DIR
-        self.lblDbDir.setText( cdir )
+        self.lbl_database_dir.setText( cdir )
         self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB] = cdir
         self.flagChanged = True
 
-    def actionTypeChanged(self, value):
+    def action_reset_user_script_dir(self):
+        new_directory_name = expanduser( DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR )
+        self.label_user_script_dir.setText( new_directory_name )
+        self.flagChanged = True
+        self.states[ DbKeys.SETTING_PATH_USER_SCRIPT ] = new_directory_name
+
+
+    def action_type_changed(self, value):
         self.states[ DbKeys.SETTING_FILE_TYPE ] = self.cmbType.currentData()
         self.flagChanged = True
         self.formatFileDevice( self.layoutShellScript, 3 )
 
-    def actionResChanged(self, value):
+    def action_res_changed(self, value):
         newVal = self.cmbRes.currentData()
         if newVal is not None:
             self.states[ DbKeys.SETTING_FILE_RES ] = self.cmbRes.currentData() 
             self.flagChanged = True
         #self.formatFileDevice( self.layoutShellScript, 3 )
 
-    def actionDeviceChanged( self, value ):
+    def action_device_changed( self, value ):
         self.states[ DbKeys.SETTING_DEFAULT_GSDEVICE] = self.cmbDevice.currentData()
         self.flagChanged = True
 
-    def actionNameImport( self, value ):
+    def action_name_import( self, value ):
         self.states[self.cmbNameImport.objectName() ] = value
         self.flagChanged = True
 
-    def actionRecentFiles( self, value ):
+    def action_recent_files( self, value ):
         self.states[ self.cmbRecentFiles.objectName() ] = value
         self.flagChanged = True
 
-    def actionReopenLastBook(self, status):
-        '''
-        Save the state of the 'ReopenLastBook checkbox '''
+    def action_reopen_last_book(self, status):
+        '''Save the state of the 'ReopenLastBook checkbox '''
+
         self.states[ DbKeys.SETTING_LAST_BOOK_REOPEN ] = self.checkReopen.isChecked()
         self.flagChanged = True
 
-    def actionAspectRatio( self, status ):
+    def action_aspect_ratio( self, status ):
         self.states[ DbKeys.SETTING_KEEP_ASPECT ] = self.checkAspect.isChecked()
         self.flagChanged = True
 
-    def actionSmartPages( self, status ):
+    def action_smart_pages( self, status ):
         self.states[ DbKeys.SETTING_SMART_PAGES ]= self.checkSmartPages.isChecked()
         self.flagChanged = True
     
-    def actionLayout(self, buttonObject ):
+    def action_layout(self, buttonObject ):
         self.flagChanged = True
         self.states[ DbKeys.SETTING_PAGE_LAYOUT ] = buttonObject.objectName() 
 
-    def actionMainButtonClicked(self, btn):
+    def action_main_button_clicked(self, btn):
         if btn.text() == "Save" and self.flagChanged:
             self.accept()
             self.done(self.Accepted)

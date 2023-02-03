@@ -27,7 +27,6 @@ from genericpath import isfile
 import sys
 import os
 import logging
-from tkinter import N
 
 from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir, QByteArray
 from PySide6.QtWidgets  import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
@@ -486,7 +485,8 @@ class MainWindow(QMainWindow):
 
     def actionDeleteAllBookmarks(self)->None:
         rtn = QMessageBox.warning(
-            None, "{}".format( self.book.getTitle()),
+            None, 
+            "{}".format( self.book.getTitle()),
             "Delete all booksmarks for book?\nThis cannot be undone.",
             QMessageBox.No | QMessageBox.Yes 
         )
@@ -494,20 +494,28 @@ class MainWindow(QMainWindow):
             self.bookmark.delAllBookmarks( book=self.book.getTitle() )
             
     def actionPreferences(self)->None:
-        from ui.preferences import UiPreferences  
-        pref = UiPreferences()
-        pref.formatData()
-        pref.exec()
-        changes = pref.getChanges()
-        if len( changes) > 0:
-            self.pref.saveAll( changes )
-        settings = self.pref.getAll()
-        self.ui.setNavigationShortcuts( settings )
-        self.ui.setBookmarkShortcuts( settings )
-        viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
-        self.ui.pageWidget.setDisplay( viewState )
-        self.toggleMenuPages( viewState )
-        self.loadPages()
+        try:
+            from ui.preferences import UiPreferences  
+            pref = UiPreferences()
+            pref.formatData()
+            pref.exec()
+            changes = pref.getChanges()
+            if len( changes) > 0:
+                self.pref.saveAll( changes )
+            settings = self.pref.getAll()
+            self.ui.setNavigationShortcuts( settings )
+            self.ui.setBookmarkShortcuts( settings )
+            viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
+            self.ui.pageWidget.setDisplay( viewState )
+            self.toggleMenuPages( viewState )
+            self.loadPages()
+        except Exception as err:
+            QMessageBox.critical(
+                None,
+                "SheetMusic",
+                "Error opening preferences:\n{}".format( str( err ) ),
+                QMessageBox.Cancel
+            )
     
     def actionAbout(self)->None:
         from ui.about import UiAbout
@@ -798,8 +806,6 @@ if __name__ == "__main__":
     sy = SystemPreferences()
     dbLocation    = sy.getPathDB()          # Fetch the system settings
     mainDirectory = sy.getDirectory()       # Get directory
-    DbConn.openDB( dbLocation )
-    setup = Setup()
 
     app = QApplication([])
     ## This will initialise the system. It requires prompting so uses dialog box
@@ -808,6 +814,12 @@ if __name__ == "__main__":
         ini = Initialise( )
         ini.run( dbLocation  )
         del ini
+        ## force to re-read
+        dbLocation    = sy.getPathDB()          # Fetch the system settings
+        mainDirectory = sy.getDirectory()       # Get directory
+
+    DbConn.openDB( dbLocation )
+    setup = Setup()
 
     setup.initData()
     setup.updateSystem()
