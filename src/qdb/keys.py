@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.5"
+    version      = "0.5.6"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'

@@ -170,7 +170,6 @@ class UiMain(object):
 
         self.label_page_absolute = QLabel()
         self.label_page_absolute.setObjectName(u'pageAbsolute')
-        self.label_page_absolute.setToolTip("Absolute book page")
 
         self.btn_bookmark = QPushButton()
         self.btn_bookmark.setObjectName(u'bookmark')
@@ -181,28 +180,39 @@ class UiMain(object):
         self.statusbar.addWidget( self.label_book_note )
         self.statusbar.addWidget( self.label_page_note )
         self.statusbar.addWidget( self.slider_page_position,100)
-        self.statusbar.addWidget( self.btn_bookmark )
+        #self.statusbar.addWidget( self.btn_bookmark )
         self.statusbar.addWidget( self.label_page_absolute)
 
         MainWindow.setStatusBar(self.statusbar)
     
     # White square: "\U00002B1C"
     _blank_note_indicator = "   "
+    _double_bar = "\U00002016"
     def setBookNote(self, flag:bool):
         if flag:
             self.label_book_note.setText( "\U0001F4D3" )
             self.label_book_note.setStyleSheet("border: 3px solid gray")
+            self.label_book_note.setToolTip("Note set for book.")
         else:
             self.label_book_note.setText( self._blank_note_indicator) 
             self.label_book_note.setStyleSheet("border: 2px solid lightgray")
+            self.label_book_note.setToolTip("")
 
-    def setPageNote(self, flag:bool):
+    def setPageNote(self, flag:bool, page="" ):
         if flag:
             self.label_page_note.setText( "\U0001F4DD" )
             self.label_page_note.setStyleSheet("border: 3px solid gray")
+            self.label_page_note.setToolTip("Note set for page {}".format( page ))
         else:
             self.label_page_note.setText( self._blank_note_indicator)
             self.label_page_note.setStyleSheet("border: 2px solid lightgray")
+            self.label_page_note.setToolTip("")
+
+    def set_absolute_page( self, absolute:int, total:int, offset_page:int=1 )->None:
+        self.label_page_absolute.setText("{} {:>4d} / {:<4d} ".format(self._double_bar, absolute, total))
+        tt = "Absolute page / Total pages / Numbering starts on {}\n".format( offset_page ) 
+        self.label_page_absolute.setToolTip( tt )
+        self.label_page_absolute.setStyleSheet("text-align: center;")
 
     def createTriggers(self):
         self.setMarkBookmark    = self.actionBookmarkCurrentPage.triggered.connect

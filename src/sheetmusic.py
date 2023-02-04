@@ -130,13 +130,9 @@ class MainWindow(QMainWindow):
             self.ui.pageWidget.loadPages( page1, pg1 , page2, pg2 ,page3, pg3)
 
     def _update_pages_shown(self, absolute_page_number:int=None )->None:
-        self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number))
-        if  self.book.isPageRelative(absolute_page_number):
-            lbl = "Page"
-        else:
-            lbl = "Book"
-
-        self.ui.label_page_relative.setText( "{}:{:4d}".format( lbl, self.book.getRelativePage()))
+        self.ui.set_absolute_page( absolute_page_number, self.book.getTotal() , self.book.getRelativePageOffset() )
+        lbl = 'Page' if self.book.isPageRelative(absolute_page_number) else "Book"
+        self.ui.label_page_relative.setText( "{}:{:4d}".format( lbl, self.book.getRelativePage( absolute_page_number )))
         self._update_note_indicator(absolute_page_number)
         
     def updateBookmarkMenuNav( self, bookmark=None ):
@@ -150,17 +146,18 @@ class MainWindow(QMainWindow):
     def _update_note_indicator(self, page_number:int):
         nlist = self.getNoteList( self.book.getID() )
         if len( nlist ):
-            print( "NoteList: page: {} ".format( page_number))
-            for n in nlist:
-                print( n )
             self.ui.setBookNote( (0 in nlist ))
-            self.ui.setPageNote( (page_number in nlist ))
+            self.ui.setPageNote( (page_number in nlist ), page_number )
+        else:
+            self.ui.setBookNote( False )
+            self.ui.setPageNote( False )
 
     def updateStatusBar(self)->None:
-        if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
-            absolute_page_number = self.ui.pageWidget.getHighestPageShown()
-        else:
-            absolute_page_number = self.ui.pageWidget.getLowestPageShown()
+        absolute_page_number = self.book.getAbsolutePage()
+        # if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
+        #     absolute_page_number = self.ui.pageWidget.getHighestPageShown()
+        # else:
+        #     absolute_page_number = self.ui.pageWidget.getLowestPageShown()
 
         self.ui.slider_page_position.setMaximum( self.book.getTotal())
         self.ui.slider_page_position.setValue( absolute_page_number)
@@ -305,12 +302,13 @@ class MainWindow(QMainWindow):
             self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg , end=(pg==self.book.getTotal()))
         self.updateStatusBar()
     
-    def goToPage(self, page )->None:
+    def go_to_page(self, page:int )->None:
         ''' Set the page number to the page passed and display
             page number must be absolute, not relative.
         '''
-        self.book.setPageNumber(page)
-        self.loadPages()
+        if page:
+            self.book.setPageNumber(page)
+            self.loadPages()
 
     def goFirstBookmark(self)->None:
         bmk = self.bookmark.getFirst( )
@@ -418,8 +416,7 @@ class MainWindow(QMainWindow):
         if bmk is not None and BOOKMARK.page in bmk and bmk[BOOKMARK.page] is not None:
             self.ui.actionPreviousBookmark.setDisabled( self.bookmark.isFirst(bmk) )
             self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bmk ) )
-            if bmk[BOOKMARK.page] is not None:
-                self.goToPage( bmk[BOOKMARK.page])
+            self.go_to_page( bmk[BOOKMARK.page])
 
     def goPreviousBookmark(self)->None:
         bmk = self.bookmark.getPrevious( self.book.getAbsolutePage() )
@@ -449,7 +446,7 @@ class MainWindow(QMainWindow):
 
     def _action_slider_released(self)->None:
         """ Slider released so update the progress bar. """
-        self.goToPage( self.sender().value() )
+        self.go_to_page( self.sender().value() )
 
     def actionProperties(self)->None:
         if self.book.editProperties( UiProperties() ) :
@@ -478,11 +475,15 @@ class MainWindow(QMainWindow):
                 self.ui.setBookNote(True)
 
     def actionNoteBook(self)->None:
-        self._actionNote( page=0, seq=0, titleSuffix='Book')
+        self._actionNote( page=0, seq=0, titleSuffix='(Book Note)')
 
     def actionNotePage( self, id ):
-        page   = self.book.getAbsolutePage()
-        self._actionNote( page=page , seq=0 ,titleSuffix="Page {}".format( page ) )
+        absolute_page   = self.book.getAbsolutePage()
+        if self.book.isPageRelative( absolute_page ):
+            title = "Page: {} (Book: {})".format( self.book.getRelativePage(), absolute_page )
+        else:
+            title = "Book: {}".format( absolute_page )
+        self._actionNote( page=absolute_page , seq=0 , titleSuffix=title )
 
     def actionDeleteAllBookmarks(self)->None:
         rtn = QMessageBox.warning(
@@ -675,7 +676,7 @@ class MainWindow(QMainWindow):
         uiBookmark.exec()
         newPage = uiBookmark.selectedPage
         if newPage :
-            self.goToPage( newPage )
+            self.go_to_page( newPage )
             self.setTitle( uiBookmark.selectedBookmark )
         del uiBookmark
 
@@ -686,7 +687,7 @@ class MainWindow(QMainWindow):
             pn = getPageNumber.page
             if getPageNumber.relative:
                 pn = self.book.convertRelativeToAbsolute( pn )
-            self.goToPage( pn )
+            self.go_to_page( pn )
         
     def toggleMenuPages(self, layoutType:str )->None:
         if layoutType is None:
