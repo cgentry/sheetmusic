@@ -129,14 +129,15 @@ class MainWindow(QMainWindow):
             page3 = self.book.getPixmap( pg3)
             self.ui.pageWidget.loadPages( page1, pg1 , page2, pg2 ,page3, pg3)
 
-    def updatePageNumbers(self, absolute_page_number:int=None )->None:
+    def _update_pages_shown(self, absolute_page_number:int=None )->None:
+        self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number))
         if  self.book.isPageRelative(absolute_page_number):
-            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number ))
             lbl = "Page"
         else:
-            self.ui.label_page_absolute.clear()
-            lbl = "Book page"
-        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage(absolute_page_number)))
+            lbl = "Book"
+
+        self.ui.label_page_relative.setText( "{}:{:4d}".format( lbl, self.book.getRelativePage()))
+        self._update_note_indicator(absolute_page_number)
         
     def updateBookmarkMenuNav( self, bookmark=None ):
         if self.bookmark.getTotal() < 1 :
@@ -147,9 +148,13 @@ class MainWindow(QMainWindow):
             self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bookmark ))
 
     def _update_note_indicator(self, page_number:int):
-        nlist = self.getNoteList( self.book.getID())
-        self.ui.setBookNote( (0 in nlist and nlist[0] > 0 ))
-        self.ui.setPageNote( (page_number in nlist and nlist[ page_number] > 0 ))
+        nlist = self.getNoteList( self.book.getID() )
+        if len( nlist ):
+            print( "NoteList: page: {} ".format( page_number))
+            for n in nlist:
+                print( n )
+            self.ui.setBookNote( (0 in nlist ))
+            self.ui.setPageNote( (page_number in nlist ))
 
     def updateStatusBar(self)->None:
         if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
@@ -160,15 +165,7 @@ class MainWindow(QMainWindow):
         self.ui.slider_page_position.setMaximum( self.book.getTotal())
         self.ui.slider_page_position.setValue( absolute_page_number)
 
-        if  self.book.isPageRelative(absolute_page_number):
-            self.ui.label_page_absolute.setText( " |{:4d} |".format( absolute_page_number))
-            lbl = "Page"
-        else:
-            self.ui.label_page_absolute.clear()
-            lbl = "Book page"
-
-        self.ui.label_page_relative.setText( "{}: {:d}".format( lbl, self.book.getRelativePage()))
-        self._update_note_indicator(absolute_page_number)
+        self._update_pages_shown( absolute_page_number )
 
         
     def restoreWindowFromSettings(self)->None:
@@ -178,8 +175,11 @@ class MainWindow(QMainWindow):
     
     def getNoteList(self, book_id:int , refresh=False)->dict:
         if book_id is not None and (self._notelist is None or refresh ):
+            self._notelist = {}
             dbnote = DbNote()
-            self._notelist = dbnote.getNoteForBook( book_id )
+            returnlist = dbnote.getAll( book_id )
+            for note in returnlist:
+                self._notelist[ note[ NOTE.page ]] = note
         return self._notelist
 
     def open_book(self, newBookName:str, page=None):
@@ -353,6 +353,7 @@ class MainWindow(QMainWindow):
         self.ui.menuOpenRecent.triggered.connect(self.actionOpenRecent)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
         self.ui.actionNoteBook.triggered.connect( self.actionNoteBook )
+        self.ui.actionNotePage.triggered.connect( self.actionNotePage )
         self.ui.actionDeleteAllBookmarks.triggered.connect( self.actionDeleteAllBookmarks )
         self.ui.actionPreferences.triggered.connect(self.actionPreferences)
         self.ui.actionAbout.triggered.connect( self.actionAbout )
@@ -376,8 +377,8 @@ class MainWindow(QMainWindow):
         self.ui.actionDown.triggered.connect(self.pageForward)
         self.ui.actionUp.triggered.connect( self.pageBackward)
 
-        self.ui.slider_page_position.valueChanged.connect( self.actionProgressChanged)
-        self.ui.slider_page_position.sliderReleased.connect(self.actionProgressReleased)
+        self.ui.slider_page_position.valueChanged.connect( self._action_slider_changed)
+        self.ui.slider_page_position.sliderReleased.connect(self._action_slider_released)
 
         #self.ui.twoPagesSide.installEventFilter( self)
 
@@ -442,11 +443,11 @@ class MainWindow(QMainWindow):
         self.smart_pages = state
         self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
 
-    def actionProgressChanged( self, value )->None:
+    def _action_slider_changed( self, value )->None:
         """ The slider has changed so update page numbers """
-        self.updatePageNumbers(value)
+        self._update_pages_shown(value)
 
-    def actionProgressReleased(self)->None:
+    def _action_slider_released(self)->None:
         """ Slider released so update the progress bar. """
         self.goToPage( self.sender().value() )
 

@@ -1,7 +1,7 @@
-# sheetmusic version 0.5.4
+# sheetmusic version 0.5.5
 A graphical program to display sheet music on a monitor
 
-WARNING: 0.5.4 may be very unstable. a large number of structural changes have been made which should be corrected in 0.5.3
+WARNING: 0.5.5 may be very unstable. a large number of structural changes have been made which should be corrected in 0.5.3
 
 # Overview
 The purpose of this program is to display music and allow easy navigation. It will either display 1 page, or 2 pages side-by-side. Bookmarks can be added for any page without limits. I wanted to write this because most of the programs I've tried are ok but I've wanted additional features. Since I've been coding in a variety of languages I decided to pick up Python and try my hand. 
@@ -14,6 +14,14 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+
+# 0.5.5
+* Added in notes for pages
+* Fixed spacing and display of notes in status bar
+* Add more shortcut keys
+* Changed 'Book page' to 'Book' and always show absolute page number in left statusbar
+BUGS:
+* Noticed broken page numbering in status.
 
 # 0.5.4
 * Fix Preferences (broken references)

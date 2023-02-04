@@ -22,7 +22,7 @@ from re import M
 from qdb.keys import DbKeys
 from ui.pagewidget import ( PageWidget, PageLabelWidget )
 from PySide6.QtCore import (QCoreApplication, QRect,QSize)
-from PySide6.QtGui import (QAction, Qt )
+from PySide6.QtGui import (QAction, Qt , QKeySequence)
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel,QMenu, QPushButton,
     QMenuBar, QSizePolicy, QStatusBar,
@@ -79,36 +79,41 @@ class UiMain(object):
             s.setText(
                 QCoreApplication.translate("MainWindow", title , None))
             if shortcut is not None:
-                s.setShortcut(
-                    QCoreApplication.translate("MainWindow", shortcut, None))
+                if isinstance( shortcut, str ):
+                    s.setShortcut(
+                        QCoreApplication.translate("MainWindow", shortcut, None))
+                else:
+                    s.setShortcut( shortcut )
             return s
 
         # FILE actions
-        self.actionOpen         = action(u'Open',   title='Open...',  shortcut=u'Ctrl+O')
+        self.actionOpen         = action(u'Open',   title='Open...',  shortcut=QKeySequence.Open)
         self.actionOpenRecent   = action(u'Recent')
-        self.actionClose        = action(u"Close",                    shortcut=u"Ctrl+W")
-        self.actionDelete       = action(u'Delete', title='Delete...')
+        self.actionClose        = action(u"Close",                    shortcut=QKeySequence.Close)
+        self.actionDelete       = action(u'Delete', title='Delete...',shortcut=QKeySequence.DeleteEndOfWord)
         self.actionImport       = action(u'Import')
         ### file -> import actions
-        self.actionImportPDF    = action(u'ImportPDF',    title=u'Import PDF ...')
-        self.actionImportDirectory = action(u'ImportDir', title=u"Import Directory of PDFs...")
-        self.actionReimportPDF = action( u'ReimportPDF' , title=u'Reimport PDF...')
+        self.actionImportPDF    =    action( u'ImportPDF',    title=u'Import PDF ...' , shortcut=QKeySequence.Italic )
+        self.actionImportDirectory = action( u'ImportDir',    title=u"Import Directory of PDFs...")
+        self.actionReimportPDF =     action( u'ReimportPDF' , title=u'Reimport PDF...')
 
         # EDIT actions
         self.actionProperties           = action( u"Properties", shortcut=u'Ctrl+I')
         self.actionNoteBook             = action( u"BookNote"  , title="Note for Book")
+        self.actionNotePage             = action( u'PageNote'  , title='Note for Page')
         self.actionDeleteAllBookmarks   = action( u'DeleteAllBookmarks', title=u'Delete All Bookmarks')
 
         # VIEW actions
-        self.actionShowBookmarks       = action(u"ShowBookmarks",                title=u'Show Bookmarks...')
-        self.actionOne_Page            = action(u"One_Page"    , checkable=True, title=u'One Page', shortcut=u'Ctrl+1')
-        self.actionTwo_Pages           = action(u"Two_Pages"   , checkable=True, title=u'Two Pages side-by-side' , shortcut='Ctrl+2')
-        self.actionThree_Pages         = action(u"Three_Pages" , checkable=True, title=u'Three Pages side-by-side' , shortcut='Ctrl+3')
-        self.actionTwo_Pages_Stacked   = action(u"Two_stack"   , checkable=True, title=u'Two Pages Stacked',       shortcut=u'Ctrl+4')
-        self.actionThree_Pages_Stacked = action(u"Three_Stack" , checkable=True, title=u'Three Pages Stacked' , shortcut='Ctrl+5')
-        self.actionAspectRatio         = action(u"AspectRatio" , checkable=True, title=u'Keep Aspect ratio',       shortcut=u"Ctrl+A")
-        self.actionSmartPages          = action(u"SmartPages"  , checkable=True, title=u'Smart Page Turn')
-        self.actionViewStatus          = action('ViewStatus'   , checkable=True, title=u'View Status', checked=True)
+        self.actionRefresh             = action(u'Refresh'     ,  title=u'Refresh',                 shortcut=QKeySequence.Refresh)
+        self.actionShowBookmarks       = action(u"ShowBookmarks", title=u'Show Bookmarks...')
+        self.actionOne_Page            = action(u"One_Page"    ,  title=u'One Page'                ,shortcut=u'Ctrl+1', checkable=True,)
+        self.actionTwo_Pages           = action(u"Two_Pages"   ,  title=u'Two Pages side-by-side'  ,shortcut=u'Ctrl+2', checkable=True,)
+        self.actionThree_Pages         = action(u"Three_Pages" ,  title=u'Three Pages side-by-side',shortcut=u'Ctrl+3', checkable=True,)
+        self.actionTwo_Pages_Stacked   = action(u"Two_stack"   ,  title=u'Two Pages Stacked',       shortcut=u'Ctrl+4', checkable=True,)
+        self.actionThree_Pages_Stacked = action(u"Three_Stack" ,  title=u'Three Pages Stacked' ,    shortcut=u'Ctrl+5', checkable=True,)
+        self.actionAspectRatio         = action(u"AspectRatio" ,  title=u'Keep Aspect ratio',       shortcut=u"Ctrl+A", checkable=True,)
+        self.actionSmartPages          = action(u"SmartPages"  ,  title=u'Smart Page Turn',         shortcut=QKeySequence.AddTab, checkable=True,)
+        self.actionViewStatus          = action(u'ViewStatus'  ,  title=u'View Status',             shortcut=u'Ctrl+S', checkable=True, checked=True)
 
         # GO actions (Note: shortcuts are sent in 'setNavigationShortcuts' )
         self.actionUp               = action(u"Up",        title=u'Previous Page')
@@ -144,14 +149,17 @@ class UiMain(object):
 
         self.label_page_relative = QLabel()
         self.label_page_relative.setObjectName(u'pageRelative')
+        self.label_page_relative.setMinimumWidth( 80 )
         self.label_page_relative.setText("")
 
         self.label_book_note = QLabel()
         self.label_book_note.setObjectName( u'bookNote')
+        self.label_book_note.setMinimumWidth( 30 )
         self.setBookNote(True )
 
         self.label_page_note = QLabel()
         self.label_page_note.setObjectName( u'pageNote')
+        self.label_page_note.setMinimumWidth( 30 )
         self.setPageNote(True)
 
         self.slider_page_position = QSlider()
@@ -178,17 +186,23 @@ class UiMain(object):
 
         MainWindow.setStatusBar(self.statusbar)
     
+    # White square: "\U00002B1C"
+    _blank_note_indicator = "   "
     def setBookNote(self, flag:bool):
         if flag:
-            self.label_book_note.setText( "\U0001F4D9" )
+            self.label_book_note.setText( "\U0001F4D3" )
+            self.label_book_note.setStyleSheet("border: 3px solid gray")
         else:
-            self.label_book_note.setText( " ")
+            self.label_book_note.setText( self._blank_note_indicator) 
+            self.label_book_note.setStyleSheet("border: 2px solid lightgray")
 
     def setPageNote(self, flag:bool):
         if flag:
             self.label_page_note.setText( "\U0001F4DD" )
+            self.label_page_note.setStyleSheet("border: 3px solid gray")
         else:
-            self.label_page_note.setText( " ")
+            self.label_page_note.setText( self._blank_note_indicator)
+            self.label_page_note.setStyleSheet("border: 2px solid lightgray")
 
     def createTriggers(self):
         self.setMarkBookmark    = self.actionBookmarkCurrentPage.triggered.connect
@@ -268,10 +282,12 @@ class UiMain(object):
     def addEditActions(self)->None:
         self.menuEdit.addAction(self.actionProperties)
         self.menuEdit.addAction(self.actionNoteBook)
+        self.menuEdit.addAction(self.actionNotePage)
         self.menuEdit.addSeparator()   # -------------------
         self.menuEdit.addAction( self.actionDeleteAllBookmarks )
 
     def addViewActions(self)->None:
+        self.menuView.addAction( self.actionRefresh )
         self.menuView.addAction( self.actionShowBookmarks )
         self.menuView.addSeparator()   # -------------------
         self.menuView.addAction(self.actionOne_Page)

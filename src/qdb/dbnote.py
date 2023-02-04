@@ -45,11 +45,16 @@ class DbNote(DbBase):
                                 AND   Note.page = ?
                                 AND   Note.sequence = ?
                             """
-    SQL_GET_ALL            = """SELECT * 
+    SQL_GET_PAGE_NOTES     = """SELECT * 
                                 From Note
                                 WHERE book_id= ?
                                 AND   page=?
                                 ORDER BY sequence
+                            """
+    SQL_GET_ALL_NOTES      = """SELECT *
+                               FROM Note
+                               WHERE book_id = ?
+                               ORDER BY page, sequence
                             """
     SQL_DELETE             = """DELETE FROM Note 
                                 WHERE book_id= ?
@@ -93,14 +98,18 @@ class DbNote(DbBase):
             rec = self.new( '', book, page, seq )
         return rec
         
-    def getAll(self, book_id:int, page:int):
+    def getNotesForPage(self, book_id:int, page:int)->list:
         """ Get All notes for a page in order of sequence """
-        return  DbHelper.fetchrows( DbNote.SQL_GET_ALL , [book_id,page] , DbNote.columnNames, endquery=self._checkError )
+        return  DbHelper.fetchrows( DbNote.SQL_GET_PAGE_NOTES , [book_id,page] , DbNote.columnNames, endquery=self._checkError )
     
     def getNoteForBook( self, book )->str:
         """ Get the Book's main note (general, not for a page ) """
         return self.getNote( book ,0,0 )
 
+    def getAll( self, book_id:int )->list:
+        """ Get all notes for this page """
+        return  DbHelper.fetchrows( DbNote.SQL_GET_ALL_NOTES , [book_id] , DbNote.columnNames, endquery=self._checkError )
+    
     def deletePage( self, book, page:int=0, seq:int=0)->bool:
         query = DbHelper.prep( DbNote.SQL_DELETE )
         query = DbHelper.bind( query , [ book, page, seq] )
