@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.7
+# sheetmusic version 0.5.8
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -14,6 +14,9 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+
+# 0.5.8
+* Fix page flipping so it runs a bit more logically.
 
 # 0.5.7
 * Fixed import of documents

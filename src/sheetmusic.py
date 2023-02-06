@@ -137,13 +137,13 @@ class MainWindow(QMainWindow):
         
     def updateBookmarkMenuNav( self, bookmark=None ):
         has_bookmarks = (self.bookmark.getTotal() > 0 )
-        self.ui.actionPreviousBookmark.setEnabled(has_bookmarks )
-        self.ui.actionNextBookmark.setEnabled(    has_bookmarks )
+        self.ui.action_previous_bookmark.setEnabled(has_bookmarks )
+        self.ui.action_next_bookmark.setEnabled(    has_bookmarks )
         self.ui.actionShowBookmarks.setEnabled(   has_bookmarks )
         
         if bookmark is not None:
-            self.ui.actionPreviousBookmark.setDisabled( self.bookmark.isFirst( bookmark) )
-            self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bookmark ))
+            self.ui.action_previous_bookmark.setDisabled( self.bookmark.isFirst( bookmark) )
+            self.ui.action_next_bookmark.setDisabled( self.bookmark.isLast( bookmark ))
 
     def _update_note_indicator(self, page_number:int):
         nlist = self.getNoteList( self.book.getID() )
@@ -228,9 +228,9 @@ class MainWindow(QMainWindow):
             object.blockSignals(True)
             if( event.GestureType() ==Qt.SwipeGesture ):
                 if (event.horizontalDirection() == 'Left'):
-                    self.pageBackward()
+                    self.page_previous()
                 if (event.horizontalDirection() == 'Right'):
-                    self.pageForward()
+                    self.page_forward()
                 object.blockSignals(False)
                 return True
         ###
@@ -249,9 +249,9 @@ class MainWindow(QMainWindow):
                     if self.direction is not None:
                         self.wheelTimer.start()
                         if self.direction == 'Left':
-                            self.pageBackward()
+                            self.page_previous()
                         else:
-                            self.pageForward()
+                            self.page_forward()
                         
                         self.direction = None
                 else:
@@ -274,9 +274,9 @@ class MainWindow(QMainWindow):
         #if False and (ev.type() == QEvent.KeyPress):
         #    key = ev.key()
         #    if (key == Qt.Key_Left):
-        #        self.goFirstBookmark() if ev.modifiers() & Qt.ControlModifier else self.pageBackward()
+        #        self.goFirstBookmark() if ev.modifiers() & Qt.ControlModifier else self.page_previous()
         #    if (key == Qt.Key_Right):
-        #        self.goLastBookmark() if ev.modifiers() & Qt.ControlModifier else self.pageForward()
+        #        self.goLastBookmark() if ev.modifiers() & Qt.ControlModifier else self.page_forward()
 
         super().keyPressEvent(ev)
 
@@ -287,23 +287,20 @@ class MainWindow(QMainWindow):
         self.close_book()
         DbConn.closeDB()
         
-    def pageBackward(self)->None:
-        pg = self.book.getAbsolutePage()-1 
-        if pg < 1:
-            return
-        self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg , end=(pg==1))
-        self.book.setPageNumber( pg )
-        self.updateStatusBar()
+    def page_previous(self)->None:
+        pg = self.ui.pageWidget.getLowestPageShown()-1
+        if self.book.isValidPage( pg  ):
+            self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg , end=(pg==1))
+            self.book.setPageNumber( pg )
+            self.updateStatusBar()
 
-    def pageForward(self)->None:
-        pg = self.ui.pageWidget.getHighestPageShown()
-        if pg == 0:
-            pg = self.book.getAbsolutePage()
-        self.book.setPageNumber( pg )
-        pg = pg+1
+    def page_forward(self)->None:
+        pg = self.ui.pageWidget.getHighestPageShown()+1
         if self.book.isValidPage( pg  ): 
+            self.book.setPageNumber( pg )
+            print("\tset valid", pg)
             self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg , end=(pg==self.book.getTotal()))
-        self.updateStatusBar()
+            self.updateStatusBar()
     
     def go_to_page(self, page:int )->None:
         ''' Set the page number to the page passed and display
@@ -345,8 +342,8 @@ class MainWindow(QMainWindow):
         
 
         #self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
-        self.ui.actionPreviousBookmark.triggered.connect( self.goPreviousBookmark )
-        self.ui.actionNextBookmark.triggered.connect( self.goNextBookmark )
+        self.ui.action_previous_bookmark.triggered.connect( self.goPreviousBookmark )
+        self.ui.action_next_bookmark.triggered.connect( self.goNextBookmark )
         self.ui.btn_bookmark.clicked.connect( self.actionClickedBookmark )
 
         self.ui.actionOpen.triggered.connect(self.actionFileOpen)
@@ -375,8 +372,8 @@ class MainWindow(QMainWindow):
         self.ui.actionSmartPages.triggered.connect( self.actionSmartPages )
 
         self.ui.actionGo_to_Page.triggered.connect(self.actionGoPage)
-        self.ui.actionDown.triggered.connect(self.pageForward)
-        self.ui.actionUp.triggered.connect( self.pageBackward)
+        self.ui.actionDown.triggered.connect(self.page_forward)
+        self.ui.actionUp.triggered.connect( self.page_previous)
 
         self.ui.slider_page_position.valueChanged.connect( self._action_slider_changed)
         self.ui.slider_page_position.sliderReleased.connect(self._action_slider_released)
@@ -417,8 +414,8 @@ class MainWindow(QMainWindow):
     
     def _finishBookmarkNavigation( self, bmk ):
         if bmk is not None and BOOKMARK.page in bmk and bmk[BOOKMARK.page] is not None:
-            self.ui.actionPreviousBookmark.setDisabled( self.bookmark.isFirst(bmk) )
-            self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bmk ) )
+            self.ui.action_previous_bookmark.setDisabled( self.bookmark.isFirst(bmk) )
+            self.ui.action_next_bookmark.setDisabled( self.bookmark.isLast( bmk ) )
             self.go_to_page( bmk[BOOKMARK.page])
 
     def goPreviousBookmark(self)->None:

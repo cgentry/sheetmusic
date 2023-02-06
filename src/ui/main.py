@@ -122,8 +122,8 @@ class UiMain(object):
         self.actionLastPage         = action(u"LastPage" , title=u'Last Page' )
         self.actionGo_to_Page       = action(u"Go_to_Page",title=u'Go To Page...')
 
-        self.actionPreviousBookmark = action(u"PreviousBookmark",   title=u'Previous Bookmark')
-        self.actionNextBookmark     = action(u"NextBookmark",       title=u'Next Bookmark')
+        self.action_previous_bookmark = action(u"PreviousBookmark",   title=u'Previous Bookmark')
+        self.action_next_bookmark     = action(u"NextBookmark",       title=u'Next Bookmark')
 
         # TOOL actions (Bookmark controls are set in 'setBookmarkShortcuts')
         self.actionBookmarkCurrentPage  = action(u"BookmarkCurrentPage", title=u'Bookmark current page')
@@ -322,8 +322,8 @@ class UiMain(object):
         self.menuGo.addAction(self.actionLastPage)
         self.menuGo.addAction(self.actionGo_to_Page)
         self.menuGo.addSeparator()   # -------------------
-        self.menuGo.addAction(self.actionPreviousBookmark)
-        self.menuGo.addAction(self.actionNextBookmark)
+        self.menuGo.addAction(self.action_previous_bookmark)
+        self.menuGo.addAction(self.action_next_bookmark)
 
     def addToolActions(self)->None:
         self.menuTools.addAction(self.actionBookmarkCurrentPage)
@@ -361,9 +361,9 @@ class UiMain(object):
             )
 
         shortcut( DbKeys.SETTING_PAGE_PREVIOUS,         self.actionUp)
-        shortcut( DbKeys.SETTING_BOOKMARK_PREVIOUS,     self.actionPreviousBookmark)
+        shortcut( DbKeys.SETTING_BOOKMARK_PREVIOUS,     self.action_previous_bookmark)
         shortcut( DbKeys.SETTING_PAGE_NEXT,             self.actionDown)
-        shortcut( DbKeys.SETTING_BOOKMARK_NEXT,         self.actionNextBookmark)
+        shortcut( DbKeys.SETTING_BOOKMARK_NEXT,         self.action_next_bookmark)
         shortcut( DbKeys.SETTING_FIRST_PAGE_SHOWN,      self.actionFirstPage)
         shortcut( DbKeys.SETTING_LAST_PAGE_SHOWN,       self.actionLastPage)              
 
