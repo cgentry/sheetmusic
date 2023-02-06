@@ -477,8 +477,9 @@ class RunScriptBase():
     def reset(self):
         """ This clears the variables, resets the key ones from the script """
         self.vars = []
+        self.add_includes_to_vars()
         self.add_system_to_vars()
-        self.add_variable( ScriptKeys.SCRIPT , path.dirname( self.script_file ) )
+        self.add_variable( ScriptKeys.USERSCRIPT , path.dirname( self.script_file ) )
 
     def start_process(self):
         """
@@ -514,7 +515,7 @@ class RunScriptBase():
 
     def _process_stderr(self)->None:
         data = self._process.readAllStandardError()
-        stderrMsg = "ERROR: " + bytes(data).decode("utf8")
+        stderrMsg = "ERROR: " + bytes(data).decode("utf8", errors='ignore')
         self.output_message(stderrMsg)
 
     def _process_stdout(self)->None:

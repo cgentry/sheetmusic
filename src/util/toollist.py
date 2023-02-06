@@ -82,9 +82,10 @@ class GenerateToolList():
             for source,dir in self.scriptDir.items():
                 if dir is not None and path.isdir( dir ) :
                     for filename in listdir( dir ):
-                        fullFilePath=path.join(dir, filename)
-                        if path.isfile(fullFilePath):
-                            self.addFile( source, fullFilePath, filename  )
+                        if filename[:1] != '_':
+                            fullFilePath=path.join(dir, filename)
+                            if path.isfile(fullFilePath):
+                                self.addFile( source, fullFilePath, filename  )
             return True
         return False
 

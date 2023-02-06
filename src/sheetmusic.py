@@ -136,9 +136,11 @@ class MainWindow(QMainWindow):
         self._update_note_indicator(absolute_page_number)
         
     def updateBookmarkMenuNav( self, bookmark=None ):
-        if self.bookmark.getTotal() < 1 :
-            self.ui.actionPreviousBookmark.setDisabled(True)
-            self.ui.actionNextBookmark.setDisabled(True)
+        has_bookmarks = (self.bookmark.getTotal() > 0 )
+        self.ui.actionPreviousBookmark.setEnabled(has_bookmarks )
+        self.ui.actionNextBookmark.setEnabled(    has_bookmarks )
+        self.ui.actionShowBookmarks.setEnabled(   has_bookmarks )
+        
         if bookmark is not None:
             self.ui.actionPreviousBookmark.setDisabled( self.bookmark.isFirst( bookmark) )
             self.ui.actionNextBookmark.setDisabled( self.bookmark.isLast( bookmark ))
@@ -197,6 +199,7 @@ class MainWindow(QMainWindow):
             self.setTitle()
             self.setMenusForBook(True)
             self.bookmark.open( newBookName )
+            
             self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
             self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
             self.ui.actionSmartPages.setChecked( self.smart_pages )
@@ -626,7 +629,6 @@ class MainWindow(QMainWindow):
         tl = GenerateToolList()
         self.toollist = tl.rescan()
         self.ui.menuToolScript.clear()
-        print("Refresh list\n", str( self.toollist ))
 
     def actionToolScript(self, action:QAction )->None:
         if action is not None:
@@ -671,8 +673,7 @@ class MainWindow(QMainWindow):
             DeletefileAction( df.bookName )
 
     def actionGoBookmark(self)->None:
-        uiBookmark = UiBookmark()
-        uiBookmark.setup( self.book.getTitle(), self.bookmark.getAll() , self.book.getContentStartingPage())
+        uiBookmark = UiBookmark(self.book.getTitle(), self.bookmark.getAll() , self.book.getContentStartingPage())
         uiBookmark.exec()
         newPage = uiBookmark.selectedPage
         if newPage :
@@ -749,7 +750,7 @@ class MainWindow(QMainWindow):
         from util.toolconvert import UiConvert
         uiconvert = UiConvert()
         uiconvert.setBaseDirectory( self.import_dir )
-        if uiconvert.exec_():
+        if uiconvert.process_files():
             self._importPDF( uiconvert.data , uiconvert.getDuplicateList() )
         self.import_dir = str( uiconvert.baseDirectory() )
         del uiconvert

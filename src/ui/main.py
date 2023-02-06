@@ -93,7 +93,7 @@ class UiMain(object):
         self.actionDelete       = action(u'Delete', title='Delete...',shortcut=QKeySequence.DeleteEndOfWord)
         self.actionImport       = action(u'Import')
         ### file -> import actions
-        self.actionImportPDF    =    action( u'ImportPDF',    title=u'Import PDF ...' , shortcut=QKeySequence.Italic )
+        self.actionImportPDF    =    action( u'ImportPDF',    title=u'Import PDF ...'  )
         self.actionImportDirectory = action( u'ImportDir',    title=u"Import Directory of PDFs...")
         self.actionReimportPDF =     action( u'ReimportPDF' , title=u'Reimport PDF...')
 
@@ -175,12 +175,14 @@ class UiMain(object):
         self.btn_bookmark.setObjectName(u'bookmark')
         self.btn_bookmark.setToolTip("Current bookmark")
         self.btn_bookmark.setFlat( True )
+        self.btn_bookmark.setText( self._bookmark )
 
         self.statusbar.addWidget( self.label_page_relative)
         self.statusbar.addWidget( self.label_book_note )
         self.statusbar.addWidget( self.label_page_note )
-        self.statusbar.addWidget( self.slider_page_position,100)
         #self.statusbar.addWidget( self.btn_bookmark )
+        self.statusbar.addWidget( self.slider_page_position,100)
+        #
         self.statusbar.addWidget( self.label_page_absolute)
 
         MainWindow.setStatusBar(self.statusbar)
@@ -188,6 +190,7 @@ class UiMain(object):
     # White square: "\U00002B1C"
     _blank_note_indicator = "   "
     _double_bar = "\U00002016"
+    _bookmark = "\U0001f516"
     def setBookNote(self, flag:bool):
         if flag:
             self.label_book_note.setText( "\U0001F4D3" )

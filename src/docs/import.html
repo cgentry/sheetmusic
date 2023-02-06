@@ -23,6 +23,34 @@
         Currently there is no facility to mark up the final pages displayed. If you want to mark them with playing
         notes, you can annotate the original PDFs and reimport the documents into the system.
     </p>
+    <a id="pdf-format" />
+    <h2>PDF Tagging</h2>
+    <p>
+        PDFs can have additional information added that will be used during the import. This will require the use of the python
+        library PyPDF. The data can be in one of two places:
+        <br/>
+        <h3>Properties</h3>
+        <p>Some properties will be copied from the PDF and used during import.
+            <ul>
+                <li><b>Title</b>This will be used as the document name.</li>
+                <li><b>Author</b> - Not to be confused with composer, the author can be the person that did the arrangement, or the 
+                company that published the work.</li>
+                <li><b>Producer</b> - The name of the program that produced the PDF</li>
+                <li><b>Creation Date</b> - Included to document when the PDF was created.</li>
+            </ul>
+            </p>
+        <h3>Annotations</h3>
+        <p>You can add a text annotation (i.e. note) with text tags that can be used to identify the book.
+            <ul>
+                <li><b>Title:</b> - This will be used as the documet name, and will override the property value.</li>
+                <li><b>Author</b> - Not to be confused with composer, the author can be the person that did the arrangement, or the 
+                    company that published the work. This will override the Properties value.
+                <li><b>Composer:</b> - Used to populate the composer name. If the name isn't in the system it will be added.</li>
+                <li><b>Genre:</b> - Used to populate the genre. If the name isn't in the system it will be added.</li>
+                <li><b>Link:</b> - The HTML link to the file source or information on the sheetmusic.</li>
+            </ul>
+        </p>
+    </p>
     <a id="import" />
     <h2>How to Import One or More PDFs</h2>
     <p>

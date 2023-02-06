@@ -32,6 +32,7 @@ class DilBookmark( DbBookmark):
     def open(self, book:str ):
         self.bookmark = None
         self.bookName = book
+        self.bookID   = self._getBookID(book)
 
     def close(self):
         self.bookmark = None

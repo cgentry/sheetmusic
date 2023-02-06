@@ -66,6 +66,9 @@ class UiProperties(QDialog):
         [ BOOK.totalPages,   'Total pages'],
         [ BOOK.source,       'Original book source'],
         [ BOOK.dateAdded,    'Date added'],
+        [ BOOK.pdfCreated,   'PDF Creation date'],
+        [ BOOK.fileCreated,  'File date created'],
+        [ BOOK.fileModified, 'File date modified'],
     ]
     def __init__(self, parent=None):
         super(UiProperties, self).__init__(parent)
@@ -76,7 +79,7 @@ class UiProperties(QDialog):
         mainLayout.addWidget(self.buttons)
         self.setLayout(mainLayout)
         self.cleanupLevel = DilPreferences().getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
-        self.resize(500, 300)
+        self.resize(700, 500)
 
     def clear(self):
         """ clear will remove all content from the QTable and reset counters"""
@@ -127,9 +130,9 @@ class UiProperties(QDialog):
     def isApply( self )->bool:
         return( self.result()==self.Accepted and len(self.changes) > 0 )
 
-    def _formatPageItem(self, label:str, itemValue, isMutable:bool):
+    def _format_static_property(self, label:str, itemValue, isMutable:bool):
         headerW = QTableWidgetItem( str( label ))
-        pageW = QTableWidgetItem(str(itemValue)) 
+        pageW   = QTableWidgetItem( str(itemValue)) 
         if isMutable:  
             pageW.setFlags(  Qt.ItemIsEditable|Qt.ItemIsEnabled)
         else:
@@ -149,6 +152,7 @@ class UiProperties(QDialog):
             self.propertiesTable.setCellWidget( row, 0, property[1])
 
     def defaultButton(self):
+        """ If there are changes, activate buttons """
         apply = (len( self.changes ) > 0 )
         self.btn_apply.setDefault(apply)
         self.btn_apply.setEnabled( apply )
@@ -171,11 +175,18 @@ class UiProperties(QDialog):
             self.changes[ BOOK.numberStarts] = toInt(value,0 )
             self.defaultButton()
 
-    
     def changedEnd( self, value ):
         if self.validatePage( value ):
             self.changes[ BOOK.numberEnds] = toInt(value,0 )
             self.defaultButton()
+
+    def changedLink( self, value ):
+        self.changes[ BOOK.link ] = value.strip()
+        self.defaultButton()
+
+    def changedAuthor( self, value ):
+        self.changes[ BOOK.author ] = value.strip()
+        self.defaultButton()
         
     def changedComposer(self, value):
         self.changes[ BOOK.composer ] = value.strip()
@@ -200,12 +211,15 @@ class UiProperties(QDialog):
 
         return bookName.strip()
 
-    def _nameProperty( self , label:str, musicbook:dict , valueKey:str, onChange, isInt:bool=False ):
+    def _nameProperty( self , label:str, musicbook:dict , valueKey:str, onChange, isInt:bool=False , cleanup:bool=True):
         name = QLineEdit()
         if isInt:
             value = str(musicbook[valueKey] if valueKey in musicbook else 1)
         else:
-            value = self._cleanupName( str(musicbook[valueKey]) )
+            if cleanup:
+                value = self._cleanupName( str(musicbook[valueKey]) )
+            else:
+                value = str( musicbook[ valueKey ]).strip() 
         name.setText( value )
         if isInt:
             name.setValidator( QIntValidator( 0, 999, self ) )
@@ -236,13 +250,15 @@ class UiProperties(QDialog):
         
         self._comboProperty( 'Composer', DbComposer(), musicbook, BOOK.composer, self.changedComposer )
         self._comboProperty( 'Genre'   , DbGenre(),    musicbook, BOOK.genre,    self.changedGenre    )
-    
+
         self._nameProperty( 'Offset to page 1', musicbook, BOOK.numberStarts, self.changedStart , isInt = True)
-        self._nameProperty( 'Last page number', musicbook, BOOK.numberEnds,   self.changedEnd , isInt = True )
+        self._nameProperty( 'Last page number', musicbook, BOOK.numberEnds,   self.changedEnd  ,  isInt = True )
+        self._nameProperty( 'Web Link',         musicbook, BOOK.link,         self.changedLink ,  isInt = False, cleanup=False)
+        self._nameProperty( 'Author' ,          musicbook, BOOK.author,       self.changedAuthor, isInt = False )
   
         for prop in self.staticBookInformation:
             data = musicbook[ prop[ self.bpData] ] if prop[self.bpData] in musicbook else "(no data)"
-            tableEntry = self._formatPageItem(
+            tableEntry = self._format_static_property(
                 prop[ self.bpLabel ], 
                 data,
                 False,

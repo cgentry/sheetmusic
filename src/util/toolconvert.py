@@ -18,17 +18,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from fileinput import filename
-from genericpath import isdir
-from os import path, chmod
-from pathlib import PurePath
+
+from   os import path
+from   datetime import datetime
+from   pathlib import PurePath
 import fnmatch
 import os
 import re
 import shutil
 import sys
-import tempfile
-import time
 
 from PySide6.QtWidgets import (
         QApplication,       QDialog, 
@@ -38,7 +36,7 @@ from PySide6.QtWidgets import (
     )
 
 from qdb.dbbook       import DbBook
-from qdb.keys         import BOOK, DbKeys, ImportNameSetting
+from qdb.keys         import BOOK, BOOKPROPERTY, DbKeys, ImportNameSetting
 from qdil.preferences import DilPreferences
 from ui.runscript     import UiRunScript
 from util.utildir     import get_scriptpath
@@ -51,7 +49,7 @@ class UiBaseConvert( UiRunScript ):
     # The following are only used to give labels to our return status
     RETURN_CANCEL=False
     RETURN_CONTINUE=True
-    SCRIPT="importpdf.sh"
+    SCRIPT='_importpdf.sh'
 
     CONVERT_DEVICE='d'
     CONVERT_SOURCE='s'
@@ -76,7 +74,6 @@ class UiBaseConvert( UiRunScript ):
     def setBaseDirectory(self, dir:str):
         if dir is not None:
             self.baseDir = dir
-            print("Directory should now be", dir )
 
     def baseDirectory(self)->str:
         return ( self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR )
@@ -107,24 +104,101 @@ class UiBaseConvert( UiRunScript ):
 
         return bookName.strip()
     
-    def _getInfoPDF(self, sourceFile , default:int=1):
-        """ Try to get info from PDF direct. uses PyPDF2 if installed. """
+    def _get_meta_info( self, metadata )->dict:
+        pdf_info = {}
+        print( "Meta:", metadata)
+        if metadata.title is not None:
+            pdf_info[BOOK.name] = metadata.title 
+        if metadata.author is not None:
+            pdf_info[BOOK.author ] = metadata.author
+        if metadata.producer is not None:
+            pdf_info[BOOK.publisher] = metadata.producer
+        if metadata.creation_date_raw is not None:
+            try:
+                text = metadata.creation_date_raw.replace("'","" )
+                if text.find( 'Z' ) != -1:
+                        dt = datetime.strptime( text[0:17] , "D:%Y%m%d%H%M%S%z" )
+                else:
+                        dt = datetime.strptime( text , "D:%Y%m%d%H%M%S%z" )
+                print( 'DT:', dt )
+                pdf_info[ BOOK.pdfCreated ]= dt.isoformat( ' ')
+                print( 'INFO:', pdf_info[BOOK.pdfCreated ])
+            except Exception as err:
+                print( "Error on dt", str(err ))
+                pass
 
-        endPage = default
-        bookName = PurePath( sourceFile ).stem
+        return pdf_info
+    
+    def _get_keyword_info( self, keyword_data )->dict:
+        """ Read the xmp for keywords and fill in additonal data fields
+        
+            NOTE: This is not yet implemented. Once decode the info from 
+            PREVIEW, it will be filled in
+        """
+        pdf_info = {}
+        if keyword_data is not None:
+            print( "XML", keyword_data)
+            if keyword_data.pdf_keywords is not None:
+                print( "KEYWORDS:", keyword_data.pdf_keywords )
+            pass
+        return pdf_info
+    
+    def _get_annotation_info( self, pages )->dict:
+        """ Examine annotation / notes for keywords to use """
+        pdf_info = {}
+        annotation_search = { 'Composer:' : BOOK.composer , 
+                             'Genre:'      : BOOK.genre , 
+                             'Title:'     : BOOK.name ,
+                             'Author:'    : BOOK.author,
+                             'Publisher:' : BOOK.publisher,
+                             'Link:'      : BOOK.link, }
+        for page in pages:
+            if "/Keywords" in page:
+                print("Keyword")
+            if "/Bookmark" in page:
+                print("Bookmark")
+            if "/Annots" in page:
+                for annot in page["/Annots"]:
+                    subtype = annot.get_object()["/Subtype"]
+                    if subtype == "/Text":
+                        lines = annot.get_object()["/Contents"].splitlines()
+                        for line in lines:
+                            line = line.strip()
+                            for search_for , key in annotation_search.items() :
+                                if line.startswith(search_for):
+                                    pdf_info[ key ] = line[ len( search_for) : ].strip()
+        return pdf_info
+
+    def _get_info_from_pdf(self, sourceFile , default:int=1):
+        """ Try to get info from PDF direct.
+
+            This uses the the pdf library created in the setup. It will:
+            (1) get simple, generic information from metadata
+            (2) Try and get more information from the XML metadata
+            (3) Finally try and find annotation within the pages and fill in extra fields.
+        """
+
+        pdf_info =  { BOOK.numberEnds: default ,
+                      BOOK.name:       PurePath( sourceFile).stem ,
+                    }
         importNameSetting = ImportNameSetting()
         cleanupLevel = self.pref.getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
         if importNameSetting.useInfoPDF and cleanupLevel == DbKeys.VALUE_NAME_IMPORT_PDF:
-            import PyPDF2
-            pdf_file = open( sourceFile, 'rb')
-            pdf_read = PyPDF2.PdfFileReader(pdf_file)
-            endPage =  pdf_read.numPages
-            meta     = pdf_read.metadata
-            if meta.title is not None:
-                bookName = meta.title
-            
-        bookName = self._cleanupName( bookName , cleanupLevel )
-        return { BOOK.numberEnds: endPage , BOOK.name: bookName }
+            try:
+                pdf_lib  = __import__( importNameSetting.useInfoPDF )
+                pdf_file = open( sourceFile, 'rb')
+                pdf_read = pdf_lib.PdfReader(pdf_file)
+                
+                pdf_info[BOOK.numberEnds]  = len( pdf_read.pages )
+                pdf_info.update( self._get_meta_info( pdf_read.metadata ))
+                pdf_info.update( self._get_keyword_info( pdf_read.xmp_metadata ))
+                pdf_info.update( self._get_annotation_info( pdf_read.pages ))
+                
+            except Exception as err:
+                cleanupLevel = DbKeys.VALUE_NAME_IMPORT_FILE_0 
+                raise err
+        pdf_info[ BOOK.name ] = self._cleanupName( pdf_info[ BOOK.name ] , cleanupLevel )
+        return pdf_info
 
     def _fillInFromCurrent( self, sourceFile:str)->bool:
         """ This will read data from the database if the file has been imported before"""
@@ -147,11 +221,17 @@ class UiBaseConvert( UiRunScript ):
         """ Fill in default information, then get info from current entry if exists """
         
         for sourceFile in filelist :      
+            print( "Ctime:", datetime.fromtimestamp( os.path.getctime(sourceFile) ).isoformat(' '))
             currentFile = { 
                 BOOK.source:        sourceFile , 
-                BOOK.numberStarts:  1, 
+                BOOK.numberStarts:  1,
+                BOOK.composer:      None,
+                BOOK.genre:         None,
+                BOOK.fileCreated:   datetime.fromtimestamp( os.path.getctime(sourceFile) ).isoformat(' '),
+                BOOK.fileModified:  datetime.fromtimestamp( os.path.getmtime(sourceFile) ).isoformat(' '),
+                BOOKPROPERTY.layout:        DbKeys.VALUE_PAGES_SINGLE,
             }
-            currentFile.update( self._getInfoPDF( sourceFile ))
+            currentFile.update( self._get_info_from_pdf( sourceFile ))
             currentFile.update( self._fillInFromCurrent( sourceFile ))
             self.data.append( currentFile )
 
@@ -234,9 +314,8 @@ class UiBaseConvert( UiRunScript ):
             self.fixDuplicateNames()
             for index, entry in enumerate( self.data ):
                 baseName = os.path.basename( entry[ BOOK.source ] )
-                self.reset()
-                self.add_variable( 's', entry[ BOOK.source ])
-                self.add_variable( 't', entry[ BOOK.name   ])
+                self.add_variable( 'SOURCE_FILE', entry[ BOOK.source ])
+                self.add_variable( 'TARGET_DIR', entry[ BOOK.name   ])
                 self.bookPath = path.join( self.music_path , entry[ BOOK.name ])
                 if self.run( ) == self.RETURN_CANCEL :
                     break
@@ -247,6 +326,7 @@ class UiBaseConvert( UiRunScript ):
                     self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
                 else:
                     self.data[ index ][ BOOK.totalPages ] = 0
+                self.reset()
         return self.status
    
     def add_final_vars( self ):
@@ -302,7 +382,7 @@ class UiConvert(UiBaseConvert):
             self.setBaseDirectory( PurePath( self.fileName[0] ).parents[0] )
         return self.fileName
                 
-    def exec_(self)->bool:
+    def process_files(self)->bool:
         return self.processDirectoryList( self.getListOfPdfFiles() )
 
 class UiConvertDirectory(UiBaseConvert):

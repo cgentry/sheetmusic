@@ -6,8 +6,7 @@
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
-# NOTE: This is an early test and shows how to import using passed params. 
-# The program has much more extensive functions.
+# This file starts with an underscore to make it a 'system' and private shell script
 
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
@@ -16,13 +15,13 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 #:comment into one-page images.
 #:require debug ontop
 #:system  music pdf-res pdf-type pdf-device 
-#:width   600
-#:height  700
+#:width   800
+#:height  800
 
-#:dialog "type='file' label='PDF File to convert' tag='SOURCE_FILE'option='require' width='120'"
-#:dialog "type='dir' label='Select directory for conversion' option='require' width='120' tag='TARGET_DIR'"
-#:dialog "type='title' label='Import PDF to system'"
-#:dialog "type='size' width='600'"
+#: dialog "type='file' label='PDF File to convert' tag='SOURCE_FILE'option='require' width='120'"
+#: dialog "type='dir' label='Select directory for conversion' option='require' width='120' tag='TARGET_DIR'"
+#: dialog "type='title' label='Import PDF to system'"
+#: dialog "type='size' width='600'"
 
 
 ## the following should work for bash and zsh.
@@ -39,47 +38,43 @@ do
 done
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
+    echo $@
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
     exit 99 
 fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
-## Roll-you-own getopts. Not as efficient but it always ignores errors (which some versions don't)
-## options:
-##  -s source file      - var   $SOURCE_FILE
-##  -t target directory - var   $TARGET_DIR (name only)
-
-
-while (( $# ))
-do
-    case $1 in
-    -s  )
-        shift; SOURCE_FILE="$1"
-        ;;
-    -t )
-        shift; TARGET_DIR="$1"
-        ;;
-     *)  ;;
-    esac
-    shift
-done
+## Make sure to pass SOURCE_FILE and TARGET_DIR as parameters. (Parsed in parameters.sh)
 
 dir_exists  "${MUSIC_DIR}"   "-M directory"
 require_var "${PDF_DEVICE}"  "-G ghostscript-device"
 require_var "${IMG_RES}"     "-E output-resolution"
 require_var "${IMG_TYPE}"    "-I output-type"
-file_exists "${SOURCE_FILE}" "-s Source PDF file"
-require_var "${TARGET_DIR}"  "-t new-music-directory"
+file_exists "${SOURCE_FILE}" "-SOURCE_FILE Source PDF file"
+require_var "${TARGET_DIR}"  "-TARGET_DIR new-music-directory"
 
 ${DEBUG} cd       "${MUSIC_DIR}"
-${DEBUG} mkdir -p "${TARGET_DIR}"
+${DEBUG} mkdir -p "${TARGET_DIR}" 
 
-${DEBUG} gs -dSAFER -dBATCH -dNOPAUSE -dDeskew \
+dir_exists "${TARGET_DIR}" ""
+
+${DEBUG} cd "${TARGET_DIR}" || error_handler "Could not change to ${MUSIC_DIR}/${TARGET_DIR}" 9 __LINENO__
+
+cat <<START_GHOSTSCRIPT
+
+==========================================================================
+Read From  '${SOURCE_FILE}'
+Write To   '${MUSIC_DIR}/${TARGET_DIR}
+==========================================================================
+
+START_GHOSTSCRIPT
+
+${DEBUG} gs -dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false \
   -r"${IMG_RES}"  \
   -sDEVICE="${PDF_DEVICE}" \
-  -sOutputFile="${TARGET_DIR}/page-%03d.${IMG_TYPE}" "${SOURCE_FILE}"  || exit 9
+  -sOutputFile="page-%03d.${IMG_TYPE}" \
+  "${SOURCE_FILE}"  || exit 9
 
-cd "${TARGET_DIR}"
 if [ -z "${DEBUG}" ]; then
 cat <<END_GHOSTSCRIPT
 
@@ -90,6 +85,7 @@ Output is in ${TARGET_DIR}
 Total disk space taken:
 
 END_GHOSTSCRIPT
+
 ls *.${IMG_TYPE} | sort | xargs du -ch
 fi
 . ${INCLUDE_SYSTEM}/finish.sh

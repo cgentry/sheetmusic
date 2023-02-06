@@ -308,7 +308,6 @@ class UiBookmarkAdd(UiBookmarkSingle):
         else:
             self.bookPage.setFocus( Qt.OtherFocusReason )
 
-
 class UiBookmark( UiBookmarkBase):
     '''
     This is a disposable class (don't keep instances of it alive). This handles goto and destroy
@@ -317,7 +316,7 @@ class UiBookmark( UiBookmarkBase):
     actionGo = 'go'
     actionEdit = 'edit'
 
-    def __init__(self, parent=None):
+    def __init__(self, heading:str=None, bookmark_list:list=None, numberingOffset:int=None):
         super().__init__()
         self.createBookmarkTable()
         self.createButtons()
@@ -327,6 +326,8 @@ class UiBookmark( UiBookmarkBase):
         self.setLayout(mainLayout)
         self.selected = {}
         self.action = ''
+        self.setWindowTitle( heading )
+        self.setupData( bookmark_list, numberingOffset )
         self.resize(500, 400)
 
     def createBookmarkTable(self):
@@ -343,7 +344,6 @@ class UiBookmark( UiBookmarkBase):
         self.editButton.setEnabled( True )
         self.selected[ BOOKMARK.page] = toInt(self.bookmarkTable.item(row, self.COL_PAGE_BOOK).text())
         self.selected[ BOOKMARK.name] = self.bookmarkTable.item(row, self.COL_NAME).text()
-
 
     def doubleClickedBookmark(self, row, column):
         self.clickedBookmark(row, column)
@@ -370,7 +370,6 @@ class UiBookmark( UiBookmarkBase):
         self.editButton.setText("Edit")
         self.editButton.setObjectName("Edit")
         self.editButton.setEnabled( False )
-
 
     def actionButtonClicked(self, button ):
         if button.objectName() == 'Delete' :
@@ -417,9 +416,10 @@ class UiBookmark( UiBookmarkBase):
         self.bookmarkTable.setItem(row, self.COL_PAGE_SHOWN, bookmarkItem[2])
 
     def setupData( self, bookmarkList:list , relativeOffset:int=0 )->bool:
-        self.clear()
-        if len( bookmarkList ) == 0:
+        if bookmarkList is None or len( bookmarkList ) == 0:
             self.reject()
+            return
+        self.clear()
         for bookmark in bookmarkList:
             self._insertBookmarkEntry(  
                 self._formatPageItem( 

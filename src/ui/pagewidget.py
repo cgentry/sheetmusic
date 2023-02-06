@@ -309,7 +309,11 @@ class PageWidget():
     def pageDisplay(self)->int:
         return self._currentLayoutMode
 
-    def pages(self):
+    def all_pages(self)->list:
+        return [ self.pageOne , self.pageTwo, self.pageThree ]
+    
+    def page_numbers(self):
+        """ Return a list of ALL the page numbers"""
         return [ self.pageOne.pageNumber() ,self.pageTwo.pageNumber() ,self.pageThree.pageNumber() ]
     
     def setDisplay( self, layout:str )->None:
@@ -418,7 +422,7 @@ class PageWidget():
             * page isn't displayed
         """
         roll = False
-        while ( pg in self.pages() and 
+        while ( pg in self.page_numbers() and 
                 not self.isShown( pg ) and 
                 self._getLayoutValue( self.LAYOUT_PAGES ) != self.ALL_PAGES
               ):
@@ -476,8 +480,22 @@ class PageWidget():
             if self.numberPages() > 2:    
                 self.pageThree.setImage( px3, pg3 )
 
-    def pageNumbers(self):
-        return [self.pageOne.pageNumber(), self.pageTwo.pageNumber() , self.pageThree.pageNumber() ]
+    def page_numbers_displayed(self):
+        return self.page_numbers()[0:self.numberPages()]
+    
+    def _find_page_by_pagenumber(self, page_number:int)->PageLabelWidget:
+        """ find the pagelabelwidget that is displayed and return to caller """
+        search_list = self.page_numbers_displayed()
+        if page_number in search_list:
+            return self.all_pages[ search_list.index( page_number )]
+        return None
+    
+    def set_pagelabel_stylesheet( self, page_number:int, style:str="" )->bool:
+        """ pagelabelwidget and set the stylesheet """
+        page = self._find_page_by_pagenumber( page_number )
+        if page:
+            page.setStyleSheet( style )
+            
 
     def staticPage(self , px )->None:
         """ Used only to display a static 'info' page """
@@ -503,18 +521,17 @@ class PageWidget():
         self.direction = self.BACKWARD
 
     def getHighestPageShown(self):
-        return max( self.pages()[0:self.numberPages()] )
+        return max( self.page_numbers_displayed() )
     
     def getLowestPageShown(self):
         """ Return the lowest page in the array that can be seen"""
-        return min( self.pages()[0:self.numberPages()] )
+        return min( self.page_numbers_displayed() )
 
     def getPageForPosition(self, position ):
-        return self.pages()[ position-1]
+        return self.page_numbers()[ position-1]
 
     def isShown( self, page:int)->dict:
-        lpages = self.pages()[ : self._getLayoutValue(self.LAYOUT_PAGES) ]
-        return page in lpages
+        return page in self.page_numbers_displayed()
     
     def getOrderedWidget(self)->list:
         """ 

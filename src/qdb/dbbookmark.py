@@ -92,7 +92,7 @@ class DbBookmark(DbBase):
         rtn = DbHelper.fetchrow( sql , id , db_fields_to_return=DbBookmark.joinView )
         return rtn
     
-    def _getBookID(self, book )->int:
+    def _getBookID(self, book:str )->int:
         if self.bookID is None or self.bookID != book :
             sql = "SELECT id FROM Book where book=?"
             self.bookID = DbHelper.fetchone( sql , book )
@@ -207,10 +207,9 @@ class DbBookmark(DbBase):
         q.exec()
         return DbHelper.all( q, DbBookmark.joinView )
 
-    def getTotal( self, book:str )->int:
+    def getTotal( self, book:int )->int:
         """
-            How many bookmarks for a title?
-            Pass either 'title' or book='title'
+            Return how many bookmarks are in a book
         """
         id = self._getBookID(book)
         if id is None or id < 1 :

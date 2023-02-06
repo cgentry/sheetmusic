@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.6"
+    version      = "0.5.7"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -151,11 +151,13 @@ class ImportNameSetting:
 
     def __init__(self):
         try:
-            import PyPDF2
+            import pypdf
+            self.useInfoPDF = "pypdf"
             self.forImportName["Use PDF to fill in name"] = DbKeys.VALUE_NAME_IMPORT_PDF 
-            self.useInfoPDF = True
         except:
-            self.useInfoPDF = False
+            self.useInfoPDF = None
+            
+            
 
 
 class BOOK :
@@ -169,10 +171,12 @@ class BOOK :
     composer_id     = 'composer_id'
     genre           = 'genre'
     genre_id        = 'genre_id'
-    source          = 'source'
-    location        = 'location'
+    source          = 'source'          # Location of original
+    location        = 'location'        # Location of images
+    link            = 'link'            # url link
     version         = 'version'
-    note            = 'notes'
+    author          = 'author'          # optional
+    publisher       = 'publisher'       # optional
     totalPages      = 'total_pages'
     aspectRatio     = 'aspectRatio'
     lastRead        = 'last_read'
@@ -182,8 +186,10 @@ class BOOK :
     dateAdded       = 'date_added'
     dateUpdated     = 'date_updated'
     dateRead        = 'date_read'
-    localAdded      = 'local_added'
-    localUpdated    = 'local_updated'
+    fileModified    = 'date_file_modified'
+    fileCreated     = 'date_file_created'
+    pdfCreated      = 'date_pdf_created'
+    pdfModified     = 'date_pdf_modified'
 
         
 class BOOKMARK:

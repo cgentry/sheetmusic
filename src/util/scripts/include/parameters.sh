@@ -11,7 +11,7 @@ do
     ARG="${args[@]:1:1}"
     case ${OPT} in
     -D  )
-        DBFILE=${ARG};  
+        DBFILE="${ARG}";  
         args=("${args[@]:2}")
         ;;
     -E  )
@@ -19,60 +19,61 @@ do
         args=("${args[@]:2}")
         ;;
     -G )
-        PDF_DEVICE=${ARG};  
+        PDF_DEVICE="${ARG}"
         args=("${args[@]:2}")
         ;;
     -I  )
-        IMG_TYPE=${ARG};  
+        IMG_TYPE="${ARG}" 
         args=("${args[@]:2}")
         ;;
     -M  )
-        MUSIC_DIR=${ARG};  
+        MUSIC_DIR="${ARG}"
         args=("${args[@]:2}")
         ;;
     -O  )
-        SYSTEM_OS=${ARG};  
+        SYSTEM_OS="${ARG}"
         args=("${args[@]:2}")
         ;;
     -P  )
-        PYTHON_VERSION=${ARG};  
+        PYTHON_VERSION="${ARG}" 
         args=("${args[@]:2}")
         ;;
     -Q  )
-        QT_VERSION=${ARG};  
+        QT_VERSION="${ARG}"  
         args=("${args[@]:2}")
         ;;
     -R  )
-        PYTHON_RUN=${ARG};  
+        PYTHON_RUN="${ARG}"  
         args=("${args[@]:2}")
         ;;
+
     -S ) # HANDLE IN MAIN: INCLUDE_SYSTEM="${args[@]:1:1}
         args=("${args[@]:2}")
         ;;
     -U )
-        INCLUDE_USER=${ARG}
-        SCRIPT_USER=`dirname ${INCLUDE_USER}`
+        INCLUDE_USER="${ARG}"
+        SCRIPT_USER=`dirname "${INCLUDE_USER}"`
         args=("${args[@]:2}")
         ;;
     -v )
-        SHEETMUSIC_VERSION=${ARG};  
+        SHEETMUSIC_VERSION="${ARG}" 
         args=("${args[@]:2}")
         ;;
+
     -W  )
         ;;
 
     -X ) 
-        DEBUG="echo DEBUG: " 
         args=("${args[@]:1}")
         ;;
 
     -Y)
-        SCRIPT_RUN=${ARG};  
+        SCRIPT_RUN="${ARG}"  
         args=("${args[@]:2}")
         ;;
 
     -*) # Set the NAME to the ARG
-        declare ${OPT:1}=${ARG}
+        declare ${OPT:1}="${ARG}"
         args=("${args[@]:2}")
         ;;
     *) 

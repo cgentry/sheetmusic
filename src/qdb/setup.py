@@ -52,7 +52,7 @@ class Setup():
                           source        TEXT DEFAULT NULL, 
                           location      TEXT NOT NULL,
                           version       TEXT DEFAULT "0.5.3", 
-                          layout        TEXT DEFAULT '1page',
+                          layout        TEXT DEFAULT 'single',
                           notes         TEXT,
                           link          TEXT,
                           aspectRatio      BOOLEAN NOT NULL CHECK (aspectRatio in (0,1)) DEFAULT 1,
