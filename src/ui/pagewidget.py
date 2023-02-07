@@ -515,7 +515,7 @@ class PageWidget():
         if end and self.isShown( pg) :
             return 
         if self.smartTurn and self.numberPages() > 1:
-            self._smartPage( self.highestPageLabelWidget(), px, pg )
+            self._smartPage( self.highestPageLabelWidget( ), px, pg )
         else:
             self._simplePreviousPage( px, pg )
         self.direction = self.BACKWARD
@@ -533,7 +533,7 @@ class PageWidget():
     def isShown( self, page:int)->dict:
         return page in self.page_numbers_displayed()
     
-    def getOrderedWidget(self)->list:
+    def get_widgets_in_page_order(self)->list[ PageLabelWidget ]:
         """ 
         Return the widgets in page order
 
@@ -556,9 +556,10 @@ class PageWidget():
         return ordered
 
     
-    def highestPageLabelWidget(self)->PageLabelWidget:
-        ordered = self.getOrderedWidget()
-        return ordered[ len(ordered)-1 ]
+    def highestPageLabelWidget(self, offset:int=0)->PageLabelWidget:
+        ordered = self.get_widgets_in_page_order()
+        index = max( len(ordered)-1-offset , 0 )
+        return ordered[ index ]
 
     def lowestPageLabelWidget(self)->PageLabelWidget:
-        return self.getOrderedWidget()[0]
+        return self.get_widgets_in_page_order()[0]

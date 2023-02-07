@@ -298,7 +298,6 @@ class MainWindow(QMainWindow):
         pg = self.ui.pageWidget.getHighestPageShown()+1
         if self.book.isValidPage( pg  ): 
             self.book.setPageNumber( pg )
-            print("\tset valid", pg)
             self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg , end=(pg==self.book.getTotal()))
             self.updateStatusBar()
     
@@ -389,14 +388,29 @@ class MainWindow(QMainWindow):
         """ Enable menus when file is open"""
         self.ui.actionProperties.setEnabled( show )
         self.ui.actionClose.setEnabled(show)
+        self.ui.actionDelete.setEnabled( show )
+        self.ui.actionRefresh.setEnabled( show )
+
         self.ui.actionBookmarkCurrentPage.setEnabled(show)
         self.ui.actionShowBookmarks.setEnabled(show)
-        #self.ui.actionBookmark.setEnabled(show)
+        self.ui.actionDeleteAllBookmarks.setEnabled( show )
+        self.ui.actionAdd_Bookmark.setEnabled( show )
+
         self.ui.actionUp.setEnabled(show)
         self.ui.actionDown.setEnabled(show)
         self.ui.actionGo_to_Page.setEnabled(show)
+        self.ui.actionFirstPage.setEnabled( show )
+        self.ui.actionLastPage.setEnabled( show )
+
         self.ui.actionOne_Page.setEnabled(show)
         self.ui.actionTwo_Pages.setEnabled(show)
+        self.ui.actionTwo_Pages_Stacked.setEnabled( show )
+        self.ui.actionThree_Pages.setEnabled( show )
+        self.ui.actionThree_Pages_Stacked.setEnabled( show )
+
+        self.ui.actionNoteBook.setEnabled( show )
+        self.ui.actionNotePage.setEnabled( show )
+
         
     def openLastBook(self)->None:
         if self.pref.getValueBool( DbKeys.SETTING_LAST_BOOK_REOPEN, True) :

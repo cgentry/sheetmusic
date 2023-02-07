@@ -216,10 +216,14 @@ class UiProperties(QDialog):
         if isInt:
             value = str(musicbook[valueKey] if valueKey in musicbook else 1)
         else:
-            if cleanup:
-                value = self._cleanupName( str(musicbook[valueKey]) )
+            if valueKey not in musicbook or musicbook[ valueKey ] is None:
+                musicbook[ valueKey ] = ''
+                value = ''
             else:
-                value = str( musicbook[ valueKey ]).strip() 
+                if cleanup:
+                    value = self._cleanupName( str(musicbook[valueKey]) )
+                else:
+                    value = str( musicbook[ valueKey ]).strip() 
         name.setText( value )
         if isInt:
             name.setValidator( QIntValidator( 0, 999, self ) )

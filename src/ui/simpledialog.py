@@ -19,7 +19,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from os import path
-from PySide6.QtCore    import Qt
+from PySide6.QtCore    import Qt, QDir
 from PySide6.QtWidgets import ( 
         QCheckBox,        QComboBox,    QDialog,
         QDialogButtonBox, QFileDialog,  QGridLayout,
@@ -136,17 +136,17 @@ class SimpleDialog( QDialog , SDEntriesMixin):
         # the filter field is in options and looks like 'filter[ .... ]' We have to search options for it
         filter=element.value( SDOption.KEY_FILTER , '')
         label=element.value( SDOption.KEY_LABEL)
-        dlg = QFileDialog(caption=label , filter=filter)
-        dlg.setFileMode( QFileDialog.ExistingFile )
-        centerWidgetOnScreen( dlg )
-        if dlg.exec() :
-            filenames = dlg.selectedFiles()
-            if len( filenames ) > 0 :
-                filename = filenames[0]
-                element.setValue( SDOption.KEY_VALUE, filename )
-                element.setChanged(True)
-                if feedback is not None:
-                    feedback.setText( filename )
+
+        (filename,_) = QFileDialog.getOpenFileName(
+            None,
+            label ,
+            "" , 
+            filter=filter )
+        if filename :
+            element.setValue( SDOption.KEY_VALUE, filename )
+            element.setChanged(True)
+            if feedback is not None:
+                feedback.setText( filename )
         return True
 
     def btn_choose_directory( self , button, element:SDEntry , feedback=None) :

@@ -106,7 +106,6 @@ class UiBaseConvert( UiRunScript ):
     
     def _get_meta_info( self, metadata )->dict:
         pdf_info = {}
-        print( "Meta:", metadata)
         if metadata.title is not None:
             pdf_info[BOOK.name] = metadata.title 
         if metadata.author is not None:
@@ -120,11 +119,9 @@ class UiBaseConvert( UiRunScript ):
                         dt = datetime.strptime( text[0:17] , "D:%Y%m%d%H%M%S%z" )
                 else:
                         dt = datetime.strptime( text , "D:%Y%m%d%H%M%S%z" )
-                print( 'DT:', dt )
                 pdf_info[ BOOK.pdfCreated ]= dt.isoformat( ' ')
-                print( 'INFO:', pdf_info[BOOK.pdfCreated ])
             except Exception as err:
-                print( "Error on dt", str(err ))
+                print( "Error on dt '{}' ignored: {}".format( text , str(err )) )
                 pass
 
         return pdf_info
@@ -137,9 +134,6 @@ class UiBaseConvert( UiRunScript ):
         """
         pdf_info = {}
         if keyword_data is not None:
-            print( "XML", keyword_data)
-            if keyword_data.pdf_keywords is not None:
-                print( "KEYWORDS:", keyword_data.pdf_keywords )
             pass
         return pdf_info
     
@@ -153,10 +147,10 @@ class UiBaseConvert( UiRunScript ):
                              'Publisher:' : BOOK.publisher,
                              'Link:'      : BOOK.link, }
         for page in pages:
-            if "/Keywords" in page:
-                print("Keyword")
-            if "/Bookmark" in page:
-                print("Bookmark")
+            # if "/Keywords" in page:
+            #     print("Keyword")
+            # if "/Bookmark" in page:
+            #     print("Bookmark")
             if "/Annots" in page:
                 for annot in page["/Annots"]:
                     subtype = annot.get_object()["/Subtype"]
@@ -221,7 +215,6 @@ class UiBaseConvert( UiRunScript ):
         """ Fill in default information, then get info from current entry if exists """
         
         for sourceFile in filelist :      
-            print( "Ctime:", datetime.fromtimestamp( os.path.getctime(sourceFile) ).isoformat(' '))
             currentFile = { 
                 BOOK.source:        sourceFile , 
                 BOOK.numberStarts:  1,
