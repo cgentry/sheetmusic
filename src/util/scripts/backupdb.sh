@@ -13,6 +13,10 @@
 #:require debug
 
 #
+#:BEGIN template.sh
+## the following should work for bash and zsh.
+## Standard parms passed:
+##      -S system-side script include directory
 args=( "$@" )
 while (( ${#args[@]} ))
 do
@@ -28,6 +32,8 @@ if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     exit 99 
 fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
+
+#:END template.sh
 . ${SCRIPT_DIR}/include/unique_file.sh "$@"
 
 BACKUP_DIR=${BDIR}

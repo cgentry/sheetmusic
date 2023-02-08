@@ -26,7 +26,6 @@ from    qdb.keys        import DbKeys
 from    qdb.dbconn      import DbConn
 from    qdb.dbsystem    import DbSystem
 from    PySide6.QtCore  import QSettings
-from    PySide6.QtGui   import QKeySequence
 
 class SystemPreferences(QSettings):
     DEFAULT_ORG = 'OrganMonkey project'

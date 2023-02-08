@@ -1,8 +1,8 @@
-#:BEGIN template.sh
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 # Licensed under GPL 3.0
 #
+#:BEGIN template.sh
 ## the following should work for bash and zsh.
 ## Standard parms passed:
 ##      -S system-side script include directory

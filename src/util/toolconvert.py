@@ -175,11 +175,11 @@ class UiBaseConvert( UiRunScript ):
         pdf_info =  { BOOK.numberEnds: default ,
                       BOOK.name:       PurePath( sourceFile).stem ,
                     }
-        importNameSetting = ImportNameSetting()
+        import_name_setting = ImportNameSetting()
         cleanupLevel = self.pref.getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
-        if importNameSetting.useInfoPDF and cleanupLevel == DbKeys.VALUE_NAME_IMPORT_PDF:
+        if import_name_setting.useInfoPDF and cleanupLevel == DbKeys.VALUE_NAME_IMPORT_PDF:
             try:
-                pdf_lib  = __import__( importNameSetting.useInfoPDF )
+                pdf_lib  = __import__( import_name_setting.useInfoPDF )
                 pdf_file = open( sourceFile, 'rb')
                 pdf_read = pdf_lib.PdfReader(pdf_file)
                 

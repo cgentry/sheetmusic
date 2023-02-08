@@ -13,6 +13,7 @@ class ProgramConstants:
     copyright    = u'©2022-2023 Charles Gentry'
     system       = platform.system()
     ismacos      = ( platform.system() == 'Darwin')
+    system_name  = 'SheetMusic'
     
 class DbKeys():
     """

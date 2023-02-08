@@ -36,40 +36,15 @@ class SimpleDialog( QDialog , SDEntriesMixin):
     
     verion 0.2 now uses keywords:
         type='file' options='.....' init='/file/path.sh' tag='return-tag'
-    txt = "ro inc width 50 filter ( stuff stuff )"
-    x = re.findall("\s*(ro|inc|width)\s*([0-9]*|data\s*)\s*", txt)    
-    It will accept alist of specific items:
-        file;   label' option='options; initial value; extra data
-        dir;    label' option='options; initial value; extra data
-        text;   label' option='options; initial value; extra data
-        button; label' option='options
-        button; label' option='options
-        error;  label' option='options
 
-    the formats are always split by a ';' (semi-colon). Options are split by a #
-    Options are;
-        file:   req - file must be chosen and exist
-                opt - optional (default)
-                filter[ filter to be passed to dialog ]
-                multi - allow multiple files to be chosen
-        dir:    req - directory must be chosen and exist
-        text:   ro  - read only
-                req - text must be entered
-        button: accept - return 'accept' from dialog
-                reject - return 'reject' from dialog
-        error:  reject - when an error occurs, return 'reject'
+    NOTE: version 0.1 used parms split by a ';' for dialogs. Those options are
+    now obsolete. 
 
-    Input would look like (note spaces don't matter before/after keywords. They are trimmed)
-        [ 
-            ['file';'req#filter (*.pdf *.PDF)];;'FILE_INPUT',
-            ['file';'opt';;'FILE_OUTPUT'],
-            ['dir' ;'req';'/start directory here';'DIR_ONE']
-        
-            Note on filter: blanks are always removed form it and it cannot contain a hash mark
-        ]
-    
-    Return will be in order of entry, so keep track.
-        [ { 'entry'=#, 'type'=[file|dir|text|button], 'value'='return value'}, 'data'="data you passed as extra" ]
+    All parsing has been split off to the 'simpleparse' class.
+    SDEntriesMixin: parse the text lines to get all of the entries
+    SDEntry: defines what every entry looks like and contains
+    SDButton: handles button generation
+    SDOption: holds all of the options parsed.
 
     If no buttons are set, 'OK' and 'CANCEL' are added
     If no tag is passed, it will get type_# (where # is sequential )
@@ -79,7 +54,6 @@ class SimpleDialog( QDialog , SDEntriesMixin):
 
     TEXT_CHOOSE_FILE = 'Select File'
     TEXT_CHOOSE_DIR  = 'Select Directory'
-
 
     def __init__( self ):
         super().__init__()
@@ -429,7 +403,3 @@ class SimpleDialog( QDialog , SDEntriesMixin):
         #self.defaultbtn.setDefault( True )
         self.setWindowFlag( Qt.WindowStaysOnTopHint, True)
         return super().exec()
-
-
-
-    

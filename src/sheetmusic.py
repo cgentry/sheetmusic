@@ -34,7 +34,7 @@ from PySide6.QtGui      import QPixmap, QAction
 
 from qdb.dbconn         import DbConn
 from qdb.dbsystem       import DbSystem
-from qdb.keys           import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE
+from qdb.keys           import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
 from qdb.setup          import Setup
 from qdb.dbnote         import DbNote
 
@@ -197,7 +197,7 @@ class MainWindow(QMainWindow):
 
             # if self.loadPages():
             self.setTitle()
-            self.setMenusForBook(True)
+            self._set_menu_book_options(True)
             self.bookmark.open( newBookName )
             
             self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
@@ -214,7 +214,7 @@ class MainWindow(QMainWindow):
             self.pref.setValue( DbKeys.SETTING_LAST_BOOK_NAME , self.book.getTitle())
             self.book.closeBook()
             self.ui.pageWidget.clear()
-        self.setMenusForBook(False)
+        self._set_menu_book_options(False)
         self.ui.mainWindow.hide()
 
     def setupWheelTimer(self)->None:
@@ -383,34 +383,6 @@ class MainWindow(QMainWindow):
         self.ui.actionImportDirectory.triggered.connect( self.actionImportDirectory )
         self.ui.actionCheckIncomplete.triggered.connect( self.actionCheckIncomplete )
         self.ui.actionReimportPDF.triggered.connect( self.actionReimportPDF )
-
-    def setMenusForBook(self, show=True)->None:
-        """ Enable menus when file is open"""
-        self.ui.actionProperties.setEnabled( show )
-        self.ui.actionClose.setEnabled(show)
-        self.ui.actionDelete.setEnabled( show )
-        self.ui.actionRefresh.setEnabled( show )
-
-        self.ui.actionBookmarkCurrentPage.setEnabled(show)
-        self.ui.actionShowBookmarks.setEnabled(show)
-        self.ui.actionDeleteAllBookmarks.setEnabled( show )
-        self.ui.actionAdd_Bookmark.setEnabled( show )
-
-        self.ui.actionUp.setEnabled(show)
-        self.ui.actionDown.setEnabled(show)
-        self.ui.actionGo_to_Page.setEnabled(show)
-        self.ui.actionFirstPage.setEnabled( show )
-        self.ui.actionLastPage.setEnabled( show )
-
-        self.ui.actionOne_Page.setEnabled(show)
-        self.ui.actionTwo_Pages.setEnabled(show)
-        self.ui.actionTwo_Pages_Stacked.setEnabled( show )
-        self.ui.actionThree_Pages.setEnabled( show )
-        self.ui.actionThree_Pages_Stacked.setEnabled( show )
-
-        self.ui.actionNoteBook.setEnabled( show )
-        self.ui.actionNotePage.setEnabled( show )
-
         
     def openLastBook(self)->None:
         if self.pref.getValueBool( DbKeys.SETTING_LAST_BOOK_REOPEN, True) :
@@ -418,15 +390,16 @@ class MainWindow(QMainWindow):
             if recent is not None and len(recent) > 0 :
                 self.open_book(recent[0][BOOK.name])    
 
-    def setTitle( self, bookmark=None )->None:
+    def setTitle( self, bookmark:str=None )->None:
         """ Title is made of the title and bookmark if there is one """
-        title = "SheetMusic: " + self.book.getTitle()
-        if bookmark:
-            title = "{} - {}".format( title, bookmark)
+        if bookmark :
+            title = "{}: {} - {}".format( ProgramConstants.system_name , self.book.getTitle() , bookmark ) 
+        else:
+            title = "{}: {}".format( ProgramConstants.system_name , self.book.getTitle() )
         self.ui.mainWindow.setWindowTitle( title )
         self.ui.mainWindow.show()
     
-    def _finishBookmarkNavigation( self, bmk ):
+    def _finishBookmarkNavigation( self, bmk:dict )->None:
         if bmk is not None and BOOKMARK.page in bmk and bmk[BOOKMARK.page] is not None:
             self.ui.action_previous_bookmark.setDisabled( self.bookmark.isFirst(bmk) )
             self.ui.action_next_bookmark.setDisabled( self.bookmark.isLast( bmk ) )
@@ -523,12 +496,12 @@ class MainWindow(QMainWindow):
             self.ui.setBookmarkShortcuts( settings )
             viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
             self.ui.pageWidget.setDisplay( viewState )
-            self.toggleMenuPages( viewState )
+            self._set_menu_page_options( viewState )
             self.loadPages()
         except Exception as err:
             QMessageBox.critical(
                 None,
-                "SheetMusic",
+                ProgramConstants.system_name,
                 "Error opening preferences:\n{}".format( str( err ) ),
                 QMessageBox.Cancel
             )
@@ -570,28 +543,7 @@ class MainWindow(QMainWindow):
         dlg_add_bookmark.setWindowTitle( "Add Bookmark for '{}'".format( self.book.getTitle()) )
         self.bookmark.addBookmarkDialog( dlg_add_bookmark )
         self.updateBookmarkMenuNav()
-    # end actionAddBookmark
     
-    # def actionCleanDB(self)->None:
-    #     DbConn.cleanDB()
-    #     QMessageBox.information(None,"","Database cleaned", QMessageBox.Ok )
-
-    # def actionDumpDB(self)->None:
-    #     selectFilter = 'Backup Files (*.bak)'
-    #     filters = ";;".join( [selectFilter, 'All files (*)'])
-        
-    #     filename = QFileDialog.getSaveFileName(
-    #         None,
-    #         "Select Database Backup File",
-    #         QDir.currentPath(),
-    #         filters , selectFilter )[0]
-    #     if filename :
-    #         DbConn.dump( filename )
-    #         if os.path.isfile( filename ):
-    #             self.system.setValue( DbKeys.SETTING_LAST_BACKUP, filename )
-    #             msg = "Backup file {} written. Size: {:,}".format( filename, os.path.getsize( filename ))
-    #             QMessageBox.information(None,"",msg, QMessageBox.Ok )
-
     def actionShowBookmark( self )->None:
         from ui.bookmark import UiBookmark, UiBookmarkEdit
         bmk = UiBookmark()
@@ -700,8 +652,39 @@ class MainWindow(QMainWindow):
             if getPageNumber.relative:
                 pn = self.book.convertRelativeToAbsolute( pn )
             self.go_to_page( pn )
-        
-    def toggleMenuPages(self, layoutType:str )->None:
+
+    
+    def _set_menu_book_options(self, show=True)->None:
+        """ Enable menus when file is open"""
+        self.ui.actionProperties.setEnabled( show )
+        self.ui.actionClose.setEnabled(show)
+        self.ui.actionDelete.setEnabled( show )
+        self.ui.actionRefresh.setEnabled( show )
+
+        self.ui.actionBookmarkCurrentPage.setEnabled(show)
+        self.ui.actionShowBookmarks.setEnabled(show)
+        self.ui.actionDeleteAllBookmarks.setEnabled( show )
+        self.ui.actionAdd_Bookmark.setEnabled( show )
+
+        self.ui.actionUp.setEnabled(show)
+        self.ui.actionDown.setEnabled(show)
+        self.ui.actionGo_to_Page.setEnabled(show)
+        self.ui.actionFirstPage.setEnabled( show )
+        self.ui.actionLastPage.setEnabled( show )
+
+        self.ui.actionOne_Page.setEnabled(show)
+        self.ui.actionTwo_Pages.setEnabled(show)
+        self.ui.actionTwo_Pages_Stacked.setEnabled( show )
+        self.ui.actionThree_Pages.setEnabled( show )
+        self.ui.actionThree_Pages_Stacked.setEnabled( show )
+
+        self.ui.actionNoteBook.setEnabled( show )
+        self.ui.actionNotePage.setEnabled( show )
+
+        if not show :
+            self._set_menu_page_options( 'off')
+    
+    def _set_menu_page_options(self, layoutType:str )->None:
         if layoutType is None:
             layoutType = self.system.getValue( DbKeys.SETTING_PAGE_LAYOUT , DbKeys.VALUE_PAGES_SINGLE )
         self.ui.actionOne_Page.setChecked(  (layoutType == DbKeys.VALUE_PAGES_SINGLE))
@@ -714,7 +697,7 @@ class MainWindow(QMainWindow):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
         self.book.setProperty( DbKeys.SETTING_PAGE_LAYOUT , value)
         self.ui.pageWidget.setDisplay( value )
-        self.toggleMenuPages( value )
+        self._set_menu_page_options( value )
         self.loadPages()
 
     def _setSmartPages( self, value ):

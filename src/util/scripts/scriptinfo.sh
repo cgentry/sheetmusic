@@ -10,6 +10,7 @@
 #:width 1024
 #:heigth 920
 
+#:BEGIN template.sh
 ## the following should work for bash and zsh.
 ## Standard parms passed:
 ##      -S system-side script include directory
@@ -28,6 +29,8 @@ if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     exit 99 
 fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
+
+#:END template.sh
 INCLUDE_USAGE=$(SEDCMD="s|^${INCLUDE_SYSTEM}/||g"; \
     echo "<code>" ; \
     grep -r '#:usage ' "${INCLUDE_SYSTEM}" | sort | sed -e 's/:#:usage/ . . . . Usage:/g' -e "${SEDCMD}" -e 's|$||g')

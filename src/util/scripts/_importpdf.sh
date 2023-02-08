@@ -23,7 +23,7 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 #: dialog "type='title' label='Import PDF to system'"
 #: dialog "type='size' width='600'"
 
-
+#:BEGIN template.sh
 ## the following should work for bash and zsh.
 ## Standard parms passed:
 ##      -S system-side script include directory
@@ -38,12 +38,12 @@ do
 done
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
-    echo $@
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
     exit 99 
 fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
+#:END template.sh
 ## Make sure to pass SOURCE_FILE and TARGET_DIR as parameters. (Parsed in parameters.sh)
 
 dir_exists  "${MUSIC_DIR}"   "-M directory"

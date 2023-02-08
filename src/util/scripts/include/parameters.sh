@@ -1,6 +1,7 @@
-#!/bin/bash
 #:usage Sets all named parameters passed to script
 # Option -S should be handled in main script
+
+# N.B. : This is included by 'start.sh' and doesn't need include in your script.
 
 FILE_PATH=""
 IMG_RES=300
