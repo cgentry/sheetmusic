@@ -57,7 +57,7 @@ class MainWindow(QMainWindow):
     MAX_PAGES=3
     def __init__(self):
         super().__init__()
-        self.smart_pages = False
+        self._use_smart_page_turn = False
         
         self.loadUi()
         
@@ -187,10 +187,9 @@ class MainWindow(QMainWindow):
         rtn = self.book.openBook(newBookName, page )
         if rtn == QMessageBox.Ok:
             self.book_layout = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
-            self.smart_pages = toBool( self.book.getPropertyOrSystem( DbKeys.SETTING_SMART_PAGES ) )
+            self._use_smart_page_turn = toBool( self.book.getPropertyOrSystem( DbKeys.SETTING_SMART_PAGES ) )
 
-            #self.ui.pageWidget.setDisplay( self.book_layout )
-            self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
+            self.ui.pageWidget.setSmartPageTurn( self._use_smart_page_turn )
             self.ui.pageWidget.setKeepAspectRatio( self.book.getAspectRatio() )
             #self.ui.pageWidget.resize( self.ui.pager.size() )
             self.ui.pageWidget.setDisplay( self.book_layout )
@@ -202,8 +201,8 @@ class MainWindow(QMainWindow):
             
             self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
             self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
-            self.ui.actionSmartPages.setChecked( self.smart_pages )
-            self._setPageLayout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            self.ui.actionSmartPages.setChecked( self._use_smart_page_turn )
+            self._set_display_page_layout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
             self.updateStatusBar()
         return rtn
 
@@ -424,8 +423,8 @@ class MainWindow(QMainWindow):
 
     def actionSmartPages( self, state:bool )->None:
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , state)
-        self.smart_pages = state
-        self.ui.pageWidget.setSmartPageTurn( self.smart_pages )
+        self._use_smart_page_turn = state
+        self.ui.pageWidget.setSmartPageTurn( self._use_smart_page_turn )
 
     def _action_slider_changed( self, value )->None:
         """ The slider has changed so update page numbers """
@@ -693,7 +692,7 @@ class MainWindow(QMainWindow):
         self.ui.actionThree_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_SIDE_3))
         self.ui.actionThree_Pages_Stacked.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACK_3 ))
 
-    def _setPageLayout( self, value ):
+    def _set_display_page_layout( self, value ):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
         self.book.setProperty( DbKeys.SETTING_PAGE_LAYOUT , value)
         self.ui.pageWidget.setDisplay( value )
@@ -702,22 +701,22 @@ class MainWindow(QMainWindow):
 
     def _setSmartPages( self, value ):
         self.book.setProperty( DbKeys.SETTING_SMART_PAGES , value )
-        self.smart_pages = value
+        self._use_smart_page_turn = value
 
     def actionOnePage(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_SINGLE)
+        self._set_display_page_layout( DbKeys.VALUE_PAGES_SINGLE)
 
     def actionTwoPagesSide(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_SIDE_2)
+        self._set_display_page_layout( DbKeys.VALUE_PAGES_SIDE_2)
 
     def actionTwoPagesStacked(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_STACK_2)
+        self._set_display_page_layout( DbKeys.VALUE_PAGES_STACK_2)
 
     def actionThreePagesSide(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_SIDE_3)
+        self._set_display_page_layout( DbKeys.VALUE_PAGES_SIDE_3)
 
     def actionThreePagesStacked(self)->None:
-        self._setPageLayout( DbKeys.VALUE_PAGES_STACK_3)
+        self._set_display_page_layout( DbKeys.VALUE_PAGES_STACK_3)
 
     def _importPDF(self, insertData, duplicateData ):
         dilb = DilBook()

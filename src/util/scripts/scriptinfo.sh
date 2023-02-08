@@ -17,7 +17,8 @@
 args=( "$@" )
 while (( ${#args[@]} ))
 do
-    if [ "${args[0]}" == '-S' ]; then
+    KEY=${args[@]:0:1}
+    if [ "$KEY" = '-S' ]; then
         INCLUDE_SYSTEM="${args[@]:1:1}"
         break
     fi

@@ -9,17 +9,12 @@
 args=( "$@" )
 while (( ${#args[@]} ))
 do
-    if [ "${args[0]}" == '-S' ]; then
+    KEY=${args[@]:0:1}
+    if [ "$KEY" = '-S' ]; then
         INCLUDE_SYSTEM="${args[@]:1:1}"
         break
     fi
     args=("${args[@]:1}")
-done
-
-if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
-    echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
-    exit 99 
-fi
-. ${INCLUDE_SYSTEM}/start.sh "$@" 
+done 
 
 #:END template.sh

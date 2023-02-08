@@ -20,7 +20,8 @@
 args=( "$@" )
 while (( ${#args[@]} ))
 do
-    if [ "${args[0]}" == '-S' ]; then
+    KEY=${args[@]:0:1}
+    if [ "$KEY" = '-S' ]; then
         INCLUDE_SYSTEM="${args[@]:1:1}"
         break
     fi
@@ -34,7 +35,7 @@ fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
 #:END template.sh
-. ${SCRIPT_DIR}/include/unique_file.sh "$@"
+. ${INCLUDE_SYSTEM}/unique_file.sh "$@"
 
 BACKUP_DIR=${BDIR}
 BACKUP_FILE='sheetmusic-backup'
@@ -54,8 +55,8 @@ fi
 
 cat <<END_BACKUP
 
-Database file: ${DBFILE}
-Backup:        ${UNIQUE_FILE}
+Database file:  ${DBFILE}
+Backup to file: ${UNIQUE_FILE}
 
 
 END_BACKUP

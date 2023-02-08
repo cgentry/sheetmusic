@@ -8,7 +8,6 @@
 #   INPUT TAGS can be: -f (simple) -FILE (longer) or -FILE_1 (autogen from simplescript)
 
 FILE_PATH=""
-
 while (( $# ))
 do
     case $1 in

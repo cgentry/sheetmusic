@@ -5,18 +5,20 @@
 
 FILE_PATH=""
 IMG_RES=300
+
 args=( "$@" )
 while (( ${#args[@]} ))
 do
-    OPT=${args[0]}
-    ARG="${args[@]:1:1}"
+    OPT=${args[@]:0:1}
+    ARG=${args[@]:1:1}
+    
     case ${OPT} in
     -D  )
-        DBFILE="${ARG}";  
+        DBFILE="${ARG}" 
         args=("${args[@]:2}")
         ;;
     -E  )
-        IMG_RES=${ARG};  
+        IMG_RES=${ARG} 
         args=("${args[@]:2}")
         ;;
     -G )

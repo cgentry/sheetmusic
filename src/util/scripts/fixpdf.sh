@@ -9,7 +9,7 @@
 #:comment also wipe out any change locks that you have put on. It is not
 #:comment guaranteed to be 100% but should correct a number of problems.
 #:comment The old file will be saved with the suffix '-old.pdf'
-#:dialog  "type='file' label='Select the PDF file to be repaired:' option='require' filter='(*.pdf *.PDF)' width='120'"
+#:dialog  "type='file' label='Select the PDF file to be repaired:' option='require' filter='PDF (*.pdf *.PDF)' width='120' tag='FILE'"
 #:dialog  "type='title' label='Fix errors in PDF file'"
 #:dialog  "type='size' width='600'"
 #: require file debug
@@ -23,7 +23,8 @@
 args=( "$@" )
 while (( ${#args[@]} ))
 do
-    if [ "${args[0]}" == '-S' ]; then
+    KEY=${args[@]:0:1}
+    if [ "$KEY" = '-S' ]; then
         INCLUDE_SYSTEM="${args[@]:1:1}"
         break
     fi
@@ -37,8 +38,8 @@ fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
 #:END template.sh
-. ${SCRIPT_DIR}/include/require_file.sh "$@"
-. ${SCRIPT_DIR}/include/unique_file.sh "$@"
+. ${INCLUDE_SYSTEM}/require_file.sh "$@"
+. ${INCLUDE_SYSTEM}/unique_file.sh "$@"
 
 
 TEMP_PATH="${FILE_PATH}-fix.pdf"
@@ -60,4 +61,4 @@ Fixed PDF file:  '${FILE_NAME}'
 Original now  :  '${UNIQUE_NAME}'
 END_FIX_PDF
 echo .
-. ${SCRIPT_DIR}/include/finish.sh "$@"
+. ${INCLUDE_SYSTEM}/finish.sh "$@"
