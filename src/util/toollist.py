@@ -45,55 +45,31 @@ class ToolScript():
             self.tool[ ToolScript.Comment ],
         )
 
-class GenerateToolList():
-    toolDictionary = {}
-    toolScanned    = False
 
-    def __init__(self):
-        self.scriptDir = {
-            'system' : get_scriptdir() ,
-            'user'   : get_user_scriptdir() }
+class GenerateListMixin():
+    """
+    Mixin script search tool used to generate lists of files.
+    """
 
-    def list(self)->dict:
-        """ Scan the directories, if required, and return the dictionary """
-        self.scanDirectory()
-        return GenerateToolList.toolDictionary
+    def _resetDictionary(self)->None:
+        self.toolDictionary = {}
 
-    def rescan(self)->dict:
-        """ Clear the 'scanned' status flags and rescan"""
-        GenerateToolList.toolScanned = False
-        GenerateToolList.toolDictionary = {}
-        return self.list()
-
-    def find_script(self, script_name:str )->str:
-        """ Find the full script path in the script list"""
-        list = self.list()
-        for key in list:
-            if list[key]['path'].find( script_name ) > -1 :
-                return list[key]['path']
-        return None
-
-
-    def scanDirectory( self)->bool:
-        """ Generate a dictionary of 'title': 'path to file' """
-
-        if not GenerateToolList.toolScanned and len( GenerateToolList.toolDictionary) == 0:
-            GenerateToolList.toolScanned = True
-            for source,dir in self.scriptDir.items():
+    def _scanDirectory( self, scan_dirs:dict )->dict:
+        self.toolDictionary = {}
+        for source,dir in scan_dirs.items():
                 if dir is not None and path.isdir( dir ) :
                     for filename in listdir( dir ):
                         if filename[:1] != '_':
                             fullFilePath=path.join(dir, filename)
                             if path.isfile(fullFilePath):
                                 self.addFile( source, fullFilePath, filename  )
-            return True
-        return False
-
+        return self.toolDictionary 
+    
     def addFile( self, source:str, script_path , filename)->None:
         """ 
         Read the script file and pull title, comment, req and simple 
 
-        Create a dictionary that poinst to a dictionary of:
+        Create a dictionary entry that points to a dictionary of:
             title:  Full title with 'type' added
             path:   full script path
             input:  Has 'dialog' tag
@@ -120,4 +96,72 @@ class GenerateToolList():
             dialog=self.script_parms.isSet( ScriptKeys.DIALOG ), 
             simple=self.script_parms.is_option( ScriptKeys.REQUIRE , ScriptKeys.SIMPLE ),
         )
-        GenerateToolList.toolDictionary[ title ]= tool_entry
+        self.toolDictionary[ title ]= tool_entry
+
+    def _find_script( self, toolDictionary:dict, script_name:str )->str:
+        for key in toolDictionary:
+            if toolDictionary[key]['path'].find( script_name ) > -1 :
+                return toolDictionary[key]['path']
+        return None
+
+
+class GenerateToolList( GenerateListMixin ):
+    toolDictionary = {}
+    toolScanned    = False
+
+    def __init__(self):
+        self.scriptDir = {
+            'system' : get_scriptdir() ,
+            'user'   : get_user_scriptdir() }
+
+    def list(self)->dict:
+        """ Scan the directories, if required, and return the dictionary """
+        self.scanDirectory()
+        return GenerateToolList.toolDictionary
+
+    def rescan(self)->dict:
+        """ Clear the 'scanned' status flags and rescan"""
+        GenerateToolList.toolScanned = False
+        GenerateToolList.toolDictionary = {}
+        return self.list()
+
+    def find_script(self, script_name:str )->str:
+        """ Find the full script path in the script list"""
+        return self._find_script( self.list() , script_name )
+
+    def scanDirectory( self)->bool:
+        """ Generate a dictionary of 'title': 'path to file' """
+
+        if not GenerateToolList.toolScanned and len( GenerateToolList.toolDictionary) == 0:
+            GenerateToolList.toolScanned = True
+            GenerateToolList.toolDictionary = self._scanDirectory( self.scriptDir )
+            return True
+        return False
+
+class GenerateEditList( GenerateListMixin ):
+    def __init__(self):
+        system = get_scriptdir()
+        self.scan_list = {
+            'pageedit': path.join( system , 'pageedit'),
+        }
+        self.scanDirectory()
+        
+    def scanDirectory( self)->bool:
+        """ Generate a dictionary of 'title': 'path to file' """
+        self._editor_list = self._scanDirectory( self.scan_list )
+        return True
+    
+    def list(self)->dict:
+        """ Scan the directories, if required, and return the dictionary """
+        return self._editor_list
+
+    def rescan(self)->dict:
+        """ Clear the 'scanned' status flags and rescan"""
+        self.scanDirectory()
+        return self._editor_list
+
+    def find_script(self, script_name:str )->str:
+        """ Find the full script path in the script list"""
+        return self._find_script( self.list() , script_name )
+
+    

@@ -279,7 +279,7 @@ class RunScriptBase():
     def __del__(self):
         self._close_temporary_file()
 
-    def output_message(self, msgText:str , override=None)->None:
+    def output_message(self, msgText:str , override=None, mode:str='stdout')->None:
         """ override - optional 
             Outputs messages to the user as the program runs
             All our message processing for output runs through here.
@@ -481,6 +481,10 @@ class RunScriptBase():
         self.add_system_to_vars()
         self.add_variable( ScriptKeys.USERSCRIPT , path.dirname( self.script_file ) )
 
+    def wait_for_process(self):
+        if self._process is not None:
+            self._process.waitForFinished()
+
     def start_process(self):
         """
         start_process will setup and execute the shell script that is in the self._scriptfile.
@@ -516,15 +520,15 @@ class RunScriptBase():
     def _process_stderr(self)->None:
         data = self._process.readAllStandardError()
         stderrMsg = "ERROR: " + bytes(data).decode("utf8", errors='ignore')
-        self.output_message(stderrMsg)
+        self.output_message(stderrMsg, mode='stderr')
 
     def _process_stdout(self)->None:
         data = self._process.readAllStandardOutput()
         stdoutMsg = bytes(data).decode("utf8").strip()
         if stdoutMsg.__contains__('code>'):
-            self.output_message( stdoutMsg, override='html')
+            self.output_message( stdoutMsg, override='html', mode='stdout')
         else:
-            self.output_message(stdoutMsg)
+            self.output_message(stdoutMsg, mode='stdout')
 
     def _process_state(self, state)->None:
         self._process_state = state
@@ -696,11 +700,11 @@ class UiRunScript( RunScriptBase ):
 
     def notify_end(self, endMessage:str )->None:
         """ Write the end message on the text file line and move cursor to top of output """
-        self.output_message("Script complete.")
+        self.output_message("Script complete.", mode='stdout')
         self.textScriptName.setText( endMessage  )
         self.text.moveCursor( QTextCursor.Start )
 
-    def output_message(self, msgText:str , override=None)->None:
+    def output_message(self, msgText:str , override=None,  mode:str='stdout' )->None:
         """ output_message will output the current state to the text in output tab
         
         It can either output to a plain or regular text edit box
@@ -899,7 +903,7 @@ class UiRunScript( RunScriptBase ):
 
 class UiRunScriptFile( UiRunScript ):
     """
-    Run a script that may require a filename / Directory *** OBSOLTE *** Use RunScriptSimpleNote
+    Run a script that may require a filename / Directory *** OBSOLETE *** Use RunScriptSimpleNote
 
     Tags that are used (in addtion to UiRunScript)
     ==============================================
@@ -1033,8 +1037,7 @@ class UiRunSimpleNote( RunScriptBase ):
         isFile : true when passed a filename rather than a script
         outputDestination must be a 'none', 'stdout' or 'plain'
         """
-        super().__init__()
-
+        super().__init__( )
 
         if self.set_script( script, vars, isFile=isFile ):
             width  = min( 2048, toInt( self.script_parms.setting_value(ScriptKeys.WIDTH , '600' ) ,600 ) )
@@ -1046,7 +1049,6 @@ class UiRunSimpleNote( RunScriptBase ):
         else:
             self.status = self.RETURN_CANCEL
 
- 
     def notify_start(self):
         """ Clear the general text field when process starts """
         self.text.clear()
@@ -1056,7 +1058,7 @@ class UiRunSimpleNote( RunScriptBase ):
         self.output_message("Script complete.")
         self.text.moveCursor( QTextCursor.Start )
 
-    def output_message(self, msgText:str , override=None)->None:
+    def output_message(self, msgText:str , override=None, mode:str='stdout')->None:
         """ output_message will output the current state to the text in output tab
         
         It can either output to a plain or regular text edit box
@@ -1094,6 +1096,16 @@ class UiRunSimpleNote( RunScriptBase ):
 
         return True
 
+    def _create_output_dialog( self )->QDialog:
+        dlgRun = QDialog()
+        dlgRun.setLayout(self._dialog_layout )
+        dlgRun.setMinimumHeight(500)
+        dlgRun.setMinimumWidth(500)
+        dlgRun.resize( self.dlgW , self.dlgH )
+        self.titler.set( self.script_parms , dlgRun )
+        self.text.clear()
+        return dlgRun
+
     def run(self, startMsg:str="Hit Execute button to run program" )->bool:
         """
         run is the interface between the dialog box displaying information and the
@@ -1107,14 +1119,7 @@ class UiRunSimpleNote( RunScriptBase ):
 
         self.btnBox.clicked.connect( button_clicked)
         if self.status == self.RETURN_CONTINUE:
-
-            dlgRun = QDialog()
-            dlgRun.setLayout(self._dialog_layout )
-            dlgRun.setMinimumHeight(500)
-            dlgRun.setMinimumWidth(500)
-            dlgRun.resize( self.dlgW , self.dlgH )
-            self.titler.set( self.script_parms , dlgRun )
-            self.text.clear()
+            dlgRun = self._create_output_dialog()
             self.output_message("Starting program<br/>{}<br/>".format( "-"*50),'html')
             self.start_process()
 
@@ -1125,3 +1130,39 @@ class UiRunSimpleNote( RunScriptBase ):
     def set_size( self , w:int, h:int )->None:
         self.dlgW = w
         self.dlgH = h
+
+class RunSilentRunDeep( UiRunSimpleNote ):
+    """ Run a script with no output box UNLESS we have an error occur """
+    def __init__(self, script:str, vars:list=None, isFile=True, outputDestination='text'):
+        super().__init__( script, vars, isFile, outputDestination)
+        self.text.hide()
+
+    def output_message(self, msgText:str , override=None, mode:str='stdout')->None:
+        super().output_message( msgText, override, mode )
+        if mode == 'stderr':
+            self.text.show()
+
+    def run(self, startMsg:str="Hit Execute button to run program" )->bool:
+        """
+        run is the interface between the dialog box displaying information and the
+        actual process that will be executed.
+
+        It returns True to continue, False to Cancel
+        """
+        def button_clicked(button):
+            self.status = self.RETURN_CONTINUE
+            dlgRun.accept()
+
+        self.btnBox.clicked.connect( button_clicked)
+        
+        if self.status == self.RETURN_CONTINUE:
+            dlgRun = self._create_output_dialog()
+            self.output_message("Starting program<br/>{}<br/>".format( "-"*50),'html')
+            self.start_process()
+            self.wait_for_process()
+            if not self.text.isHidden():
+                dlgRun.exec()
+            else:
+                dlgRun = None
+
+        return self.status

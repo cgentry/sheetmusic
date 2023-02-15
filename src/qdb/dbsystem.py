@@ -97,7 +97,6 @@ class DbSystem(DbBase):
             anything else raises value error
             You should set them one-by-one, but this is used by the UI interface
         """
-
         try:
             if isinstance( newData , list ):
                 return self.saveAllList( newData , replace, ignore )

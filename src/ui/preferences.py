@@ -41,7 +41,9 @@ from PySide6.QtWidgets  import (
     QTabWidget,   QTextEdit,     QVBoxLayout,   
     QWidget
 )   
-from ui.editItem import UiGenericCombo
+from ui.editItem    import UiGenericCombo
+from util.toollist  import GenerateEditList
+from util.toollist  import ToolScript
 
 class UiPreferences(QDialog):
     '''
@@ -112,7 +114,6 @@ class UiPreferences(QDialog):
     def getChanges( self ):
         self._checkTextChange( self.txtScriptShell  , DbKeys.SETTING_DEFAULT_SCRIPT )
         self._checkTextChange( self.txtScriptVars   , DbKeys.SETTING_DEFAULT_SCRIPT_VAR )
-        #self._checkTextChange( self.textPdfConvert , DbKeys.SETTING_PDF_SCRIPT )
 
         self._checkComboChange( self.cmbPageBack ,          DbKeys.SETTING_PAGE_PREVIOUS )
         self._checkComboChange( self.cmbPageForward ,       DbKeys.SETTING_PAGE_NEXT )
@@ -137,7 +138,7 @@ class UiPreferences(QDialog):
         self.tabLayout.addTab(self.createFileLayout(),"File Settings")
         self.tabLayout.addTab(self.createBookSettings(), "Book settings" )
         self.tabLayout.addTab(self.createKeyboardLayout(), "Key Modifiers")
-        self.tabLayout.addTab(self.createConvertPdfLayout(), "Script")
+        #self.tabLayout.addTab(self.createConvertPdfLayout(), "Script")
         self.tabLayout.addTab(self.createShellScriptLayout(), "Script Settings")
 
         return self.tabLayout
@@ -155,7 +156,7 @@ class UiPreferences(QDialog):
                 grid.addWidget(lbl , i , 0 )
 
     def createFileLayout(self) ->QWidget:
-        labels = ["Sheetmusic directory","Database Directory", "Number of recent files", None, None, None]
+        labels = ["Sheetmusic directory","Database Directory", "Number of recent files", "Editor", None, None]
         self.widgetFile  = QWidget()
         self.layoutFile  = QGridLayout()
         self.labelGrid( self.layoutFile , labels )
@@ -194,28 +195,6 @@ class UiPreferences(QDialog):
         self.labelGrid( self.layoutKeyboard , labels )
         self.widgetKeyboard.setLayout( self.layoutKeyboard)
         return  self.widgetKeyboard
-
-    def createConvertPdfLayout(self)->QWidget:
-        self.textPdfConvert = QPlainTextEdit()
-        self.widgetPdfConvert = QWidget()
-        self.layoutPdfConvert = QVBoxLayout()
-        self.layoutPdfConvert.addWidget(self.textPdfConvert)
-        self.layoutPdfConvert.addWidget( self.btnPdfConvert() )
-
-        self.textPdfConvert.setFont( self.fixedFont )
-        self.widgetPdfConvert.setLayout( self.layoutPdfConvert)
-        self.textPdfConvert.textChanged.connect( self.action_text_changed )
-        return self.widgetPdfConvert
-
-    def btnPdfConvert(self) -> QDialogButtonBox:
-        btnBox = QDialogButtonBox()
-        btnBox.addButton( QDialogButtonBox.Help)
-        btnBox.addButton( QDialogButtonBox.RestoreDefaults )
-        btnBox.addButton( 'Reinitialise' , QDialogButtonBox.ResetRole )
-        #btnBox.addButton( "Preview"      , QDialogButtonBox.AcceptRole)
-        btnBox.clicked.connect(self.action_pdf )
-
-        return btnBox
 
     def formatDirectory(self , layout:QGridLayout, row:int )->int:
         '''
@@ -289,6 +268,23 @@ class UiPreferences(QDialog):
         row += 1
         return row
 
+    def formatEditor( self, layout:QGridLayout, row:int )->int:
+        edlist = GenerateEditList()
+        values = edlist.list()
+        fill_list = {"None": "" }
+        for key, value in values.items():
+            fill_list[ key ] = value.path()
+
+                
+        current = self.settings.getValue( DbKeys.SETTING_PAGE_EDITOR , "None" )
+        
+        self.cmbEditor = UiGenericCombo( isEditable=False, fill=fill_list, currentValue=current , name=DbKeys.SETTING_PAGE_EDITOR )
+        self.cmbEditor.currentIndexChanged.connect(self.action_editor_changed)
+        layout.addWidget( self.cmbEditor, row, 1 )
+        
+        row += 1
+        return row
+    
     def formatFiletype( self, layout:QGridLayout, row:int  )->int:
         self.cmbType = QComboBox()
         self.cmbType.setObjectName(DbKeys.SETTING_FILE_TYPE )
@@ -426,6 +422,7 @@ class UiPreferences(QDialog):
         row = self.formatDirectory(   self.layoutFile, 0 )
         row = self.formatDatabaseDir( self.layoutFile, row )
         row = self.formatRecentFiles( self.layoutFile, row )
+        row = self.formatEditor(      self.layoutFile, row )
         #
         row = self.formatFiletype( self.layoutBook, 0 )
         row = self.formatLayout(self.layoutBook, row  )
@@ -508,11 +505,6 @@ class UiPreferences(QDialog):
         elif DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB in self.states:
                 self.states.pop(  DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB )
     
-    def action_text_changed(self):
-        pdftxt = self.textPdfConvert.toPlainText()
-        if isinstance( pdftxt, str) and pdftxt.strip() != self.settings.getValue(DbKeys.SETTING_PDF_SCRIPT ).strip():
-            self.states[ DbKeys.SETTING_PDF_SCRIPT] = self.textPdfConvert.toPlainText().strip()
-
     def action_help(self):
         helpLayout = QVBoxLayout()
         helpDlg = QDialog()
@@ -533,21 +525,7 @@ class UiPreferences(QDialog):
         
         helpDlg.setLayout( helpLayout )
         helpDlg.exec()
-   
-    def action_pdf(self, button):
-        txt = button.text().strip()
-        if txt == 'Restore Defaults':
-            self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
-        elif txt == 'Reinitialise':
-            if QMessageBox.AcceptRole == QMessageBox.question( self, "Reset script", "Reset database script to default"):
-                from qdb.setup import Setup
-                Setup().RestoreDefaultPdfScript()
-                self.textPdfConvert.setPlainText( self.settings.getValue( DbKeys.SETTING_PDF_SCRIPT ))
-        elif txt == 'Help':
-            self.action_help()
-        else:
-            logging.error("Runtime error. Unknown button: {}".format( txt) )
-    
+      
     def action_change_sheetmusic_dir(self):
         cdir = self.lblSheetmusicDir.text()
         new_directory_name = QFileDialog.getExistingDirectory(
@@ -609,6 +587,12 @@ class UiPreferences(QDialog):
         self.states[ DbKeys.SETTING_PATH_USER_SCRIPT ] = new_directory_name
 
 
+    def action_editor_changed(self, value ):
+        self.states[ DbKeys.SETTING_PAGE_EDITOR ] = self.cmbEditor.currentText()
+        self.states[ DbKeys.SETTING_PAGE_EDITOR_SCRIPT ] = self.cmbEditor.currentData()
+        print("Changed!")
+        self.flagChanged = True
+
     def action_type_changed(self, value):
         self.states[ DbKeys.SETTING_FILE_TYPE ] = self.cmbType.currentData()
         self.flagChanged = True
@@ -654,7 +638,6 @@ class UiPreferences(QDialog):
     def action_main_button_clicked(self, btn):
         if btn.text() == "Save" and self.flagChanged:
             self.accept()
-            self.done(self.Accepted)
         else:
             self.reject()
 

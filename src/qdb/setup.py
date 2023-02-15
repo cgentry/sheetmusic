@@ -254,7 +254,7 @@ class Setup():
             added += self.query.numRowsAffected()
             self.query.finish()
 
-        self.insertPdfScript( )
+        #self.insertPdfScript( )
         DbConn.commit()
         ## Make sure user script dirs are created.
         ## 750 = Owner: Read/Write/Exe , Group: Read/Exe, Other: No access

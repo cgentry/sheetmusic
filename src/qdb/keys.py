@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.10"
+    version      = "0.5.11"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -68,6 +68,8 @@ class DbKeys():
     SETTING_DEFAULT_GSDEVICE    = 'gsdevice'       ## Which ghostscript device will we use 
     SETTING_DEFAULT_PATH_MUSIC  = 'sheetmusicPath' ## Where is the music folder?
     SETTING_PATH_USER_SCRIPT    = 'userScriptDir'  ## Where to store user scripts?
+    SETTING_PAGE_EDITOR         = 'pageEditor'     ## Page editor
+    SETTING_PAGE_EDITOR_SCRIPT  = 'pageEditorScript'  ## Script for page editor
     SETTING_DEFAULT_SCRIPT      = 'script'         ## What we will run for conversion
     SETTING_DEFAULT_SCRIPT_VAR  = 'scriptvar'      ## What 'extra' variables we will run
     SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix

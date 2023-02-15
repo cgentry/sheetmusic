@@ -3,7 +3,7 @@
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
-# This file is part of Sheetmusic. 
+# This file is part of Sheetmusic.
 
 # Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -27,205 +27,213 @@ from genericpath import isfile
 import sys
 import os
 import logging
+import platform
 
-from PySide6.QtCore     import QEvent, QObject, Qt, QTimer, QDir, QByteArray
-from PySide6.QtWidgets  import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
-from PySide6.QtGui      import QPixmap, QAction
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QDir, QByteArray
+from PySide6.QtWidgets import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
+from PySide6.QtGui import QPixmap, QAction
 
-from qdb.dbconn         import DbConn
-from qdb.dbsystem       import DbSystem
-from qdb.keys           import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
-from qdb.setup          import Setup
-from qdb.dbnote         import DbNote
+from qdb.dbconn import DbConn
+from qdb.dbsystem import DbSystem
+from qdb.keys import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
+from qdb.setup import Setup
+from qdb.dbnote import DbNote
 
-from qdil.preferences   import DilPreferences, SystemPreferences
-from qdil.book          import DilBook
-from qdil.bookmark      import DilBookmark
+from qdil.preferences import DilPreferences, SystemPreferences
+from qdil.book import DilBook
+from qdil.bookmark import DilBookmark
 
-from ui.main            import UiMain
-from ui.pagewidget      import ( PageLabelWidget, PageWidget )
-from ui.properties      import UiProperties
-from ui.bookmark        import UiBookmark
-from ui.file            import Openfile, Deletefile, DeletefileAction, Reimportfile
-from ui.note            import UiNote
-from util.toollist      import GenerateToolList, ToolScript
-from ui.runscript       import UiRunScriptFile, ScriptKeys
+from ui.main import UiMain
+from ui.pagewidget import (PageLabelWidget, PageWidget)
+from ui.properties import UiProperties
+from ui.bookmark import UiBookmark
+from ui.file import Openfile, Deletefile, DeletefileAction, Reimportfile
+from ui.note import UiNote
+from util.toollist import GenerateToolList, ToolScript
+from ui.runscript import RunSilentRunDeep
 
-from util.convert       import toBool
+from util.convert import toBool
+
 
 class MainWindow(QMainWindow):
-    MAX_PAGES=3
+    MAX_PAGES = 3
+
     def __init__(self):
         super().__init__()
         self._use_smart_page_turn = False
-        
+
         self.loadUi()
-        
+
         self.book = DilBook()
         self.system = DbSystem()
         self.bookmark = DilBookmark()
         self._notelist = None
         self.logger = logging.getLogger('main')
-        self.import_dir = self.pref.getValue( DbKeys.SETTING_LAST_IMPORT_DIR  )
+        self.import_dir = self.pref.getValue(DbKeys.SETTING_LAST_IMPORT_DIR)
         tl = GenerateToolList()
         self.toollist = tl.list()
         del tl
-        
-    def loadUi(self)->None:
+
+    def loadUi(self) -> None:
         self.pref = DilPreferences()
         self.ui = UiMain()
         self.ui.setupUi(self)
 
-    def _pageLabel( self, label:PageLabelWidget, bookpage )->bool:
+    def _pageLabel(self, label: PageLabelWidget, bookpage) -> bool:
         label.clear()
         if bookpage > self.book.getTotal():
             return True
-        px = self.book.getPixmap(bookpage )
-        return label.setImage( px , bookpage )
+        px = self.book.get_page_file(bookpage)
+        return label.setImage(px, bookpage)
 
-    def pageList( self, start_page, len_list)->list:
+    def pageList(self, start_page, len_list) -> list:
         """ pageList creates a list, MAX_PAGES long, of the pages. The first entry will always be the one requests."""
         plist = [0]*self.MAX_PAGES
         if start_page < 1:
             start_page = 1
         totalpages = self.book.getTotal()
-        for i in range( 0, len_list ):
-            if  start_page+i > totalpages:
+        for i in range(0, len_list):
+            if start_page+i > totalpages:
                 break
             plist[i] = start_page+i
         return plist
 
-    def loadPages( self )->bool:
+    def loadPages(self) -> bool:
         """ Load all pages into the book at once. This loads the MAX_PAGES every time.
 
             This attempts to optimise page loads and display by looking at the number of
             pages we load.
         """
         if self.book.isOpen():
-            page = self.book.getAbsolutePage()  
-            ## work some 'magic' Show page-n...page IF page is last page.
+            page = self.book.getAbsolutePage()
+            # work some 'magic' Show page-n...page IF page is last page.
             totalPages = self.book.getTotal()
             showingPages = self.ui.pageWidget.numberPages()
             if page == totalPages and showingPages and showingPages > 1:
-                plist = self.pageList( page-showingPages+1 , self.MAX_PAGES )
-                self._loadPageWidgetList( plist )
+                plist = self.pageList(page-showingPages+1, self.MAX_PAGES)
+                self._loadPageWidgetList(plist)
             else:
-                self._loadPageWidgetList( self.pageList( page , self.MAX_PAGES ) )
+                self._loadPageWidgetList(self.pageList(page, self.MAX_PAGES))
         return self.book.isOpen()
 
-    def reloadPages( self )->bool:
+    def reloadPages(self) -> bool:
         if self.book.isOpen():
-            self._loadPageWidgetList( self.ui.pageWidget.pageNumbers() )
+            self._loadPageWidgetList(self.ui.pageWidget.page_numbers())
         return self.book.isOpen()
 
-    def _loadPageWidgetList( self, plist:list ):
-        if len( plist ) < self.MAX_PAGES :
-            plist.extend( [0] * (self.MAX_PAGES - len(plist) ))
-        return self._loadPageWidget( plist[0], plist[1], plist[2] )
+    def _loadPageWidgetList(self, plist: list):
+        if len(plist) < self.MAX_PAGES:
+            plist.extend([0] * (self.MAX_PAGES - len(plist)))
+        return self._loadPageWidget(plist[0], plist[1], plist[2])
 
-    def _loadPageWidget( self, pg1:int, pg2:int, pg3:int ):
-            page1 = self.book.getPixmap( pg1 )
-            page2 = self.book.getPixmap( pg2)
-            page3 = self.book.getPixmap( pg3)
-            self.ui.pageWidget.loadPages( page1, pg1 , page2, pg2 ,page3, pg3)
+    def _loadPageWidget(self, pg1: int, pg2: int, pg3: int):
+        page1 = self.book.get_page_file(pg1)
+        page2 = self.book.get_page_file(pg2)
+        page3 = self.book.get_page_file(pg3)
+        self.ui.pageWidget.loadPages(page1, pg1, page2, pg2, page3, pg3)
 
-    def _update_pages_shown(self, absolute_page_number:int=None )->None:
-        self.ui.set_absolute_page( absolute_page_number, self.book.getTotal() , self.book.getRelativePageOffset() )
-        lbl = 'Page' if self.book.isPageRelative(absolute_page_number) else "Book"
-        self.ui.label_page_relative.setText( "{}:{:4d}".format( lbl, self.book.getRelativePage( absolute_page_number )))
+    def _update_pages_shown(self, absolute_page_number: int = None) -> None:
+        self.ui.set_absolute_page(
+            absolute_page_number, self.book.getTotal(), self.book.getRelativePageOffset())
+        lbl = 'Page' if self.book.isPageRelative(
+            absolute_page_number) else "Book"
+        self.ui.label_page_relative.setText("{}:{:4d}".format(
+            lbl, self.book.getRelativePage(absolute_page_number)))
         self._update_note_indicator(absolute_page_number)
-        
-    def updateBookmarkMenuNav( self, bookmark=None ):
-        has_bookmarks = (self.bookmark.getTotal() > 0 )
-        self.ui.action_previous_bookmark.setEnabled(has_bookmarks )
-        self.ui.action_next_bookmark.setEnabled(    has_bookmarks )
-        self.ui.actionShowBookmarks.setEnabled(   has_bookmarks )
-        
+
+    def updateBookmarkMenuNav(self, bookmark=None):
+        has_bookmarks = (self.bookmark.getTotal() > 0)
+        self.ui.action_previous_bookmark.setEnabled(has_bookmarks)
+        self.ui.action_next_bookmark.setEnabled(has_bookmarks)
+        self.ui.actionShowBookmarks.setEnabled(has_bookmarks)
+
         if bookmark is not None:
-            self.ui.action_previous_bookmark.setDisabled( self.bookmark.isFirst( bookmark) )
-            self.ui.action_next_bookmark.setDisabled( self.bookmark.isLast( bookmark ))
+            self.ui.action_previous_bookmark.setDisabled(
+                self.bookmark.isFirst(bookmark))
+            self.ui.action_next_bookmark.setDisabled(
+                self.bookmark.isLast(bookmark))
 
-    def _update_note_indicator(self, page_number:int):
-        nlist = self.getNoteList( self.book.getID() )
-        if len( nlist ):
-            self.ui.setBookNote( (0 in nlist ))
-            self.ui.setPageNote( (page_number in nlist ), page_number )
+    def _update_note_indicator(self, page_number: int):
+        nlist = self.getNoteList(self.book.getID())
+        if len(nlist):
+            self.ui.setBookNote((0 in nlist))
+            self.ui.setPageNote((page_number in nlist), page_number)
         else:
-            self.ui.setBookNote( False )
-            self.ui.setPageNote( False )
+            self.ui.setBookNote(False)
+            self.ui.setPageNote(False)
 
-    def updateStatusBar(self)->None:
+    def updateStatusBar(self) -> None:
         absolute_page_number = self.book.getAbsolutePage()
-        # if self.ui.pageWidget.getHighestPageShown() == self.book.getTotal():
-        #     absolute_page_number = self.ui.pageWidget.getHighestPageShown()
-        # else:
-        #     absolute_page_number = self.ui.pageWidget.getLowestPageShown()
-
-        self.ui.slider_page_position.setMaximum( self.book.getTotal())
-        self.ui.slider_page_position.setValue( absolute_page_number)
-
-        self._update_pages_shown( absolute_page_number )
-
         
-    def restoreWindowFromSettings(self)->None:
-        self.pref.restoreMainWindow( self.ui.getWindow() ) 
-        self.pref.restoreShortcuts( self.ui )  
-        self.actionViewStatusBar( self.pref.getValueBool( DbKeys.SETTING_WIN_STATUS_ENABLED , True ))
-    
-    def getNoteList(self, book_id:int , refresh=False)->dict:
-        if book_id is not None and (self._notelist is None or refresh ):
+        self.ui.slider_page_position.setMaximum(self.book.getTotal())
+        self.ui.slider_page_position.setValue(absolute_page_number)
+
+        self._update_pages_shown(absolute_page_number)
+
+    def restoreWindowFromSettings(self) -> None:
+        self.pref.restoreMainWindow(self.ui.getWindow())
+        self.pref.restoreShortcuts(self.ui)
+        self.actionViewStatusBar(self.pref.getValueBool(
+            DbKeys.SETTING_WIN_STATUS_ENABLED, True))
+
+    def getNoteList(self, book_id: int, refresh=False) -> dict:
+        if book_id is not None and (self._notelist is None or refresh):
             self._notelist = {}
             dbnote = DbNote()
-            returnlist = dbnote.getAll( book_id )
+            returnlist = dbnote.getAll(book_id)
             for note in returnlist:
-                self._notelist[ note[ NOTE.page ]] = note
+                self._notelist[note[NOTE.page]] = note
         return self._notelist
 
-    def open_book(self, newBookName:str, page=None):
+    def open_book(self, newBookName: str, page=None):
         """ """
         self.close_book()
-        rtn = self.book.openBook(newBookName, page )
+        rtn = self.book.openBook(newBookName, page)
         if rtn == QMessageBox.Ok:
-            self.book_layout = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
-            self._use_smart_page_turn = toBool( self.book.getPropertyOrSystem( DbKeys.SETTING_SMART_PAGES ) )
+            self.book_layout = self.book.getPropertyOrSystem(
+                BOOKPROPERTY.layout)
+            self._use_smart_page_turn = toBool(
+                self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
 
-            self.ui.pageWidget.setSmartPageTurn( self._use_smart_page_turn )
-            self.ui.pageWidget.setKeepAspectRatio( self.book.getAspectRatio() )
-            #self.ui.pageWidget.resize( self.ui.pager.size() )
-            self.ui.pageWidget.setDisplay( self.book_layout )
+            self.ui.pageWidget.setSmartPageTurn(self._use_smart_page_turn)
+            self.ui.pageWidget.setKeepAspectRatio(self.book.getAspectRatio())
+            # self.ui.pageWidget.resize( self.ui.pager.size() )
+            self.ui.pageWidget.setDisplay(self.book_layout)
 
             # if self.loadPages():
             self.setTitle()
             self._set_menu_book_options(True)
-            self.bookmark.open( newBookName )
-            
-            self.updateBookmarkMenuNav( self.bookmark.getBookmarkPage( page ))
-            self.ui.actionAspectRatio.setChecked( self.book.getAspectRatio()  )
-            self.ui.actionSmartPages.setChecked( self._use_smart_page_turn )
-            self._set_display_page_layout( self.book.getPropertyOrSystem( BOOKPROPERTY.layout) )
+            self.bookmark.open(newBookName)
+
+            self.updateBookmarkMenuNav(self.bookmark.getBookmarkPage(page))
+            self.ui.actionAspectRatio.setChecked(self.book.getAspectRatio())
+            self.ui.actionSmartPages.setChecked(self._use_smart_page_turn)
+            self._set_display_page_layout(
+                self.book.getPropertyOrSystem(BOOKPROPERTY.layout))
             self.updateStatusBar()
         return rtn
 
-    def close_book(self)->None:
+    def close_book(self) -> None:
         """ Close the book, save a pointer to it, and hide the menu items. """
         self._notelist = None
         if self.book.isOpen():
-            self.pref.setValue( DbKeys.SETTING_LAST_BOOK_NAME , self.book.getTitle())
+            self.pref.setValue(DbKeys.SETTING_LAST_BOOK_NAME,
+                               self.book.getTitle())
             self.book.closeBook()
             self.ui.pageWidget.clear()
         self._set_menu_book_options(False)
         self.ui.mainWindow.hide()
 
-    def setupWheelTimer(self)->None:
+    def setupWheelTimer(self) -> None:
         self.wheelTimer = QTimer(self)
-        self.wheelTimer.setInterval( 1000 ) # 500 msec == .5 seconds
+        self.wheelTimer.setInterval(1000)  # 500 msec == .5 seconds
         self.wheelTimer.setSingleShot(True)
         self.direction = None
 
-    def eventFilter(self, object:QObject, event:QEvent)->bool:
+    def eventFilter(self, object: QObject, event: QEvent) -> bool:
         if (event.type() == QEvent.Gesture):
             object.blockSignals(True)
-            if( event.GestureType() ==Qt.SwipeGesture ):
+            if (event.GestureType() == Qt.SwipeGesture):
                 if (event.horizontalDirection() == 'Left'):
                     self.page_previous()
                 if (event.horizontalDirection() == 'Right'):
@@ -233,15 +241,15 @@ class MainWindow(QMainWindow):
                 object.blockSignals(False)
                 return True
         ###
-        ### TODO: Need a better way to reduce page flips, otherwise
-        ###         the screen acts erratic.
+        # TODO: Need a better way to reduce page flips, otherwise
+        # the screen acts erratic.
         ###
-        if ( event.type() == QEvent.Wheel) :
+        if (event.type() == QEvent.Wheel):
             object.blockSignals(True)
             if not self.wheelTimer.isActive():
                 # block wheel activies for a time
-                # we end up with LOADS of events and it 
-                # sometimes goes to zero, then back up, then zero 
+                # we end up with LOADS of events and it
+                # sometimes goes to zero, then back up, then zero
                 pnt = event.angleDelta()
                 x = pnt.x()
                 if x == 0:
@@ -251,26 +259,25 @@ class MainWindow(QMainWindow):
                             self.page_previous()
                         else:
                             self.page_forward()
-                        
+
                         self.direction = None
                 else:
-                    if  x < 0 :
+                    if x < 0:
                         self.direction = 'Left'
-                    else:  
+                    else:
                         self.direction = 'Right'
             object.blockSignals(False)
             return True
-        ## End Wheel
+        # End Wheel
 
         return False
-    
-    def resizeEvent(self,event):
-        self.ui.pageWidget.resize( self.ui.pager.size() )
+
+    def resizeEvent(self, event):
+        self.ui.pageWidget.resize(self.ui.pager.size())
         self.reloadPages()
 
-
-    def keyPressEvent(self, ev)->None:
-        #if False and (ev.type() == QEvent.KeyPress):
+    def keyPressEvent(self, ev) -> None:
+        # if False and (ev.type() == QEvent.KeyPress):
         #    key = ev.key()
         #    if (key == Qt.Key_Left):
         #        self.goFirstBookmark() if ev.modifiers() & Qt.ControlModifier else self.page_previous()
@@ -279,28 +286,31 @@ class MainWindow(QMainWindow):
 
         super().keyPressEvent(ev)
 
-    def closeEvent(self, event)->None:
+    def closeEvent(self, event) -> None:
         """ called when the program is closed """
-        self.pref.saveMainWindow( self.ui.getWindow() )
-        self.pref.setValue( DbKeys.SETTING_LAST_IMPORT_DIR , self.import_dir , replace=True )
+        self.pref.saveMainWindow(self.ui.getWindow())
+        self.pref.setValue(DbKeys.SETTING_LAST_IMPORT_DIR,
+                           self.import_dir, replace=True)
         self.close_book()
         DbConn.closeDB()
-        
-    def page_previous(self)->None:
+
+    def page_previous(self) -> None:
         pg = self.ui.pageWidget.getLowestPageShown()-1
-        if self.book.isValidPage( pg  ):
-            self.ui.pageWidget.previousPage( self.book.getPixmap( pg ), pg , end=(pg==1))
-            self.book.setPageNumber( pg )
+        if self.book.isValidPage(pg):
+            self.ui.pageWidget.previousPage(
+                self.book.get_page_file(pg), pg, end=(pg == 1))
+            self.book.setPageNumber(pg)
             self.updateStatusBar()
 
-    def page_forward(self)->None:
+    def page_forward(self) -> None:
         pg = self.ui.pageWidget.getHighestPageShown()+1
-        if self.book.isValidPage( pg  ): 
-            self.book.setPageNumber( pg )
-            self.ui.pageWidget.nextPage( self.book.getPixmap( pg ), pg , end=(pg==self.book.getTotal()))
+        if self.book.isValidPage(pg):
+            self.book.setPageNumber(pg)
+            self.ui.pageWidget.nextPage(self.book.get_page_file(
+                pg), pg, end=(pg == self.book.getTotal()))
             self.updateStatusBar()
-    
-    def go_to_page(self, page:int )->None:
+
+    def go_to_page(self, page: int) -> None:
         ''' Set the page number to the page passed and display
             page number must be absolute, not relative.
         '''
@@ -308,208 +318,263 @@ class MainWindow(QMainWindow):
             self.book.setPageNumber(page)
             self.loadPages()
 
-    def goFirstBookmark(self)->None:
-        bmk = self.bookmark.getFirst( )
+    def goFirstBookmark(self) -> None:
+        bmk = self.bookmark.getFirst()
         self.book.setPageNumber(bmk[BOOKMARK.page])
         self.loadPages()
 
-    def goLastBookmark(self)->None:
-        bmk = self.bookmark.getLast( )
+    def goLastBookmark(self) -> None:
+        bmk = self.bookmark.getLast()
         self.book.setPageNumber(bmk[BOOKMARK.page])
         self.loadPages()
 
-    def goFirstPageShown(self)->None:
-        self.book.setPageNumber(self.book.getFirstPageShown() )
+    def goFirstPageShown(self) -> None:
+        self.book.setPageNumber(self.book.getFirstPageShown())
         self.loadPages()
 
-    def goLastPageShown(self)->None:
-        self.book.setPageNumber( self.book.getLastPageShown())
+    def goLastPageShown(self) -> None:
+        self.book.setPageNumber(self.book.getLastPageShown())
         self.loadPages()
 
-    def connectMenus(self)->None:
+    def connectMenus(self) -> None:
         """ Connect menus and events to the routines handling the function"""
-        self.ui.actionBookmarkCurrentPage.triggered.connect(self.actionMakeBookmark)
+        self.ui.actionBookmarkCurrentPage.triggered.connect(
+            self.actionMakeBookmark)
         self.ui.actionShowBookmarks.triggered.connect(self.actionShowBookmark)
         self.ui.actionAdd_Bookmark.triggered.connect(self.actionAddBookmark)
         #  self.ui.actionCleanDB.triggered.connect( self.actionCleanDB )
         #  self.ui.actionDumpDB.triggered.connect( self.actionDumpDB )
-        self.ui.actionToolRefresh.triggered.connect( self.action_tool_refresh )
+        self.ui.actionToolRefresh.triggered.connect(self.action_tool_refresh)
 
-        self.ui.menuToolScript.aboutToShow.connect( self.actionToolScriptUpdateList)
-        self.ui.menuToolScript.triggered.connect(self.actionToolScript )
-        
+        self.ui.menuToolScript.aboutToShow.connect(
+            self.actionToolScriptUpdateList)
+        self.ui.menuToolScript.triggered.connect(self.actionToolScript)
 
-        #self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
-        self.ui.action_previous_bookmark.triggered.connect( self.goPreviousBookmark )
-        self.ui.action_next_bookmark.triggered.connect( self.goNextBookmark )
-        self.ui.btn_bookmark.clicked.connect( self.actionClickedBookmark )
+        # self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
+        self.ui.action_previous_bookmark.triggered.connect(
+            self.goPreviousBookmark)
+        self.ui.action_next_bookmark.triggered.connect(self.goNextBookmark)
+        self.ui.btn_bookmark.clicked.connect(self.actionClickedBookmark)
 
         self.ui.actionOpen.triggered.connect(self.actionFileOpen)
-        self.ui.menuOpenRecent.aboutToShow.connect( self.actionOpenRecentUpdateFiles)
+        self.ui.menuOpenRecent.aboutToShow.connect(
+            self.actionOpenRecentUpdateFiles)
+        self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
         self.ui.menuOpenRecent.triggered.connect(self.actionOpenRecent)
+        self.ui.actionEditPage.triggered.connect(self.actionPageEdit)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
-        self.ui.actionNoteBook.triggered.connect( self.actionNoteBook )
-        self.ui.actionNotePage.triggered.connect( self.actionNotePage )
-        self.ui.actionDeleteAllBookmarks.triggered.connect( self.actionDeleteAllBookmarks )
+        self.ui.actionNoteBook.triggered.connect(self.actionNoteBook)
+        self.ui.actionNotePage.triggered.connect(self.actionNotePage)
+        self.ui.actionDeleteAllBookmarks.triggered.connect(
+            self.actionDeleteAllBookmarks)
         self.ui.actionPreferences.triggered.connect(self.actionPreferences)
-        self.ui.actionAbout.triggered.connect( self.actionAbout )
-        self.ui.actionHelp.triggered.connect( self.actionHelp)
+        self.ui.actionAbout.triggered.connect(self.actionAbout)
+        self.ui.actionHelp.triggered.connect(self.actionHelp)
         self.ui.actionClose.triggered.connect(self.actionClose)
-        self.ui.actionDelete.triggered.connect( self.actionDelete )
-        
-        self.ui.actionFirstPage.triggered.connect( self.goFirstPageShown )
-        self.ui.actionLastPage.triggered.connect( self.goLastPageShown )
+        self.ui.actionDelete.triggered.connect(self.actionDelete)
 
-        self.ui.actionOne_Page.triggered.connect( self.actionOnePage)
-        self.ui.actionTwo_Pages.triggered.connect( self.actionTwoPagesSide)
-        self.ui.actionTwo_Pages_Stacked.triggered.connect( self.actionTwoPagesStacked)
-        self.ui.actionThree_Pages.triggered.connect( self.actionThreePagesSide )
-        self.ui.actionThree_Pages_Stacked.triggered.connect( self.actionThreePagesStacked )
+        self.ui.actionFirstPage.triggered.connect(self.goFirstPageShown)
+        self.ui.actionLastPage.triggered.connect(self.goLastPageShown)
+
+        self.ui.actionOne_Page.triggered.connect(self.actionOnePage)
+        self.ui.actionTwo_Pages.triggered.connect(self.actionTwoPagesSide)
+        self.ui.actionTwo_Pages_Stacked.triggered.connect(
+            self.actionTwoPagesStacked)
+        self.ui.actionThree_Pages.triggered.connect(self.actionThreePagesSide)
+        self.ui.actionThree_Pages_Stacked.triggered.connect(
+            self.actionThreePagesStacked)
         self.ui.actionViewStatus.triggered.connect(self.actionViewStatusBar)
         self.ui.actionAspectRatio.triggered.connect(self.actionAspectRatio)
-        self.ui.actionSmartPages.triggered.connect( self.actionSmartPages )
+        self.ui.actionSmartPages.triggered.connect(self.actionSmartPages)
 
         self.ui.actionGo_to_Page.triggered.connect(self.actionGoPage)
         self.ui.actionDown.triggered.connect(self.page_forward)
-        self.ui.actionUp.triggered.connect( self.page_previous)
+        self.ui.actionUp.triggered.connect(self.page_previous)
 
-        self.ui.slider_page_position.valueChanged.connect( self._action_slider_changed)
-        self.ui.slider_page_position.sliderReleased.connect(self._action_slider_released)
+        self.ui.slider_page_position.valueChanged.connect(
+            self._action_slider_changed)
+        self.ui.slider_page_position.sliderReleased.connect(
+            self._action_slider_released)
 
-        #self.ui.twoPagesSide.installEventFilter( self)
+        # self.ui.twoPagesSide.installEventFilter( self)
 
         self.ui.actionImportPDF.triggered.connect(self.actionImportPDF)
-        self.ui.actionImportDirectory.triggered.connect( self.actionImportDirectory )
-        self.ui.actionCheckIncomplete.triggered.connect( self.actionCheckIncomplete )
-        self.ui.actionReimportPDF.triggered.connect( self.actionReimportPDF )
-        
-    def openLastBook(self)->None:
-        if self.pref.getValueBool( DbKeys.SETTING_LAST_BOOK_REOPEN, True) :
+        self.ui.actionImportDirectory.triggered.connect(
+            self.actionImportDirectory)
+        self.ui.actionCheckIncomplete.triggered.connect(
+            self.actionCheckIncomplete)
+        self.ui.actionReimportPDF.triggered.connect(self.actionReimportPDF)
+
+    def openLastBook(self) -> None:
+        if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
-            if recent is not None and len(recent) > 0 :
-                self.open_book(recent[0][BOOK.name])    
+            if recent is not None and len(recent) > 0:
+                self.open_book(recent[0][BOOK.name])
 
-    def setTitle( self, bookmark:str=None )->None:
+    def setTitle(self, bookmark: str = None) -> None:
         """ Title is made of the title and bookmark if there is one """
-        if bookmark :
-            title = "{}: {} - {}".format( ProgramConstants.system_name , self.book.getTitle() , bookmark ) 
+        if bookmark:
+            title = "{}: {} - {}".format(ProgramConstants.system_name,
+                                         self.book.getTitle(), bookmark)
         else:
-            title = "{}: {}".format( ProgramConstants.system_name , self.book.getTitle() )
-        self.ui.mainWindow.setWindowTitle( title )
+            title = "{}: {}".format(
+                ProgramConstants.system_name, self.book.getTitle())
+        self.ui.mainWindow.setWindowTitle(title)
         self.ui.mainWindow.show()
-    
-    def _finishBookmarkNavigation( self, bmk:dict )->None:
+
+    def _finishBookmarkNavigation(self, bmk: dict) -> None:
         if bmk is not None and BOOKMARK.page in bmk and bmk[BOOKMARK.page] is not None:
-            self.ui.action_previous_bookmark.setDisabled( self.bookmark.isFirst(bmk) )
-            self.ui.action_next_bookmark.setDisabled( self.bookmark.isLast( bmk ) )
-            self.go_to_page( bmk[BOOKMARK.page])
+            self.ui.action_previous_bookmark.setDisabled(
+                self.bookmark.isFirst(bmk))
+            self.ui.action_next_bookmark.setDisabled(self.bookmark.isLast(bmk))
+            self.go_to_page(bmk[BOOKMARK.page])
 
-    def goPreviousBookmark(self)->None:
-        bmk = self.bookmark.getPrevious( self.book.getAbsolutePage() )
+    def goPreviousBookmark(self) -> None:
+        bmk = self.bookmark.getPrevious(self.book.getAbsolutePage())
         self._finishBookmarkNavigation(bmk)
 
-    def goNextBookmark(self)->None:
-        bmk = self.bookmark.getNext( self.book.getAbsolutePage() )
+    def goNextBookmark(self) -> None:
+        bmk = self.bookmark.getNext(self.book.getAbsolutePage())
         self._finishBookmarkNavigation(bmk)
 
-    def actionViewStatusBar(self, state)->None:
-        self.pref.setValueBool( DbKeys.SETTING_WIN_STATUS_ENABLED, state , replace=True)
+    def actionViewStatusBar(self, state) -> None:
+        self.pref.setValueBool(
+            DbKeys.SETTING_WIN_STATUS_ENABLED, state, replace=True)
         self.ui.actionViewStatus.setChecked(state)
         self.ui.statusbar.setVisible(state)
 
-    def actionAspectRatio(self, state)->None:
-        self.book.setAspectRatio( state )
+    def actionAspectRatio(self, state) -> None:
+        self.book.setAspectRatio(state)
         self.loadPages()
 
-    def actionSmartPages( self, state:bool )->None:
-        self.book.setProperty( DbKeys.SETTING_SMART_PAGES , state)
+    def actionSmartPages(self, state: bool) -> None:
+        self.book.setProperty(DbKeys.SETTING_SMART_PAGES, state)
         self._use_smart_page_turn = state
-        self.ui.pageWidget.setSmartPageTurn( self._use_smart_page_turn )
+        self.ui.pageWidget.setSmartPageTurn(self._use_smart_page_turn)
 
-    def _action_slider_changed( self, value )->None:
+    def _action_slider_changed(self, value) -> None:
         """ The slider has changed so update page numbers """
         self._update_pages_shown(value)
 
-    def _action_slider_released(self)->None:
+    def _action_slider_released(self) -> None:
         """ Slider released so update the progress bar. """
-        self.go_to_page( self.sender().value() )
+        self.go_to_page(self.sender().value())
 
-    def actionProperties(self)->None:
-        if self.book.editProperties( UiProperties() ) :
+    def _about_to_show_edit_menu(self) -> None:
+        edit_label = self.ui.actionEditPage.text().split('#', 1)
+        self.ui.actionEditPage.setEnabled(self.book.isOpen())
+        if self.book.isOpen():
+            self.ui.actionEditPage.setText("{} #{}".format(
+                edit_label[0], self.book.getAbsolutePage()))
+        else:
+            self.ui.actionEditPage.setText(edit_label[0])
+
+    def actionPageEdit(self) -> None:
+        script = None
+        while script is None:
+            script = self.pref.getValue(
+                DbKeys.SETTING_PAGE_EDITOR_SCRIPT, None)
+            if not script:
+                if QMessageBox.Yes == QMessageBox.warning(
+                    None,
+                    "",
+                    "No script editor is set.\nSet an editor?",
+                    QMessageBox.No | QMessageBox.Yes
+                ):
+                    self.actionPreferences()
+                else:
+                    return
+        # We have a script
+        vars = [
+            "-BOOK",        self.book.getBookPath(),
+            "-PAGE",        self.book.getBookPagePath(
+                self.book.getAbsolutePage()),
+            "-TITLE",        self.book.getTitle(),
+            "-O",    platform.platform(terse=True),
+        ]
+        runner = RunSilentRunDeep(script, vars)
+        runner.run()
+        pass
+
+    def actionProperties(self) -> None:
+        if self.book.editProperties(UiProperties()):
             self.setTitle()
             self.updateStatusBar()
             self.loadPages()
 
-    def _actionNote( self, page:int, seq:int , titleSuffix:str ):
+    def _actionNote(self, page: int, seq: int, titleSuffix: str):
         dbnote = DbNote()
         uinote = UiNote()
-        id     = self.book.getID()
-        note   = dbnote.getNote( id , page=page , seq=seq )
-        
-        uinote.setText( note[ NOTE.note ] )    
-        uinote.setLocation( note[NOTE.location])
-        uinote.setWindowTitle( "{} - {}".format( self.book.getTitle() , titleSuffix) )
-        uinote.setID( ( note[ NOTE.id ] if NOTE.id in note and note[NOTE.id] > 0 else None ) )
-        rtn=uinote.exec()
+        id = self.book.getID()
+        note = dbnote.getNote(id, page=page, seq=seq)
+
+        uinote.setText(note[NOTE.note])
+        uinote.setLocation(note[NOTE.location])
+        uinote.setWindowTitle(
+            "{} - {}".format(self.book.getTitle(), titleSuffix))
+        uinote.setID(
+            (note[NOTE.id] if NOTE.id in note and note[NOTE.id] > 0 else None))
+        rtn = uinote.exec()
         if rtn:
-            if uinote.delete() and NOTE.id in note :
-                dbnote.deleteNote(note )
+            if uinote.delete() and NOTE.id in note:
+                dbnote.deleteNote(note)
             elif uinote.textChanged():
-                note[NOTE.note ]     = uinote.text() 
-                note[NOTE.location ] = uinote.location() 
-                dbnote.add( note )
+                note[NOTE.note] = uinote.text()
+                note[NOTE.location] = uinote.location()
+                dbnote.add(note)
                 self.ui.setBookNote(True)
 
-    def actionNoteBook(self)->None:
-        self._actionNote( page=0, seq=0, titleSuffix='(Book Note)')
+    def actionNoteBook(self) -> None:
+        self._actionNote(page=0, seq=0, titleSuffix='(Book Note)')
 
-    def actionNotePage( self, id ):
-        absolute_page   = self.book.getAbsolutePage()
-        if self.book.isPageRelative( absolute_page ):
-            title = "Page: {} (Book: {})".format( self.book.getRelativePage(), absolute_page )
+    def actionNotePage(self, id):
+        absolute_page = self.book.getAbsolutePage()
+        if self.book.isPageRelative(absolute_page):
+            title = "Page: {} (Book: {})".format(
+                self.book.getRelativePage(), absolute_page)
         else:
-            title = "Book: {}".format( absolute_page )
-        self._actionNote( page=absolute_page , seq=0 , titleSuffix=title )
+            title = "Book: {}".format(absolute_page)
+        self._actionNote(page=absolute_page, seq=0, titleSuffix=title)
 
-    def actionDeleteAllBookmarks(self)->None:
+    def actionDeleteAllBookmarks(self) -> None:
         rtn = QMessageBox.warning(
-            None, 
-            "{}".format( self.book.getTitle()),
+            None,
+            "{}".format(self.book.getTitle()),
             "Delete all booksmarks for book?\nThis cannot be undone.",
-            QMessageBox.No | QMessageBox.Yes 
+            QMessageBox.No | QMessageBox.Yes
         )
         if rtn == QMessageBox.Yes:
-            self.bookmark.delAllBookmarks( book=self.book.getTitle() )
-            
-    def actionPreferences(self)->None:
+            self.bookmark.delAllBookmarks(book=self.book.getTitle())
+
+    def actionPreferences(self) -> None:
         try:
-            from ui.preferences import UiPreferences  
+            from ui.preferences import UiPreferences
             pref = UiPreferences()
             pref.formatData()
             pref.exec()
             changes = pref.getChanges()
-            if len( changes) > 0:
-                self.pref.saveAll( changes )
+            if len(changes) > 0:
+                self.pref.saveAll(changes)
             settings = self.pref.getAll()
-            self.ui.setNavigationShortcuts( settings )
-            self.ui.setBookmarkShortcuts( settings )
-            viewState = self.book.getPropertyOrSystem( BOOKPROPERTY.layout)
-            self.ui.pageWidget.setDisplay( viewState )
-            self._set_menu_page_options( viewState )
+            self.ui.setNavigationShortcuts(settings)
+            self.ui.setBookmarkShortcuts(settings)
+            viewState = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
+            self.ui.pageWidget.setDisplay(viewState)
+            self._set_menu_page_options(viewState)
             self.loadPages()
         except Exception as err:
             QMessageBox.critical(
                 None,
                 ProgramConstants.system_name,
-                "Error opening preferences:\n{}".format( str( err ) ),
+                "Error opening preferences:\n{}".format(str(err)),
                 QMessageBox.Cancel
             )
-    
-    def actionAbout(self)->None:
+
+    def actionAbout(self) -> None:
         from ui.about import UiAbout
         UiAbout().exec()
-    
-    def actionHelp(self)->None:
+
+    def actionHelp(self) -> None:
         from ui.help import UiHelp
         try:
             mainFile = os.path.abspath(sys.modules['__main__'].__file__)
@@ -522,317 +587,336 @@ class MainWindow(QMainWindow):
             uihelp.setupHelp()
             uihelp.exec()
         except Exception as err:
-            self.logger.error("Exception occured during help: {}".format( str(err ) ))
+            self.logger.error(
+                "Exception occured during help: {}".format(str(err)))
         finally:
             DbConn.openDB()
 
-    def actionClickedBookmark(self)->None:
+    def actionClickedBookmark(self) -> None:
         if self.ui.btn_bookmark.text() != "":
             self.actionGoBookmark()
 
-    def actionMakeBookmark(self)->None:
-        self.bookmark.thisBook( 
+    def actionMakeBookmark(self) -> None:
+        self.bookmark.thisBook(
             self.book.getTitle(),
-            self.book.getRelativePage( ), 
-            self.book.getAbsolutePage() )
-        
-    def actionAddBookmark(self)->None:
+            self.book.getRelativePage(),
+            self.book.getAbsolutePage())
+
+    def actionAddBookmark(self) -> None:
         from ui.bookmark import UiBookmarkAdd
-        dlg_add_bookmark = UiBookmarkAdd( totalPages=self.book.getTotal() , numberingOffset=self.book.getRelativePageOffset() )
-        dlg_add_bookmark.setWindowTitle( "Add Bookmark for '{}'".format( self.book.getTitle()) )
-        self.bookmark.addBookmarkDialog( dlg_add_bookmark )
+        dlg_add_bookmark = UiBookmarkAdd(totalPages=self.book.getTotal(
+        ), numberingOffset=self.book.getRelativePageOffset())
+        dlg_add_bookmark.setWindowTitle(
+            "Add Bookmark for '{}'".format(self.book.getTitle()))
+        self.bookmark.addBookmarkDialog(dlg_add_bookmark)
         self.updateBookmarkMenuNav()
-    
-    def actionShowBookmark( self )->None:
+
+    def actionShowBookmark(self) -> None:
         from ui.bookmark import UiBookmark, UiBookmarkEdit
         bmk = UiBookmark()
         while True:
             bookmarkList = self.bookmark.getAll()
-            if len(bookmarkList) == 0 :
-                QMessageBox.information(None, "Bookmarks", "There are no bookmarks", QMessageBox.Cancel)
+            if len(bookmarkList) == 0:
+                QMessageBox.information(
+                    None, "Bookmarks", "There are no bookmarks", QMessageBox.Cancel)
                 break
-            if bmk.setupData( bookmarkList, relativeOffset=self.book.getRelativePageOffset()):
+            if bmk.setupData(bookmarkList, relativeOffset=self.book.getRelativePageOffset()):
                 bmk.exec()
-                if not bmk.selected[ BOOKMARK.page ]:
+                if not bmk.selected[BOOKMARK.page]:
                     break
-                markName = bmk.selected[ BOOKMARK.name ]
-                if bmk.action == bmk.actionEdit :
-                    bmkEdit = UiBookmarkEdit( totalPages=self.book.getTotal() , numberingOffset=self.book.getRelativePageOffset())
-                    bmkEdit.setWindowTitle("Edit bookmark for '{}'".format( self.book.getTitle()))
-                    bmkEdit.setupData( bmk.selected  )
+                markName = bmk.selected[BOOKMARK.name]
+                if bmk.action == bmk.actionEdit:
+                    bmkEdit = UiBookmarkEdit(totalPages=self.book.getTotal(
+                    ), numberingOffset=self.book.getRelativePageOffset())
+                    bmkEdit.setWindowTitle(
+                        "Edit bookmark for '{}'".format(self.book.getTitle()))
+                    bmkEdit.setupData(bmk.selected)
                     if bmkEdit.exec() == QDialog.Accepted:
                         changes = bmkEdit.getChanges()
-                        if len(changes)>0:
-                            self.bookmark.insert( 
-                                book=self.book.getTitle(), 
-                                bookmark=changes[ BOOKMARK.name ],
-                                page=changes[ BOOKMARK.page ],
+                        if len(changes) > 0:
+                            self.bookmark.insert(
+                                book=self.book.getTitle(),
+                                bookmark=changes[BOOKMARK.name],
+                                page=changes[BOOKMARK.page],
                                 previousBookmark=markName
                             )
                     continue
                 if bmk.action == bmk.actionGo:
                     self._finishBookmarkNavigation(bmk.selected)
                 if bmk.action == bmk.actionDelete:
-                    self.bookmark.delBookmark( book_id=self.book.getID(), bookmark=bmk.selected[ BOOKMARK.name ])
+                    self.bookmark.delBookmark(
+                        book_id=self.book.getID(), bookmark=bmk.selected[BOOKMARK.name])
                 break
-        
-    def actionFileOpen(self)->None:
+
+    def actionFileOpen(self) -> None:
         of = Openfile()
         of.exec()
         if of.bookName is not None:
-            self.open_book( of.bookName )
-            
-    def actionOpenRecent(self, action:QAction )->None:
+            self.open_book(of.bookName)
+
+    def actionOpenRecent(self, action: QAction) -> None:
         if action is not None:
-            if self.open_book( action.data() ) == QMessageBox.Retry:
+            if self.open_book(action.data()) == QMessageBox.Retry:
                 self.actionFileOpen()
 
-    def action_tool_refresh( self, action:QAction )->None:
+    def action_tool_refresh(self, action: QAction) -> None:
         tl = GenerateToolList()
         self.toollist = tl.rescan()
         self.ui.menuToolScript.clear()
 
-    def actionToolScript(self, action:QAction )->None:
+    def actionToolScript(self, action: QAction) -> None:
         if action is not None:
             if action.text() in self.toollist:
                 from ui.runscript import ScriptKeys, UiRunSimpleNote, UiRunScriptFile
                 key = action.text()
-                if self.toollist[key].isSimple() :
-                    runner = UiRunSimpleNote( self.toollist[key].path() )
+                if self.toollist[key].isSimple():
+                    runner = UiRunSimpleNote(self.toollist[key].path())
                 else:
-                    runner = UiRunScriptFile( self.toollist[key].path()  )
+                    runner = UiRunScriptFile(self.toollist[key].path())
                 runner.run()
 
-    def actionToolScriptUpdateList(self)->None:
+    def actionToolScriptUpdateList(self) -> None:
         self.ui.menuToolScript.clear()
-        keys = sorted( self.toollist.keys() )
-        for key in keys :
-            recent = self.ui.menuToolScript.addAction( key )
-            recent.setData( self.toollist[ key ])
-        self.ui.menuToolScript.setEnabled( len( keys ) > 0 )
-        
-    def actionOpenRecentUpdateFiles(self)->None:
+        keys = sorted(self.toollist.keys())
+        for key in keys:
+            recent = self.ui.menuToolScript.addAction(key)
+            recent.setData(self.toollist[key])
+        self.ui.menuToolScript.setEnabled(len(keys) > 0)
+
+    def actionOpenRecentUpdateFiles(self) -> None:
         self.ui.menuOpenRecent.clear()
         fileNames = DilBook().getRecent()
-        if fileNames is not None and len( fileNames ) > 0 :
-            for entry, bookEntry in enumerate( fileNames , start=1):
+        if fileNames is not None and len(fileNames) > 0:
+            for entry, bookEntry in enumerate(fileNames, start=1):
                 recent_action = self.ui.menuOpenRecent.addAction(
                     '&{:2d}.  {} - {}'.format(
                         entry, bookEntry[BOOK.name], bookEntry[BOOK.location])
-                    )
-                recent_action.setData( bookEntry[ BOOK.name] )
+                )
+                recent_action.setData(bookEntry[BOOK.name])
         # end if len(fileNames)
-        self.ui.menuOpenRecent.setEnabled( (len( fileNames ) > 0) )    
+        self.ui.menuOpenRecent.setEnabled((len(fileNames) > 0))
 
-    def actionClose(self)->None:
+    def actionClose(self) -> None:
         self.close_book()
         self.actionOpenRecentUpdateFiles()
-    
-    def actionDelete(self)->None:
+
+    def actionDelete(self) -> None:
         df = Deletefile()
         rtn = df.exec()
         if rtn == QMessageBox.Accepted:
-            DeletefileAction( df.bookName )
+            DeletefileAction(df.bookName)
 
-    def actionGoBookmark(self)->None:
-        uiBookmark = UiBookmark(self.book.getTitle(), self.bookmark.getAll() , self.book.getContentStartingPage())
+    def actionGoBookmark(self) -> None:
+        uiBookmark = UiBookmark(self.book.getTitle(
+        ), self.bookmark.getAll(), self.book.getContentStartingPage())
         uiBookmark.exec()
         newPage = uiBookmark.selectedPage
-        if newPage :
-            self.go_to_page( newPage )
-            self.setTitle( uiBookmark.selectedBookmark )
+        if newPage:
+            self.go_to_page(newPage)
+            self.setTitle(uiBookmark.selectedBookmark)
         del uiBookmark
 
-    def actionGoPage(self)->None:
+    def actionGoPage(self) -> None:
         from ui.page import PageNumber
-        getPageNumber = PageNumber( self.book.getRelativePage(), self.book.isPageRelative())
-        if getPageNumber.exec()  == 1 :
+        getPageNumber = PageNumber(
+            self.book.getRelativePage(), self.book.isPageRelative())
+        if getPageNumber.exec() == 1:
             pn = getPageNumber.page
             if getPageNumber.relative:
-                pn = self.book.convertRelativeToAbsolute( pn )
-            self.go_to_page( pn )
+                pn = self.book.convertRelativeToAbsolute(pn)
+            self.go_to_page(pn)
 
-    
-    def _set_menu_book_options(self, show=True)->None:
+    def _set_menu_book_options(self, show=True) -> None:
         """ Enable menus when file is open"""
-        self.ui.actionProperties.setEnabled( show )
+        self.ui.actionProperties.setEnabled(show)
         self.ui.actionClose.setEnabled(show)
-        self.ui.actionDelete.setEnabled( show )
-        self.ui.actionRefresh.setEnabled( show )
+        self.ui.actionDelete.setEnabled(show)
+        self.ui.actionRefresh.setEnabled(show)
 
         self.ui.actionBookmarkCurrentPage.setEnabled(show)
         self.ui.actionShowBookmarks.setEnabled(show)
-        self.ui.actionDeleteAllBookmarks.setEnabled( show )
-        self.ui.actionAdd_Bookmark.setEnabled( show )
+        self.ui.actionDeleteAllBookmarks.setEnabled(show)
+        self.ui.actionAdd_Bookmark.setEnabled(show)
 
         self.ui.actionUp.setEnabled(show)
         self.ui.actionDown.setEnabled(show)
         self.ui.actionGo_to_Page.setEnabled(show)
-        self.ui.actionFirstPage.setEnabled( show )
-        self.ui.actionLastPage.setEnabled( show )
+        self.ui.actionFirstPage.setEnabled(show)
+        self.ui.actionLastPage.setEnabled(show)
 
         self.ui.actionOne_Page.setEnabled(show)
         self.ui.actionTwo_Pages.setEnabled(show)
-        self.ui.actionTwo_Pages_Stacked.setEnabled( show )
-        self.ui.actionThree_Pages.setEnabled( show )
-        self.ui.actionThree_Pages_Stacked.setEnabled( show )
+        self.ui.actionTwo_Pages_Stacked.setEnabled(show)
+        self.ui.actionThree_Pages.setEnabled(show)
+        self.ui.actionThree_Pages_Stacked.setEnabled(show)
 
-        self.ui.actionNoteBook.setEnabled( show )
-        self.ui.actionNotePage.setEnabled( show )
+        self.ui.actionNoteBook.setEnabled(show)
+        self.ui.actionNotePage.setEnabled(show)
 
-        if not show :
-            self._set_menu_page_options( 'off')
-    
-    def _set_menu_page_options(self, layoutType:str )->None:
+        if not show:
+            self._set_menu_page_options('off')
+
+    def _set_menu_page_options(self, layoutType: str) -> None:
         if layoutType is None:
-            layoutType = self.system.getValue( DbKeys.SETTING_PAGE_LAYOUT , DbKeys.VALUE_PAGES_SINGLE )
-        self.ui.actionOne_Page.setChecked(  (layoutType == DbKeys.VALUE_PAGES_SINGLE))
-        self.ui.actionTwo_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_SIDE_2))
-        self.ui.actionTwo_Pages_Stacked.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACK_2 ))
-        self.ui.actionThree_Pages.setChecked( (layoutType == DbKeys.VALUE_PAGES_SIDE_3))
-        self.ui.actionThree_Pages_Stacked.setChecked( (layoutType == DbKeys.VALUE_PAGES_STACK_3 ))
+            layoutType = self.system.getValue(
+                DbKeys.SETTING_PAGE_LAYOUT, DbKeys.VALUE_PAGES_SINGLE)
+        self.ui.actionOne_Page.setChecked(
+            (layoutType == DbKeys.VALUE_PAGES_SINGLE))
+        self.ui.actionTwo_Pages.setChecked(
+            (layoutType == DbKeys.VALUE_PAGES_SIDE_2))
+        self.ui.actionTwo_Pages_Stacked.setChecked(
+            (layoutType == DbKeys.VALUE_PAGES_STACK_2))
+        self.ui.actionThree_Pages.setChecked(
+            (layoutType == DbKeys.VALUE_PAGES_SIDE_3))
+        self.ui.actionThree_Pages_Stacked.setChecked(
+            (layoutType == DbKeys.VALUE_PAGES_STACK_3))
 
-    def _set_display_page_layout( self, value ):
+    def _set_display_page_layout(self, value):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
-        self.book.setProperty( DbKeys.SETTING_PAGE_LAYOUT , value)
-        self.ui.pageWidget.setDisplay( value )
-        self._set_menu_page_options( value )
+        self.book.setProperty(DbKeys.SETTING_PAGE_LAYOUT, value)
+        self.ui.pageWidget.setDisplay(value)
+        self._set_menu_page_options(value)
         self.loadPages()
 
-    def _setSmartPages( self, value ):
-        self.book.setProperty( DbKeys.SETTING_SMART_PAGES , value )
+    def _setSmartPages(self, value):
+        self.book.setProperty(DbKeys.SETTING_SMART_PAGES, value)
         self._use_smart_page_turn = value
 
-    def actionOnePage(self)->None:
-        self._set_display_page_layout( DbKeys.VALUE_PAGES_SINGLE)
+    def actionOnePage(self) -> None:
+        self._set_display_page_layout(DbKeys.VALUE_PAGES_SINGLE)
 
-    def actionTwoPagesSide(self)->None:
-        self._set_display_page_layout( DbKeys.VALUE_PAGES_SIDE_2)
+    def actionTwoPagesSide(self) -> None:
+        self._set_display_page_layout(DbKeys.VALUE_PAGES_SIDE_2)
 
-    def actionTwoPagesStacked(self)->None:
-        self._set_display_page_layout( DbKeys.VALUE_PAGES_STACK_2)
+    def actionTwoPagesStacked(self) -> None:
+        self._set_display_page_layout(DbKeys.VALUE_PAGES_STACK_2)
 
-    def actionThreePagesSide(self)->None:
-        self._set_display_page_layout( DbKeys.VALUE_PAGES_SIDE_3)
+    def actionThreePagesSide(self) -> None:
+        self._set_display_page_layout(DbKeys.VALUE_PAGES_SIDE_3)
 
-    def actionThreePagesStacked(self)->None:
-        self._set_display_page_layout( DbKeys.VALUE_PAGES_STACK_3)
+    def actionThreePagesStacked(self) -> None:
+        self._set_display_page_layout(DbKeys.VALUE_PAGES_STACK_3)
 
-    def _importPDF(self, insertData, duplicateData ):
+    def _importPDF(self, insertData, duplicateData):
         dilb = DilBook()
-        bookmarks={}
-        if len( duplicateData ) > 0 :
+        bookmarks = {}
+        if len(duplicateData) > 0:
             for loc in duplicateData:
-                book = dilb.getBookByColumn( BOOK.source , loc )
+                book = dilb.getBookByColumn(BOOK.source, loc)
                 if book is not None:
-                    bookmarks[ loc ] = self.bookmark.getAll( book[BOOK.book])
-                    dilb.delBook( book=book[BOOK.book])
+                    bookmarks[loc] = self.bookmark.getAll(book[BOOK.book])
+                    dilb.delBook(book=book[BOOK.book])
 
-        if  len( insertData ) > 0:
+        if len(insertData) > 0:
             for bdat in insertData:
-                dilb.newBook( **bdat )
+                dilb.newBook(**bdat)
 
-        if len( bookmarks ) > 0 :
+        if len(bookmarks) > 0:
             for loc in bookmarks:
-                book = dilb.getBookByColumn( BOOK.source , loc )
-                for marks in bookmarks[ loc ]:
-                    self.bookmark.addBookmark( book[ BOOK.name ], marks[ BOOKMARK.name] , marks[BOOKMARK.page])
+                book = dilb.getBookByColumn(BOOK.source, loc)
+                for marks in bookmarks[loc]:
+                    self.bookmark.addBookmark(
+                        book[BOOK.name], marks[BOOKMARK.name], marks[BOOKMARK.page])
 
-        
-    def actionImportPDF(self)->None:
+    def actionImportPDF(self) -> None:
         from util.toolconvert import UiConvert
         uiconvert = UiConvert()
-        uiconvert.setBaseDirectory( self.import_dir )
+        uiconvert.setBaseDirectory(self.import_dir)
         if uiconvert.process_files():
-            self._importPDF( uiconvert.data , uiconvert.getDuplicateList() )
-        self.import_dir = str( uiconvert.baseDirectory() )
+            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+        self.import_dir = str(uiconvert.baseDirectory())
         del uiconvert
 
-    def actionReimportPDF(self)->None:
+    def _lost_and_found_book(self, book_name: str) -> str:
+        if QMessageBox.Yes != QMessageBox.critical(
+            None,
+            "",
+            "Book cannot be located.\nWould you like to find it?",
+                QMessageBox.No | QMessageBox.Yes):
+            return None
+
+        (filename, _) = QFileDialog.getOpenFileName(
+            None,
+            book_name,
+            "",
+            filter="(*.pdf *.PDF)")
+
+        return filename
+
+    def actionReimportPDF(self) -> None:
         rif = Reimportfile()
         if rif.exec() == QMessageBox.Accepted:
-            book = self.book.getBook( book = rif.bookName)
+            book = self.book.getBook(book=rif.bookName)
             from util.toolconvert import UiConvertFilenames
-            uiconvert = UiConvertFilenames( )
-            if not isfile( book[BOOK.source] ) :
-                if QMessageBox.Yes == QMessageBox.critical(None,"",
-                    "Book cannot be located.\nWould you like to find it?",
-                    QMessageBox.No|QMessageBox.Yes ):
-                        
-                        dlg = QFileDialog(caption= book[BOOK.name ] )
-                        dlg.setFileMode( QFileDialog.ExistingFile )
-                        dir = os.path.dirname( book[BOOK.source ] )
-                        if not os.path.isdir( dir ):
-                            dir = self.import_dir
-                        dlg.setDirectory( dir )
-                        if dlg.exec() :
-                            filename = dlg.selectedFiles()[0]
-                            book[ BOOK.source ] = filename
-                            self.book.update( book=book[ BOOK.name ], location=filename )
-                        else:
-                            return False
-            if uiconvert.processFile( book[ BOOK.source ] ):
-                self._importPDF(uiconvert.data, uiconvert.getDuplicateList() )
+            uiconvert = UiConvertFilenames()
+            if not isfile(book[BOOK.source]):
+                book[BOOK.source] = self._lost_and_found_book(book[BOOK.name])
+                if book[BOOK.source] is None:
+                    return
+
+            if uiconvert.processFile(book[BOOK.source]):
+                self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
             del uiconvert
         del rif
 
-    def actionImportDirectory(self)->None:
+    def actionImportDirectory(self) -> None:
         from util.toolconvert import UiConvertDirectory
         uiconvert = UiConvertDirectory()
-        uiconvert.setBaseDirectory( self.import_dir)
+        uiconvert.setBaseDirectory(self.import_dir)
         if uiconvert.exec_():
-            self._importPDF( uiconvert.data , uiconvert.getDuplicateList() )
-        self.import_dir =  uiconvert.baseDirectory()
+            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+        self.import_dir = uiconvert.baseDirectory()
         del uiconvert
 
-    def actionCheckIncomplete(self)->None:
+    def actionCheckIncomplete(self) -> None:
         from qdil.book import DilBook
         DilBook().updateIncompleteBooksUI()
         pass
 
-    def introImage( self )->None:
-        imagePath = os.path.join( os.path.dirname(__file__) , "images", "sheetmusic.png" )
-        if os.path.isfile( imagePath ) :
-            px= QPixmap(imagePath)
-            self.ui.pageWidget.staticPage ( px)
+    def introImage(self) -> None:
+        imagePath = os.path.join(os.path.dirname(
+            __file__), "images", "sheetmusic.png")
+        if os.path.isfile(imagePath):
+            px = QPixmap(imagePath)
+            self.ui.pageWidget.staticPage(px)
             self.show()
-        
+
 
 if __name__ == "__main__":
     sy = SystemPreferences()
-    dbLocation    = sy.getPathDB()          # Fetch the system settings
+    dbLocation = sy.getPathDB()          # Fetch the system settings
     mainDirectory = sy.getDirectory()       # Get directory
 
     app = QApplication([])
-    ## This will initialise the system. It requires prompting so uses dialog box
-    if not isfile( dbLocation ) or not os.path.isdir( mainDirectory ):
+    # This will initialise the system. It requires prompting so uses dialog box
+    if not isfile(dbLocation) or not os.path.isdir(mainDirectory):
         from util.beginsetup import Initialise
-        ini = Initialise( )
-        ini.run( dbLocation  )
+        ini = Initialise()
+        ini.run(dbLocation)
         del ini
-        ## force to re-read
-        dbLocation    = sy.getPathDB()          # Fetch the system settings
+        # force to re-read
+        dbLocation = sy.getPathDB()          # Fetch the system settings
         mainDirectory = sy.getDirectory()       # Get directory
 
-    DbConn.openDB( dbLocation )
+    DbConn.openDB(dbLocation)
     setup = Setup()
 
     setup.initData()
     setup.updateSystem()
     setup.logging(mainDirectory)
-    logger = logging.getLogger( 'main')
+    logger = logging.getLogger('main')
 
     del sy
     del setup
-    
-    window = MainWindow( )
+
+    window = MainWindow()
     window.connectMenus()
     window.restoreWindowFromSettings()
     window.show()
-    
+
     window.openLastBook()
     window.setupWheelTimer()
     window.show()
     rtn = app.exec()
     DbConn.destroyConnection()
-    sys.exit(rtn )
+    sys.exit(rtn)

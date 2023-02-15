@@ -30,9 +30,7 @@ import sys
 
 from PySide6.QtWidgets import (
         QApplication,       QDialog, 
-        QDialogButtonBox ,  QFileDialog,
-        QMessageBox,        QPlainTextEdit, 
-        QTabWidget,         QVBoxLayout
+        QFileDialog,        QMessageBox,        
     )
 
 from qdb.dbbook       import DbBook
@@ -40,6 +38,7 @@ from qdb.keys         import BOOK, BOOKPROPERTY, DbKeys, ImportNameSetting
 from qdil.preferences import DilPreferences
 from ui.runscript     import UiRunScript
 from util.utildir     import get_scriptpath
+from util.pdfinfo     import PdfInfo
     
 class UiBaseConvert( UiRunScript ):
     """
@@ -78,17 +77,14 @@ class UiBaseConvert( UiRunScript ):
     def baseDirectory(self)->str:
         return ( self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR )
 
-    def isBookDirectory( self, bookDir:str )->bool:
+    def _is_valid_book_directory( self, bookDir:str )->bool:
         """
-            Pass a directory and a type for the books.
+            Check if a directory exists for a book, check for pages that exist in directory
         """
-        if os.path.isdir(bookDir):
-            pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix))
-        else:
-            pages = 0
-        return pages > 0   
+        
+        return  ( os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix)) > 0 )
 
-    def _cleanupName(self, bookName:str, level:int )->str:
+    def _cleanup_book_name(self, bookName:str, level:int )->str:
         """ This takes a book name and gets rid of bad characters in prep for filename"""
 
         bookName = re.sub(r'[\n\t\r]+', '', bookName )          # No newline, returns or tabs
@@ -104,98 +100,12 @@ class UiBaseConvert( UiRunScript ):
 
         return bookName.strip()
     
-    def _get_meta_info( self, metadata )->dict:
-        pdf_info = {}
-        if metadata.title is not None:
-            pdf_info[BOOK.name] = metadata.title 
-        if metadata.author is not None:
-            pdf_info[BOOK.author ] = metadata.author
-        if metadata.producer is not None:
-            pdf_info[BOOK.publisher] = metadata.producer
-        if metadata.creation_date_raw is not None:
-            try:
-                text = metadata.creation_date_raw.replace("'","" )
-                if text.find( 'Z' ) != -1:
-                        dt = datetime.strptime( text[0:17] , "D:%Y%m%d%H%M%S%z" )
-                else:
-                        dt = datetime.strptime( text , "D:%Y%m%d%H%M%S%z" )
-                pdf_info[ BOOK.pdfCreated ]= dt.isoformat( ' ')
-            except Exception as err:
-                print( "Error on dt '{}' ignored: {}".format( text , str(err )) )
-                pass
-
-        return pdf_info
-    
-    def _get_keyword_info( self, keyword_data )->dict:
-        """ Read the xmp for keywords and fill in additonal data fields
+    def _fill_in_from_database( self, sourceFile:str)->dict:
+        """ This will read data from the database if the file has been imported before
         
-            NOTE: This is not yet implemented. Once decode the info from 
-            PREVIEW, it will be filled in
-        """
-        pdf_info = {}
-        if keyword_data is not None:
-            pass
-        return pdf_info
-    
-    def _get_annotation_info( self, pages )->dict:
-        """ Examine annotation / notes for keywords to use """
-        pdf_info = {}
-        annotation_search = { 'Composer:' : BOOK.composer , 
-                             'Genre:'      : BOOK.genre , 
-                             'Title:'     : BOOK.name ,
-                             'Author:'    : BOOK.author,
-                             'Publisher:' : BOOK.publisher,
-                             'Link:'      : BOOK.link, }
-        for page in pages:
-            # if "/Keywords" in page:
-            #     print("Keyword")
-            # if "/Bookmark" in page:
-            #     print("Bookmark")
-            if "/Annots" in page:
-                for annot in page["/Annots"]:
-                    subtype = annot.get_object()["/Subtype"]
-                    if subtype == "/Text":
-                        lines = annot.get_object()["/Contents"].splitlines()
-                        for line in lines:
-                            line = line.strip()
-                            for search_for , key in annotation_search.items() :
-                                if line.startswith(search_for):
-                                    pdf_info[ key ] = line[ len( search_for) : ].strip()
-        return pdf_info
-
-    def _get_info_from_pdf(self, sourceFile , default:int=1):
-        """ Try to get info from PDF direct.
-
-            This uses the the pdf library created in the setup. It will:
-            (1) get simple, generic information from metadata
-            (2) Try and get more information from the XML metadata
-            (3) Finally try and find annotation within the pages and fill in extra fields.
+            This will override all of the data set from the PDF as it's already been cleaned up.
         """
 
-        pdf_info =  { BOOK.numberEnds: default ,
-                      BOOK.name:       PurePath( sourceFile).stem ,
-                    }
-        import_name_setting = ImportNameSetting()
-        cleanupLevel = self.pref.getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
-        if import_name_setting.useInfoPDF and cleanupLevel == DbKeys.VALUE_NAME_IMPORT_PDF:
-            try:
-                pdf_lib  = __import__( import_name_setting.useInfoPDF )
-                pdf_file = open( sourceFile, 'rb')
-                pdf_read = pdf_lib.PdfReader(pdf_file)
-                
-                pdf_info[BOOK.numberEnds]  = len( pdf_read.pages )
-                pdf_info.update( self._get_meta_info( pdf_read.metadata ))
-                pdf_info.update( self._get_keyword_info( pdf_read.xmp_metadata ))
-                pdf_info.update( self._get_annotation_info( pdf_read.pages ))
-                
-            except Exception as err:
-                cleanupLevel = DbKeys.VALUE_NAME_IMPORT_FILE_0 
-                raise err
-        pdf_info[ BOOK.name ] = self._cleanupName( pdf_info[ BOOK.name ] , cleanupLevel )
-        return pdf_info
-
-    def _fillInFromCurrent( self, sourceFile:str)->bool:
-        """ This will read data from the database if the file has been imported before"""
         book = DbBook().getBookByColumn( BOOK.source , sourceFile )
         if book is None:
             currentFile = {}
@@ -211,11 +121,13 @@ class UiBaseConvert( UiRunScript ):
 
         return currentFile
 
-    def _fillInDefaults( self, filelist:list ):
+    def _fill_in_all_file_info( self, filelist:list ):
         """ Fill in default information, then get info from current entry if exists """
         
+        cleanup_level = self.pref.getValueInt( DbKeys.SETTING_NAME_IMPORT , DbKeys.VALUE_NAME_IMPORT_FILE_2)
         for sourceFile in filelist :      
             currentFile = { 
+                BOOK.name:          PurePath( sourceFile ).stem ,
                 BOOK.source:        sourceFile , 
                 BOOK.numberStarts:  1,
                 BOOK.composer:      None,
@@ -224,8 +136,13 @@ class UiBaseConvert( UiRunScript ):
                 BOOK.fileModified:  datetime.fromtimestamp( os.path.getmtime(sourceFile) ).isoformat(' '),
                 BOOKPROPERTY.layout:        DbKeys.VALUE_PAGES_SINGLE,
             }
-            currentFile.update( self._get_info_from_pdf( sourceFile ))
-            currentFile.update( self._fillInFromCurrent( sourceFile ))
+            pdfinfo = PdfInfo()
+            if pdfinfo.has_pdf_library():
+                currentFile.update( pdfinfo.get_info_from_pdf( sourceFile ))
+                cleanup_level = DbKeys.VALUE_NAME_IMPORT_PDF
+            currentFile[ BOOK.name] = self._cleanup_book_name( currentFile[ BOOK.name ], cleanup_level )
+            currentFile.update( self._fill_in_from_database( sourceFile ))
+            
             self.data.append( currentFile )
 
     def getFileInfo(self, fileList:list )->bool:
@@ -237,7 +154,7 @@ class UiBaseConvert( UiRunScript ):
         from ui.properties import UiProperties
         fileInfo = UiProperties()
         self.status = self.RETURN_CONTINUE
-        self._fillInDefaults(fileList )
+        self._fill_in_all_file_info(fileList )
         for index, currentFile in enumerate( self.data ) :
             fileInfo.setPropertyList( currentFile )
             if fileInfo.exec() == QDialog.Accepted:
@@ -315,7 +232,7 @@ class UiBaseConvert( UiRunScript ):
                 if self.is_debug():
                     return self.RETURN_CANCEL
                 self.data[ index ].update( { BOOK.location: self.bookPath} )
-                if self.isBookDirectory( self.bookPath ):
+                if self._is_valid_book_directory( self.bookPath ):
                     self.data[ index ][ BOOK.totalPages ] = len(fnmatch.filter(os.listdir( self.bookPath ), '*.' + self.bookType))
                 else:
                     self.data[ index ][ BOOK.totalPages ] = 0
@@ -344,7 +261,6 @@ class UiBaseConvert( UiRunScript ):
         """
         return self.duplicateList
 
-
 class UiConvertFilenames( UiBaseConvert):
     def __init__(self, location=None ):
         super().__init__()
@@ -357,7 +273,6 @@ class UiConvertFilenames( UiBaseConvert):
             return self.processDirectoryList( location )
         
         return self.processDirectoryList( [ location ])
-
 
 class UiConvert(UiBaseConvert):
     

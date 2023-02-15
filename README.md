@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.10
+# sheetmusic version 0.5.11
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -14,6 +14,22 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+
+# 0.5.11
+* Move PDF functions to util/pdfinfo.py. Allows using either pypdf or pypdf2 for scanning
+  - This can also be enhanced in the future to support other libraries.
+* Add in ability to run page editor using external scripts:
+  - add in 'RunSilentRunDeep' to have non-interactive scripts
+  - add in scripts for gimp and Preview (macos) under util;scripts;pageedit
+  - start new script tag (#:os) for OS specific scripts (not yet implemented)
+  - alter util/toollist.py to check any directory
+  - add in preference setting for new page editor function
+* Start change of code for PageLabelWidget to try and enhance resolution
+  - Split some code off from PageLabelWidget
+  - Start moving pixmap functions out of qdil/book into PagelabelWidget
+* More code cleanup
+* Still a bit unstable.
+
 
 # 0.5.10
 * Fix scripting error and do some testing with zsh (aim for compat with bash)

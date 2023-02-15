@@ -98,6 +98,7 @@ class UiMain(object):
         self.actionReimportPDF =     action( u'ReimportPDF' , title=u'Reimport PDF...')
 
         # EDIT actions
+        self.actionEditPage             = action( u'PageEdit'  , title='Edit Page #', shortcut=u'Ctrl+E')
         self.actionProperties           = action( u"Properties", shortcut=u'Ctrl+I')
         self.actionNoteBook             = action( u"BookNote"  , title="Note for Book")
         self.actionNotePage             = action( u'PageNote'  , title='Note for Page')
@@ -293,6 +294,8 @@ class UiMain(object):
         self.menuFile.addAction(self.actionPreferences)
 
     def addEditActions(self)->None:
+        self.menuEdit.addAction(self.actionEditPage )
+        self.menuEdit.addSeparator()   # -------------------
         self.menuEdit.addAction(self.actionProperties)
         self.menuEdit.addAction(self.actionNoteBook)
         self.menuEdit.addAction(self.actionNotePage)
