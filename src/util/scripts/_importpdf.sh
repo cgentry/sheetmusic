@@ -23,31 +23,16 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 #: dialog "type='title' label='Import PDF to system'"
 #: dialog "type='size' width='600'"
 
-#:BEGIN template.sh
-## the following should work for bash and zsh.
-## Standard parms passed:
-##      -S system-side script include directory
-args=( "$@" )
-while (( ${#args[@]} ))
-do
-    KEY=${args[@]:0:1}
-    if [ "$KEY" = '-S' ]; then
-        INCLUDE_SYSTEM="${args[@]:1:1}"
-        break
-    fi
-    args=("${args[@]:1}")
-done
-
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"
     exit 99 
 fi
+
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
 #:END template.sh
 ## Make sure to pass SOURCE_FILE and TARGET_DIR as parameters. (Parsed in parameters.sh)
-
-dir_exists  "${MUSIC_DIR}"   "-M directory"
+dir_exists  "${MUSIC_DIR}"   "Environment variable"
 require_var "${PDF_DEVICE}"  "-G ghostscript-device"
 require_var "${IMG_RES}"     "-E output-resolution"
 require_var "${IMG_TYPE}"    "-I output-type"
@@ -64,8 +49,8 @@ ${DEBUG} cd "${TARGET_DIR}" || error_handler "Could not change to ${MUSIC_DIR}/$
 cat <<START_GHOSTSCRIPT
 
 ==========================================================================
-Read From  '${SOURCE_FILE}'
-Write To   '${MUSIC_DIR}/${TARGET_DIR}
+Read From . '${SOURCE_FILE}'
+Write To . .'${MUSIC_DIR}/${TARGET_DIR}
 ==========================================================================
 
 START_GHOSTSCRIPT

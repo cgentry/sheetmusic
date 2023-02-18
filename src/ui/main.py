@@ -89,6 +89,7 @@ class UiMain(object):
         # FILE actions
         self.actionOpen         = action(u'Open',   title='Open...',  shortcut=QKeySequence.Open)
         self.actionOpenRecent   = action(u'Recent')
+        self.actionReopen       = action(u'Reopen' ,title="Reopen" )
         self.actionClose        = action(u"Close",                    shortcut=QKeySequence.Close)
         self.actionDelete       = action(u'Delete', title='Delete...',shortcut=QKeySequence.DeleteEndOfWord)
         self.actionImport       = action(u'Import')
@@ -279,6 +280,7 @@ class UiMain(object):
     def addFileActions(self)->None:
         self.menuFile.addAction(self.actionOpen)
         self.actionOpenRecent = self.menuFile.addMenu( self.menuOpenRecent )
+        self.menuFile.addAction( self.actionReopen )
         self.menuFile.addAction(self.actionClose)
         self.menuFile.addAction( self.actionDelete )
         self.menuFile.addSeparator()   # -------------------

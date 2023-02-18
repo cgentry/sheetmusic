@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.11
+# sheetmusic version 0.5.12
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -14,6 +14,15 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
+
+# 0.5.12
+* Change the way scripts are invoked. Now most parms are set in the environment rather than as CLI options.
+* Bug cleanup
+* Update scripts and infor script for ENV vars.
+* Allow scripts to be killed rather than letting them just run.
+* change the way buttons are used when scripts are run.
+* More code cleanup
+* Still a bit unstable. Certainly ALPHA status
 
 # 0.5.11
 * Move PDF functions to util/pdfinfo.py. Allows using either pypdf or pypdf2 for scanning

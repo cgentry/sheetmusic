@@ -266,9 +266,9 @@ class FileBase(QDialog):
 
 
 class Openfile( FileBase ):
-    def __init__(self):
+    def __init__(self, title:str = 'Open Book'):
         super().__init__()
-        self.setWindowTitle("Open Book")
+        self.setWindowTitle( title )
 
     def createButtons(self):
         self.buttons = QDialogButtonBox()

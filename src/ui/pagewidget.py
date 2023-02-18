@@ -24,9 +24,9 @@
 # get around this. Sorry. I'll continue to try and change this.
 
 from PySide6.QtCore import QSize
-from PySide6.QtGui import (QPixmap, Qt)
+from PySide6.QtGui import (QPixmap, Qt, QImage, QScreen )
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QMessageBox, QSizePolicy,
+    QApplication, QHBoxLayout, QLabel, QSizePolicy,
     QWidget, QStackedWidget, QMainWindow, QVBoxLayout)
 from qdb.keys import DbKeys
 from ui.borderglow import BorderGlow
@@ -95,20 +95,39 @@ class PageLabelWidget(QLabel, PageDisplayMixin):
 
         The file must exist or the load will fail. Check before calling
         """
+        rtn = False
         if isinstance(newimage, QPixmap):
-            return self._set_image_pixmap(newimage, page)
+            rtn= self._set_image_pixmap(newimage, page)
         if isinstance(newimage, str):
-            px = QPixmap()
-            px.setDevicePixelRatio(2)
-            px.load(newimage)
-            return self._set_image_pixmap(px, page)
-        return False
+            rtn= self._set_qimage_file( newimage , page )
+        if rtn:
+            self.setClear(False)
+            self.setPageNumber(page)
+        return rtn
+    
+    def _set_image_file(self, file_name:str , page: int )->bool:
+        px = QPixmap()
+        px.load(file_name)
+        return self._set_image_pixmap(px, page)
+
+    def _set_qimage_file( self, file_name:str , page: int )->bool:
+        qimage = QImage()
+        qimage.load( file_name )
+        ratio = QApplication.primaryScreen().devicePixelRatio()
+        size  = self.size()
+        qimage.setDevicePixelRatio( ratio )
+        if self.keepAspectRatio():
+            qimage = qimage.scaled( int( size.width()*ratio), int(size.height()*ratio) , aspectMode=Qt.KeepAspectRatio , mode=Qt.SmoothTransformation) 
+        else:
+            qimage = qimage.scaled( int( size.width()*ratio), int(size.height()*ratio) )
+        self.setPixmap( QPixmap.fromImage(qimage) ) 
+        return True
+
 
     def _set_image_pixmap(self, px: QPixmap, pgNumber: int) -> bool:
         self.clear()
         if px is None or px is False or px.isNull() or not isinstance(px, QPixmap):
             return False
-
         if self.keepAspectRatio():
             new_px = px.scaled(
                 self.size(), aspectMode=Qt.KeepAspectRatio, mode=Qt.SmoothTransformation)
@@ -116,8 +135,6 @@ class PageLabelWidget(QLabel, PageDisplayMixin):
             self.setMask(new_px.mask())
         else:
             self.setPixmap(px)
-        self.setClear(False)
-        self.setPageNumber(pgNumber)
         return True
 
     def copyImage(self, otherPage):

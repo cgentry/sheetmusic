@@ -396,19 +396,21 @@ class DilBook(DbBook):
     def getBookPagePath(self, pageNum=None) -> str:
         return self.bookPathFormat.format(toInt(pageNum))
 
-    def clearCache(self):
-        # self.tcache.cache_clear()
-        pass
-
     def get_page_file(self, page: str) -> str | None:
         if self.isValidPage(page):
             imagePath = self.getBookPagePath(page)
             if os.path.isfile(imagePath):
                 return imagePath
         return None
+    
+    def clearCache(self):
+        # self.tcache.cache_clear()
+        pass
+
 
     def getPixmap(self, pageNum: str) -> QPixmap:
         """ read the file and convert it into a pixal map.
+            NOTE: Obsolete method. Function moved into PageWidget
         """
         px = None
         file_path = self.get_page_file(pageNum)

@@ -14,19 +14,6 @@
 
 #
 #:BEGIN template.sh
-## the following should work for bash and zsh.
-## Standard parms passed:
-##      -S system-side script include directory
-args=( "$@" )
-while (( ${#args[@]} ))
-do
-    KEY=${args[@]:0:1}
-    if [ "$KEY" = '-S' ]; then
-        INCLUDE_SYSTEM="${args[@]:1:1}"
-        break
-    fi
-    args=("${args[@]:1}")
-done
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"

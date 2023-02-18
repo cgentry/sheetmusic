@@ -89,16 +89,20 @@ class _UsePyPDF( _SimplePdfInfo ):
             #     print("Keyword")
             # if "/Bookmark" in page:
             #     print("Bookmark")
-            if "/Annots" in page:
-                for annot in page["/Annots"]:
-                    subtype = annot.get_object()["/Subtype"]
-                    if subtype == "/Text":
-                        lines = annot.get_object()["/Contents"].splitlines()
-                        for line in lines:
-                            line = line.strip()
-                            for search_for , key in annotation_search.items() :
-                                if line.startswith(search_for):
-                                    self.pdf_info[ key ] = line[ len( search_for) : ].strip()
+            try:
+                if page is not None and "/Annots" in page:
+                    for annot in page["/Annots"]:
+                        subtype = annot.get_object()["/Subtype"]
+                        if subtype == "/Text":
+                            lines = annot.get_object()["/Contents"].splitlines()
+                            for line in lines:
+                                line = line.strip()
+                                for search_for , key in annotation_search.items() :
+                                    if line.startswith(search_for):
+                                        self.pdf_info[ key ] = line[ len( search_for) : ].strip()
+            except Exception as err: # currently ignore errors
+                print( 'Error with pages {}'.format( str(err)))
+                pass
         return
 
     def get_info_from_pdf(self, sourceFile ):

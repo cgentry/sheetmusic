@@ -361,6 +361,7 @@ class MainWindow(QMainWindow):
             self.actionOpenRecentUpdateFiles)
         self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
         self.ui.menuOpenRecent.triggered.connect(self.actionOpenRecent)
+        self.ui.actionReopen.triggered.connect( self.actionReopen )
         self.ui.actionEditPage.triggered.connect(self.actionPageEdit)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
         self.ui.actionNoteBook.triggered.connect(self.actionNoteBook)
@@ -464,8 +465,12 @@ class MainWindow(QMainWindow):
         edit_label = self.ui.actionEditPage.text().split('#', 1)
         self.ui.actionEditPage.setEnabled(self.book.isOpen())
         if self.book.isOpen():
-            self.ui.actionEditPage.setText("{} #{}".format(
-                edit_label[0], self.book.getAbsolutePage()))
+            page = self.book.getRelativePage()
+            if self.book.isPageRelative( page ):
+                tag = "{} / Book: {}".format( page , self.book.getAbsolutePage() )
+            else:
+                tag = "{}".format( page )
+            self.ui.actionEditPage.setText("{} #{}".format( edit_label[0], tag ))
         else:
             self.ui.actionEditPage.setText(edit_label[0])
 
@@ -654,6 +659,10 @@ class MainWindow(QMainWindow):
         if of.bookName is not None:
             self.open_book(of.bookName)
 
+    def actionReopen(self)->None:
+        self.close_book()
+        self.openLastBook()
+
     def actionOpenRecent(self, action: QAction) -> None:
         if action is not None:
             if self.open_book(action.data()) == QMessageBox.Retry:
@@ -730,6 +739,7 @@ class MainWindow(QMainWindow):
         """ Enable menus when file is open"""
         self.ui.actionProperties.setEnabled(show)
         self.ui.actionClose.setEnabled(show)
+        self.ui.actionReopen.setEnabled( show )
         self.ui.actionDelete.setEnabled(show)
         self.ui.actionRefresh.setEnabled(show)
 
