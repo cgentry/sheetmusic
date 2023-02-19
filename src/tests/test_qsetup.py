@@ -158,7 +158,7 @@ class TestSetup( unittest.TestCase):
 
         self.assertGreaterEqual( len(rows), 14 ,"System should have at least 14 entries")
 
-        self.assertEqual( rows[DbKeys.SETTING_DEFAULT_GSDEVICE]   , DbKeys.VALUE_GSDEVICE )
+        self.assertEqual( rows[DbKeys.SETTING_DEFAULT_IMGFORMAT]   , DbKeys.VALUE_GSDEVICE )
         self.assertEqual( rows[DbKeys.SETTING_PAGE_LAYOUT]     , DbKeys.VALUE_PAGES_SINGLE )
         self.assertTrue(  rows[DbKeys.SETTING_LAST_BOOK_REOPEN] )# , DbKeys.VALUE_REOPEN_LAST )
         self.assertEqual( rows[DbKeys.SETTING_FILE_TYPE]       , DbKeys.VALUE_FILE_TYPE )

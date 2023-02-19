@@ -98,48 +98,48 @@ class TestSimpleParser(unittest.TestCase):
         self.obj.reset()
 
     def test_formatunique_name(self):
-        pline = self.obj.parseLine( TestSimpleParser.TITLE1 )
-        self.assertEqual( self.obj.formatUniqueName() , 'TITLE_1' )
+        pline = self.obj._parse_line( TestSimpleParser.TITLE1 )
+        self.assertEqual( self.obj.format_unique_name() , 'TITLE_1' )
         self.assertEqual( pline[ SDOption.KEY_TAG ], 'TITLE_1' )
         self.assertEqual( self.obj.value( SDOption.KEY_TAG ), 'TITLE_1')
 
     def test_changed(self):
-        self.obj.parseLine( TestSimpleParser.TITLE1 )
+        self.obj._parse_line( TestSimpleParser.TITLE1 )
         self.assertFalse( self.obj.changed() )
-        self.obj.setChanged( True )
+        self.obj.set_changed( True )
         self.assertTrue( self.obj.changed() )
-        self.obj.setChanged( False )
+        self.obj.set_changed( False )
         self.assertFalse( self.obj.changed() )
 
     def test_options(self):
-        self.obj.parseLine( TestSimpleParser.OPTIONS_NOT_OPTION )
+        self.obj._parse_line( TestSimpleParser.OPTIONS_NOT_OPTION )
         self.assertDictEqual( self.obj.value( SDOption.KEY_OPTIONS ) , {'require':True} )
         self.assertEqual( self.obj.value( SDOption.KEY_OPTION ), 'require')
 
     def test_isset(self):
-        self.obj.parseLine( TestSimpleParser.FILE_LABEL_VALUE_OK )
-        self.assertTrue( self.obj.isKey( SDOption.KEY_TYPE ) )
-        self.assertTrue( self.obj.isKey( SDOption.KEY_LABEL ) )
-        self.assertTrue( self.obj.isKey( SDOption.KEY_VALUE ) )
+        self.obj._parse_line( TestSimpleParser.FILE_LABEL_VALUE_OK )
+        self.assertTrue( self.obj.is_key( SDOption.KEY_TYPE ) )
+        self.assertTrue( self.obj.is_key( SDOption.KEY_LABEL ) )
+        self.assertTrue( self.obj.is_key( SDOption.KEY_VALUE ) )
 
-        self.assertTrue( self.obj.isSet( SDOption.KEY_TYPE ) )
-        self.assertTrue( self.obj.isSet( SDOption.KEY_LABEL ) )
-        self.assertTrue( self.obj.isSet( SDOption.KEY_VALUE ) )
+        self.assertTrue( self.obj.is_set( SDOption.KEY_TYPE ) )
+        self.assertTrue( self.obj.is_set( SDOption.KEY_LABEL ) )
+        self.assertTrue( self.obj.is_set( SDOption.KEY_VALUE ) )
 
-        self.assertFalse( self.obj.isSet( SDOption.KEY_OPTION ) )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_DROP ) )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_DATA ) )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_FILTER ) )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_OPTION ) )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_DROP ) )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_DATA ) )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_FILTER ) )
 
     def test_all_options(self):
-        self.obj.parseLine( TestSimpleParser.ALLOPTIONS)
+        self.obj._parse_line( TestSimpleParser.ALLOPTIONS)
         for key in [ SDOption.OPTION_IGNORE, SDOption.OPTION_INCLUDE, SDOption.OPTION_READONLY, SDOption.OPTION_REQ ]:
             self.assertTrue( self.obj.is_option( key  ) )
 
     def test_notype(self):
         err = False
         try:
-            pline = self.obj.parseLine( TestSimpleParser.NOTYPE )
+            pline = self.obj._parse_line( TestSimpleParser.NOTYPE )
         except  Exception as rtn:
             err = True
             self.assertEqual( str( rtn ), "Invalid type: \"\" Line: \"type=''\"")
@@ -147,14 +147,14 @@ class TestSimpleParser(unittest.TestCase):
         err = False
 
         try:
-            self.obj.parseLine( TestSimpleParser.BADQUOTE )
+            self.obj._parse_line( TestSimpleParser.BADQUOTE )
         except  Exception as rtn:
             err = True
             self.assertEqual( str( rtn ), "Invalid type: \"label=\" Line: \"type=' label='BADQUOTE'\"")
         self.assertTrue( err )
     
     def test_parse_title( self ):
-        pline = self.obj.parseLine( TestSimpleParser.TITLE1 )
+        pline = self.obj._parse_line( TestSimpleParser.TITLE1 )
         self.assertIn( SDOption.KEY_TYPE,  pline )
         self.assertIn( SDOption.KEY_LABEL, pline )
         self.assertIn( SDOption.KEY_SEQ, pline )
@@ -166,121 +166,121 @@ class TestSimpleParser(unittest.TestCase):
         self.assertEqual( pline[ SDOption.KEY_TYPE_SEQ], 1 )
         self.assertEqual( pline[ SDOption.KEY_TAG] , 'TITLE_1' , pline)
 
-        pline = self.obj.parseLine( TestSimpleParser.TITLE2 )
+        pline = self.obj._parse_line( TestSimpleParser.TITLE2 )
         self.assertEqual( pline[ SDOption.KEY_TYPE], 'title' )
         self.assertEqual( pline[ SDOption.KEY_LABEL], 'TITLE2' )
         self.assertEqual( pline[ SDOption.KEY_TAG] , 'title2', pline )
         self.assertEqual( pline[ SDOption.KEY_SEQ], 2 )
         self.assertEqual( pline[ SDOption.KEY_TYPE_SEQ], 2 )
 
-        pline = self.obj.parseLine( TestSimpleParser.TITLE3 )
+        pline = self.obj._parse_line( TestSimpleParser.TITLE3 )
         self.assertEqual( pline[ SDOption.KEY_TYPE], 'title' )
         self.assertEqual( pline[ SDOption.KEY_LABEL], 'TITLE3' )
         self.assertEqual( pline[ SDOption.KEY_TAG] , 'TITLE_3')
 
         with self.assertRaises( ValueError ) as cm:
-            self.obj.parseLine( TestSimpleParser.TITLE_NOLABEL)
+            self.obj._parse_line( TestSimpleParser.TITLE_NOLABEL)
         self.assertEqual( str(cm.exception) , "Type 'title' requires a label parameter (label='')" )
             
     def test_parse_button(self):
-        self.obj.parseLine( TestSimpleParser.BUTTON_BLANK , )
+        self.obj._parse_line( TestSimpleParser.BUTTON_BLANK , )
         self.assertTrue( self.obj.value( SDOption.KEY_LABEL) , 'BUTTON_BLANK' )
         self.assertTrue( self.obj.value( SDOption.KEY_VALUE ), 'accept')
 
-        self.obj.parseLine( TestSimpleParser.BUTTON_ACCEPT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_ACCEPT )
         self.assertTrue( self.obj.value( SDOption.KEY_LABEL) , 'BUTTON_ACCEPT' )
         self.assertTrue( self.obj.value( SDOption.KEY_VALUE ), 'accept')
 
-        self.obj.parseLine( TestSimpleParser.BUTTON_REJECT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_REJECT )
         self.assertTrue( self.obj.value( SDOption.KEY_LABEL) , 'BUTTON_REJECT' )
         self.assertTrue( self.obj.value( SDOption.KEY_VALUE ), 'reject')
 
         with self.assertRaises( ValueError ) as cm:
-            self.obj.parseLine( TestSimpleParser.BUTTON_BAD )
+            self.obj._parse_line( TestSimpleParser.BUTTON_BAD )
         ex = cm.exception
         self.assertEqual( str(ex) , "Button 'BUTTON_BAD' can only be accept or reject not 'noway'")
         
     def test_parse_checkbox(self):
         for check in TestSimpleParser.CHECK_LIST_TRUE :
-            self.obj.parseLine( check )
+            self.obj._parse_line( check )
             self.assertTrue( self.obj.value( SDOption.KEY_VALUE ) )
         for check in TestSimpleParser.CHECK_LIST_FALSE :
-            self.obj.parseLine( check )
+            self.obj._parse_line( check )
             self.assertFalse( self.obj.value( SDOption.KEY_VALUE ) )
 
     def test_parse_dir(self):
         for dir in TestSimpleParser.DIR_LIST_OK:
-            self.obj.parseLine( dir )
+            self.obj._parse_line( dir )
         # now recheck for values
 
-        self.obj.parseLine( TestSimpleParser.DIR_LABEL_NOVALUE_OK )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_VALUE ))
-        self.assertFalse( self.obj.isSet( SDOption.KEY_OPTION ))
+        self.obj._parse_line( TestSimpleParser.DIR_LABEL_NOVALUE_OK )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_VALUE ))
+        self.assertFalse( self.obj.is_set( SDOption.KEY_OPTION ))
 
-        self.obj.parseLine( TestSimpleParser.DIR_LABEL_VALUE_OK )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_OPTION ))
-        self.assertTrue( self.obj.isSet( SDOption.KEY_VALUE ))
+        self.obj._parse_line( TestSimpleParser.DIR_LABEL_VALUE_OK )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_OPTION ))
+        self.assertTrue( self.obj.is_set( SDOption.KEY_VALUE ))
         self.assertEqual( self.obj.value( SDOption.KEY_VALUE ), '/tmp/')
 
-        self.obj.parseLine( TestSimpleParser.DIR_LABEL_OPT_OK )
-        self.assertTrue( self.obj.isSet( SDOption.KEY_OPTION ))
+        self.obj._parse_line( TestSimpleParser.DIR_LABEL_OPT_OK )
+        self.assertTrue( self.obj.is_set( SDOption.KEY_OPTION ))
         self.assertTrue( self.obj.is_option( SDOption.OPTION_REQ))
         self.assertFalse( self.obj.is_option( SDOption.OPTION_INCLUDE))
         self.assertFalse( self.obj.is_option( SDOption.OPTION_READONLY))
         self.assertTrue( self.obj.is_option( SDOption.OPTION_IGNORE))
-        self.assertFalse( self.obj.isSet( SDOption.KEY_VALUE ))
+        self.assertFalse( self.obj.is_set( SDOption.KEY_VALUE ))
 
     def test_parse_file(self):
         for dir in TestSimpleParser.FILE_LIST_OK:
-            self.obj.parseLine( dir )
+            self.obj._parse_line( dir )
         # now recheck for values
 
-        self.obj.parseLine( TestSimpleParser.FILE_LABEL_NOVALUE_OK )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_VALUE ))
-        self.assertFalse( self.obj.isSet( SDOption.KEY_OPTION ))
+        self.obj._parse_line( TestSimpleParser.FILE_LABEL_NOVALUE_OK )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_VALUE ))
+        self.assertFalse( self.obj.is_set( SDOption.KEY_OPTION ))
 
-        self.obj.parseLine( TestSimpleParser.FILE_LABEL_VALUE_OK )
-        self.assertFalse( self.obj.isSet( SDOption.KEY_OPTION ))
-        self.assertTrue( self.obj.isSet( SDOption.KEY_VALUE ))
+        self.obj._parse_line( TestSimpleParser.FILE_LABEL_VALUE_OK )
+        self.assertFalse( self.obj.is_set( SDOption.KEY_OPTION ))
+        self.assertTrue( self.obj.is_set( SDOption.KEY_VALUE ))
         self.assertEqual( self.obj.value( SDOption.KEY_VALUE ), '/tmp/')
 
-        self.obj.parseLine( TestSimpleParser.FILE_LABEL_OPT_OK )
-        self.assertTrue( self.obj.isSet( SDOption.KEY_OPTION ))
+        self.obj._parse_line( TestSimpleParser.FILE_LABEL_OPT_OK )
+        self.assertTrue( self.obj.is_set( SDOption.KEY_OPTION ))
         self.assertTrue( self.obj.is_option( SDOption.OPTION_REQ))
         self.assertFalse( self.obj.is_option( SDOption.OPTION_INCLUDE))
         self.assertFalse( self.obj.is_option( SDOption.OPTION_READONLY))
         self.assertTrue( self.obj.is_option( SDOption.OPTION_IGNORE))
-        self.assertFalse( self.obj.isSet( SDOption.KEY_VALUE ))
+        self.assertFalse( self.obj.is_set( SDOption.KEY_VALUE ))
 
     def test_parms_dropdown(self):
         for drop in TestSimpleParser.DROP_LIST_DROPONLY :
-            self.obj.parseLine( drop )
+            self.obj._parse_line( drop )
             self.assertIsInstance( self.obj.value( SDOption.KEY_DROP ) , list )
             self.assertIsInstance( self.obj.value( SDOption.KEY_DATA ) , list )
             self.assertListEqual( self.obj.value( SDOption.KEY_DROP ) , TestSimpleParser.DROP_VALS )
             self.assertListEqual( self.obj.value( SDOption.KEY_DATA ) , TestSimpleParser.DROP_VALS )
-        self.obj.parseLine( TestSimpleParser.DROP_DROP_DATA )
+        self.obj._parse_line( TestSimpleParser.DROP_DROP_DATA )
         self.assertListEqual( self.obj.value( SDOption.KEY_DROP), TestSimpleParser.DROP_VALS )
         self.assertListEqual( self.obj.value( SDOption.KEY_DATA), ['a','b','c' ])
 
 
         with self.assertRaises( ValueError ) as cm:
-            self.obj.parseLine( TestSimpleParser.DROP_NODROP_NODATA )
+            self.obj._parse_line( TestSimpleParser.DROP_NODROP_NODATA )
         ex = cm.exception
         self.assertEqual( str(ex) , "Dropdown box 'DROP_EMPTY' requires keyword \"dropdown='....'\".")
 
         with self.assertRaises( ValueError ) as cm:
-            self.obj.parseLine( TestSimpleParser.DROP_BAD_DATA )
+            self.obj._parse_line( TestSimpleParser.DROP_BAD_DATA )
         self.assertEqual( str(cm.exception) , "Dropdown error: 'BAD DATA' Count of option 'dropdown' 3, does not match 'data': 5")
 
     def test_text(self):
         for text in TestSimpleParser.TEXT_LIST_OK:
-            self.obj.parseLine( text )
+            self.obj._parse_line( text )
 
-        self.obj.parseLine( TestSimpleParser.TEXT_LABEL_NOVALUE_BAD )
+        self.obj._parse_line( TestSimpleParser.TEXT_LABEL_NOVALUE_BAD )
 
     def test_replace(self):
-        self.obj.parseLine( TestSimpleParser.DROP_REPLACE )
+        self.obj._parse_line( TestSimpleParser.DROP_REPLACE )
         self.assertListEqual( self.obj.value( SDOption.KEY_DROP) , [ '$ALPHA','$BETA', '$DELTA'])
         self.assertListEqual( self.obj.value( SDOption.KEY_DATA) , [ '$ALPHA','$BETA', '$DELTA'])
         self.assertEqual( self.obj.value( SDOption.KEY_VALUE)    , '$BETA')
@@ -290,13 +290,13 @@ class TestSimpleParser(unittest.TestCase):
         self.assertEqual( self.obj.value( SDOption.KEY_VALUE)    , 'replace2')
 
     def test_tokens_call(self):
-        rtn = self.obj.parseLine( TestSimpleParser.DROP_REPLACE )
+        rtn = self.obj._parse_line( TestSimpleParser.DROP_REPLACE )
         rtn2 = self.obj.tokens()
         self.assertDictEqual( rtn , rtn2 )
 
     def test_button_accept( self ):
         btn = SDButton()
-        self.obj.parseLine( TestSimpleParser.BUTTON_ACCEPT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_ACCEPT )
         btn.setElement( self.obj )
         self.assertEqual( btn.text , 'BUTTON_ACCEPT')
         self.assertTrue( btn.isAccept() )
@@ -304,7 +304,7 @@ class TestSimpleParser(unittest.TestCase):
 
     def test_button_accept_role( self ):
         btn = SDButton()
-        self.obj.parseLine( TestSimpleParser.BUTTON_ACCEPT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_ACCEPT )
         self.obj.setValue( SDOption.KEY_VALUE , QDialogButtonBox.AcceptRole )
         btn.setElement( self.obj )
         self.assertEqual( btn.text , 'BUTTON_ACCEPT')
@@ -313,7 +313,7 @@ class TestSimpleParser(unittest.TestCase):
 
     def test_button_reject( self ):
         btn = SDButton()
-        self.obj.parseLine( TestSimpleParser.BUTTON_REJECT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_REJECT )
         btn.setElement( self.obj )
         self.assertEqual( btn.text , 'BUTTON_REJECT')
         self.assertFalse( btn.isAccept() )
@@ -321,7 +321,7 @@ class TestSimpleParser(unittest.TestCase):
 
     def test_button_reject_role( self ):
         btn = SDButton()
-        self.obj.parseLine( TestSimpleParser.BUTTON_REJECT )
+        self.obj._parse_line( TestSimpleParser.BUTTON_REJECT )
         self.obj.setValue( SDOption.KEY_VALUE , QDialogButtonBox.RejectRole )
         btn.setElement( self.obj )
         self.assertEqual( btn.text , 'BUTTON_REJECT')

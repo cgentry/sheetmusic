@@ -819,6 +819,8 @@ class MainWindow(QMainWindow):
 
         if len(insertData) > 0:
             for bdat in insertData:
+                for key, item in bdat.items() :
+                    print( "{}={}".format( key, item))
                 dilb.newBook(**bdat)
 
         if len(bookmarks) > 0:

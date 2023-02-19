@@ -22,9 +22,8 @@ fi
 . ${INCLUDE_SYSTEM}/start.sh "$@" 
 
 #:END template.sh
-
+echo "<pre>"
 cat <<END_SCRIPTING_INFO
-<pre>
 =================================================================================
 . . . . . . . . . . . . . . . SCRIPTING INFORMATION . . . . . . . . . . . . . . . 
 =================================================================================
@@ -52,8 +51,8 @@ N.B.: Also set are:
     
 END_SCRIPTING_INFO
 . ${INCLUDE_SYSTEM}/dump_include.sh
-. ${INCLUDE_SYSTEM}/dump_parms.sh
 . ${INCLUDE_SYSTEM}/dump_env.sh
+. ${INCLUDE_SYSTEM}/dump_parms.sh
 
 echo "</pre>"
 

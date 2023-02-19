@@ -128,7 +128,7 @@ class SDEntry( ):
         single_match='|'.join( SDOption.LIST_SINGLE_OPTIONS )
         SDEntry.REGEX_SINGLE_OPTION=r"\s*({})\s*[{}]?".format( single_match  , SDEntry.SINGLE_OPTION_SPLIT)
 
-    def formatUniqueName( self )->str:
+    def format_unique_name( self )->str:
         """ 
         Generate a unique name for this object: TAG_SEQ
 
@@ -155,43 +155,42 @@ class SDEntry( ):
 
         # Split 'option' into 'options' dictionary
         self._tokens[ SDOption.KEY_OPTIONS] = {}
-        if self.isSet( SDOption.KEY_OPTION ):
+        if self.is_set( SDOption.KEY_OPTION ):
             option = self.value( SDOption.KEY_OPTION )
             single_list = re.findall( SDEntry.REGEX_SINGLE_OPTION , input_line ) 
 
             for key in single_list:
                 self._tokens[ SDOption.KEY_OPTIONS ][key.strip()] = True
     
-    def requireLabel(self )->None:
-        if not self.isSet( SDOption.KEY_LABEL ):
+    def _require_label(self )->None:
+        if not self.is_set( SDOption.KEY_LABEL ):
             raise ValueError("Type '{}' requires a label parameter (label='')".format( self.value( SDOption.KEY_TYPE )) )
         
-
     def _set_tag(self)->None:
-        if not self.isSet( SDOption.KEY_TAG ):
+        if not self.is_set( SDOption.KEY_TAG ):
             new_tag = "{}_{}".format( 
                 self.value( SDOption.KEY_TYPE ).upper() , 
                 self.value( SDOption.KEY_TYPE_SEQ ))
             self.setValue(SDOption.KEY_TAG , new_tag )
 
-    def checkFieldButton(self)->None:
-        self.requireLabel()
-        if not self.isSet( SDOption.KEY_VALUE ):
+    def _check_field_button(self)->None:
+        self._require_label()
+        if not self.is_set( SDOption.KEY_VALUE ):
             self.setValue( SDOption.KEY_VALUE , 'accept')
         elif self.value( SDOption.KEY_VALUE ) not in ['accept', 'reject']:
             raise ValueError("Button '{}' can only be accept or reject not '{}'".format(
                 self.value( SDOption.KEY_LABEL ) , self.value( SDOption.KEY_VALUE )
             ))
 
-    def checkFieldBox( self )->None:
+    def _check_field_box( self )->None:
         """ Enure we have a label and that the value is set to a boolean depending on string"""
-        self.requireLabel()
+        self._require_label()
         self.setValue( SDOption.KEY_VALUE, self.value( SDOption.KEY_VALUE).lower() in [ '1', 'check', 'checked', 'true', 'yes', 'y', 'ok'] )
 
-    def checkFieldDir( self )->None:
-        self.requireLabel()
+    def _check_field_dir( self )->None:
+        self._require_label()
 
-    def checkFieldDropdown(self)->None:
+    def _check_field_dropdown(self)->None:
         """
         Dropdown combobox will always have a selected value, either from value or the first entry
 
@@ -202,22 +201,22 @@ class SDEntry( ):
                                 If nothing specified, the values in dropdown are used
         
         """
-        self.requireLabel()
+        self._require_label()
         
-        if not self.isSet( SDOption.KEY_DROP ):
+        if not self.is_set( SDOption.KEY_DROP ):
             raise ValueError("Dropdown box '{}' requires keyword \"dropdown='....'\".".format( 
                 self.value( SDOption.KEY_LABEL ) ,
                 self.value( SDOption.KEY_SEQ )))
         
-        value = self.splitValue( SDOption.KEY_DROP  )
+        value = self._split_value( SDOption.KEY_DROP  )
         self.setValue( SDOption.KEY_DROP , value )
 
-        if self.isSet( SDOption.KEY_DATA ):
-            self.setValue( SDOption.KEY_DATA , self.splitValue( SDOption.KEY_DATA ) )
+        if self.is_set( SDOption.KEY_DATA ):
+            self.setValue( SDOption.KEY_DATA , self._split_value( SDOption.KEY_DATA ) )
         else:
             self.setValue( SDOption.KEY_DATA , self.value( SDOption.KEY_DROP ))
 
-        if not self.isSet( SDOption.KEY_VALUE ):
+        if not self.is_set( SDOption.KEY_VALUE ):
             self.setValue( SDOption.KEY_VALUE , value[0]) 
 
         if len( self.value( SDOption.KEY_DATA)) != len( self.value( SDOption.KEY_DROP ) ):
@@ -225,45 +224,45 @@ class SDEntry( ):
                 self.value( SDOption.KEY_LABEL), len( self.value( SDOption.KEY_DROP)),  len( self.value( SDOption.KEY_DATA) ) ))
         pass
 
-    def checkFieldFile(self)->None:
-        self.requireLabel()
+    def _check_field_file(self)->None:
+        self._require_label()
         pass
 
-    def checkFieldText(self)->None:
-        self.requireLabel()
+    def _check_field_text(self)->None:
+        self._require_label()
         pass
 
-    def checkFieldTitle(self)->None:
-        self.requireLabel()
+    def _check_field_title(self)->None:
+        self._require_label()
         
     def setValue( self, key:str, value)->None:
         self._tokens[ key ] = value
 
-    def setChanged( self, flag:bool=True)->None:
+    def set_changed( self, flag:bool=True)->None:
         self.setValue( SDOption.KEY_SET , flag )
 
     def changed( self )->None:
         return self.value( SDOption.KEY_SET)
     
-    def isKey( self, key:str )->bool:
+    def is_key( self, key:str )->bool:
         """ Determine if the key is within this parsed entry """
         return key in self._tokens
     
-    def isSet( self, key:str )->bool: 
+    def is_set( self, key:str )->bool: 
         """ Determine if the key is within this parsed entry, and is set """
         return key in self._tokens and self._tokens[ key ] != '' and self._tokens[key] is not None 
     
-    def isType( self, key_type:str)->bool:
+    def is_type( self, key_type:str)->bool:
         """ Check to see if this entry is of type 'key_type"""
         return self._tokens[ SDOption.KEY_TYPE] == key_type
 
     def value( self, key:str, default='')->str:
         """ Return the value for a parsed entry or, if not set, return default """
-        if self.isSet( key ):
+        if self.is_set( key ):
             return self._tokens[key]
         return default
     
-    def splitValue( self, key:str ,default:str=""  )->list:
+    def _split_value( self, key:str ,default:str=""  )->list:
         """split the keyed string up by the value 'split """
 
         value     = self.value( key ,default )
@@ -275,7 +274,7 @@ class SDEntry( ):
         """ Return if the key is within the options"""
         return key in self._tokens[ SDOption.KEY_OPTIONS ]
                                                                    
-    def setSequence( self )->None:
+    def _set_sequence( self )->None:
         """ Keep a sequence counter for each type and 'brand' that into this token dictionary """
         SDEntry.type_counter[ self.value( SDOption.KEY_TYPE ) ] +=1
         SDEntry.line_counter += 1
@@ -292,7 +291,7 @@ class SDEntry( ):
             if isinstance( value , str ) and key in value:
                 self._tokens[ SDOption.KEY_VALUE ] = value.replace( key , word  ) 
 
-            if self.isType( SDOption.TYPE_DROPDOWN ):
+            if self.is_type( SDOption.TYPE_DROPDOWN ):
                 for index, entry in enumerate( self.value( SDOption.KEY_DROP ) ):
                     if key in entry:
                         self._tokens[ SDOption.KEY_DROP ][index] = entry.replace( key, word )
@@ -300,7 +299,7 @@ class SDEntry( ):
                     if entry == key:
                         self._tokens[ SDOption.KEY_DATA ][index] = entry.replace( key, word )
 
-    def parseLine( self , line_input:str , line_number:int=0 )->dict:
+    def _parse_line( self , line_input:str , line_number:int=0 )->dict:
         """
         Split all the values into a list of dictionary entries.
         
@@ -310,26 +309,26 @@ class SDEntry( ):
 
         self._init_token_dictionary()
         self._parse_keywords( line_input )
-        if   self.isType( SDOption.TYPE_BUTTON ):
-            self.checkFieldButton()
-        elif self.isType(  SDOption.TYPE_CHECK )   : 
-            self.checkFieldBox()
-        elif self.isType(SDOption.TYPE_DIR):
-            self.checkFieldDir()   
-        elif self.isType(SDOption.TYPE_DROPDOWN ):
-            self.checkFieldDropdown() 
-        elif self.isType(SDOption.TYPE_FILE ):
-            self.checkFieldFile()
-        elif self.isType( SDOption.TYPE_TEXT):
-            self.checkFieldText()
-        elif self.isType( SDOption.TYPE_TITLE ):
-            self.checkFieldTitle()
-        elif self.isType( SDOption.TYPE_SIZE ):
+        if   self.is_type( SDOption.TYPE_BUTTON ):
+            self._check_field_button()
+        elif self.is_type(  SDOption.TYPE_CHECK )   : 
+            self._check_field_box()
+        elif self.is_type(SDOption.TYPE_DIR):
+            self._check_field_dir()   
+        elif self.is_type(SDOption.TYPE_DROPDOWN ):
+            self._check_field_dropdown() 
+        elif self.is_type(SDOption.TYPE_FILE ):
+            self._check_field_file()
+        elif self.is_type( SDOption.TYPE_TEXT):
+            self._check_field_text()
+        elif self.is_type( SDOption.TYPE_TITLE ):
+            self._check_field_title()
+        elif self.is_type( SDOption.TYPE_SIZE ):
             pass
         else:
             raise ValueError('Invalid type: "{}" Line: "{}"'.format( self.value( SDOption.KEY_TYPE), line_input ))
         
-        self.setSequence()
+        self._set_sequence()
         self._set_tag()
         return self._tokens
     
@@ -394,7 +393,7 @@ class SDEntriesMixin():
         self.setKeywords( keywords )
         for line in parse_list:
             parser = SDEntry()
-            parser.parseLine( line )
+            parser._parse_line( line )
             self.elements.append( parser )
         return self.elements
     

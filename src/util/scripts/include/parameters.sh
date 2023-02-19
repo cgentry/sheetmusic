@@ -42,8 +42,6 @@ else
         SCRIPT_PGM="${ZSH_NAME}"
         SCRIPT_RUN=${SHELL}
         SCRIPT_VERSION="${ZSH_VERSION}"
-    else
-        
     fi
 fi
 

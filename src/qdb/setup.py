@@ -228,7 +228,7 @@ class Setup():
             DbKeys.SETTING_KEEP_ASPECT:         DbKeys.VALUE_KEEP_ASPECT,
             DbKeys.SETTING_DEFAULT_PATH_MUSIC:  os.path.expanduser(DbKeys.VALUE_DEFAULT_DIR),
             DbKeys.SETTING_PATH_USER_SCRIPT:    os.path.expanduser(DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR),
-            DbKeys.SETTING_DEFAULT_GSDEVICE:    DbKeys.VALUE_GSDEVICE,
+            DbKeys.SETTING_DEFAULT_IMGFORMAT:    DbKeys.VALUE_GSDEVICE,
             DbKeys.SETTING_PAGE_LAYOUT:         DbKeys.VALUE_PAGES_SINGLE,
             DbKeys.SETTING_LAST_BOOK_REOPEN:    DbKeys.VALUE_REOPEN_LAST,
             DbKeys.SETTING_FILE_TYPE:           DbKeys.VALUE_FILE_TYPE,

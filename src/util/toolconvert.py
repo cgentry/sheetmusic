@@ -136,11 +136,14 @@ class UiBaseConvert( UiRunScript ):
                 BOOK.fileModified:  datetime.fromtimestamp( os.path.getmtime(sourceFile) ).isoformat(' '),
                 BOOKPROPERTY.layout:        DbKeys.VALUE_PAGES_SINGLE,
             }
+            # PDF info
             pdfinfo = PdfInfo()
             if pdfinfo.has_pdf_library():
                 currentFile.update( pdfinfo.get_info_from_pdf( sourceFile ))
                 cleanup_level = DbKeys.VALUE_NAME_IMPORT_PDF
             currentFile[ BOOK.name] = self._cleanup_book_name( currentFile[ BOOK.name ], cleanup_level )
+
+            # From database
             currentFile.update( self._fill_in_from_database( sourceFile ))
             
             self.data.append( currentFile )
@@ -148,7 +151,7 @@ class UiBaseConvert( UiRunScript ):
     def getFileInfo(self, fileList:list )->bool:
         """
             This will go through all of the files and prompt the user
-            for properties. If then fills in the information in the data array
+            for properties. It then fills in the information in the data array
         """
 
         from ui.properties import UiProperties
@@ -227,7 +230,7 @@ class UiBaseConvert( UiRunScript ):
                 self.add_variable( 'SOURCE_FILE', entry[ BOOK.source ])
                 self.add_variable( 'TARGET_DIR', entry[ BOOK.name   ])
                 self.bookPath = path.join( self.music_path , entry[ BOOK.name ])
-                if self.run( ) == self.RETURN_CANCEL :
+                if self.run( no_dialog=True) == self.RETURN_CANCEL :
                     break
                 if self.is_debug():
                     return self.RETURN_CANCEL
@@ -240,7 +243,7 @@ class UiBaseConvert( UiRunScript ):
         return self.status
    
     def add_final_vars( self ):
-        # self.addVariableFlag( self.CONVERT_TYPE , self.bookType )
+        # self.add_variable_flag( self.CONVERT_TYPE , self.bookType )
         # varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
         # if varString is None:
         #     raise RuntimeError("No script variables found")

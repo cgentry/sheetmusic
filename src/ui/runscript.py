@@ -84,32 +84,41 @@ class ScriptKeys:
 
     # #:KEYWORD tags
     COMMENT = 'comment'
-    DEBUG = 'debug'       # Within #:require - pass debug flag
-    DIALOG = 'dialog'      # use simpledialog
-    PICKER = 'picker'      # use OpenFile to pick a current book
-    DIR = 'dir'         # Directory request
-    DIR_PROMPT = 'dir-prompt'  # ""
+    DEBUG = 'debug'             # Within #:require - pass debug flag
+    DIALOG = 'dialog'           # use simpledialog
+    PICKER = 'picker'           # use OpenFile to pick a current book
+    DIR = 'dir'                 # Directory request
+    DIR_PROMPT = 'dir-prompt'   # ""
     FILE = 'file'
     FILE_FILTER = 'file-filter'
     FILE_PROMPT = 'file-prompt'
     FLAG = 'flag'
-    INCLUDE = 'inc'         # Include another file (future)
-    OPTIONS = 'options'     # See options, below
-    PREFIX = 'prefix'      # set the flag prefix for the script (default is -)
-    REQUIRE = 'require'     # Fields required ( file / dir )
-    SYSTEM = 'system'      # See information, below.
-    TITLE = 'title'       # passed to script
-    VARS = 'vars'        # Reserved for intenal use
+    INCLUDE = 'inc'             # Include another file (future)
+    OPTIONS = 'options'         # See options, below
+    OS = 'os'                   # Free-form option list
+    PREFIX = 'prefix'           # set the flag prefix for the script (default is -)
+    REQUIRE = 'require'         # Fields required ( file / dir )
+    SYSTEM = 'system'           # See information, below.
+    TITLE = 'title'             # passed to script
+    VARS = 'vars'               # Reserved for intenal use
 
     # 'INFORMATION' requests (after #:SYSTEM )
     DEBUG = 'debug'
 
     # DISPLAY CONTROL
-    HEIGHT = 'height'      # separate line #:height n
-    NOFRAME = 'noframe'     # Within #:require
-    ONTOP = 'ontop'       # Within #:require
-    SIMPLE = 'simple'      # Within #:require
-    WIDTH = 'width'       # selarte line:  #:width n
+    HEIGHT = 'height'           # separate line #:height n
+    NOFRAME = 'noframe'         # Within #:require
+    ONTOP = 'ontop'             # Within #:require
+    SIMPLE = 'simple'           # Within #:require
+    WIDTH = 'width'             # separate line:  #:width n
+
+    # OS options
+    OS_ANY = 'any'
+    OS_LINUX = 'linux'
+    OS_UNIX  = 'unix'
+    OS_BSD   = 'bsd'
+    OS_MACOS = 'macos'
+    OS_WIN   = 'win'
 
     # ENV SETTING
     ENV_DBFILE = 'DBFILE'
@@ -129,14 +138,25 @@ class ScriptKeys:
     ENV_IMG_RES = 'IMG_RES'
     ENV_IMG_TYPE = 'IMG_TYPE'
     ENV_LAST_BACKUP = 'LAST_BACKUP'
-    ENV_PDF_DEVICE = 'PDF_DEVICE'
+    ENV_IMG_FORMAT = 'IMG_FORMAT'
 
 
 class UiScriptSetting():
+    """ This will parse a scriptfile for known keys, values, and options """
+
+    # SEARCH_TAGS looks for the tags formatted as:  #:<keyword> <options><end-of-line>
     SEARCH_TAGS = '\s*#:([a-z-]+)\s+([^\n\r]*)'
+    # SEARCH_KEYWORDS looks for:  <blanks><text><blanks<text><blanks>
     SEARCH_KEYWORDS = '\s*(\w+)\s*(\w+)\s*'
 
     def __init__(self, filename: str, lines=None, deep: bool = True):
+        """ Setup and to parse either a file or text. 
+
+        filename: File to open and parse.
+        lines: parse lines already read and ignore filename
+        deep: (future) this will continue to scan any 'include' links
+        """
+
         self._fname = filename
         self.translate_tag_to_flag = {
             ScriptKeys.DIR:       ['d'],
@@ -149,6 +169,7 @@ class UiScriptSetting():
             self.parse(lines, deep)
 
     def parse_option_line(self, line: str):
+        """ Parse one line for options."""
         matches = re.findall(UiScriptSetting.SEARCH_KEYWORDS, line)
         for match in matches:
             self.set_flag(match[0], match[1])
@@ -165,18 +186,19 @@ class UiScriptSetting():
 
     def is_option(self, type: str, option) -> bool:
         """ Determine if 'option' is within the 'type' line. 
-            Typically used for system or require options
+
+            Typically used for #:system or #:require settings
         """
         return self.setting_value(type).find(option) > -1
 
     def get_options(self, key: str = ScriptKeys.VARS) -> list:
-        """ Return a list of options for a keyword. Can be used for system """
+        """ Return a list of options for a keyword. Can be used for #:system """
         return self.setting_value(key).split()
 
     def include(self, filename):
         pass
 
-    def parse(self, lines, deep):
+    def parse(self, lines, deep) -> None:
         """ Parse will Parse all the lines and create a key/list entry"""
         if isinstance(lines, list):
             matches = re.findall(UiScriptSetting.SEARCH_TAGS, "\n".join(lines))
@@ -198,6 +220,7 @@ class UiScriptSetting():
                     print("Include file", line)
 
     def flag(self, key: str, default=None) -> str:
+
         if self.translate_tag_to_flag is not None and key in self.translate_tag_to_flag:
             return self.translate_tag_to_flag[key][0]
         return default
@@ -205,13 +228,13 @@ class UiScriptSetting():
     def set_flag(self, key, value) -> None:
         self.translate_tag_to_flag[key] = [value.strip()]
 
-    def isSet(self, key: str) -> bool:
+    def is_set(self, key: str) -> bool:
         """ Determine if 'key' is within the dictionary """
         return self.translate_tag_to_flag is not None and key in self.translate_tag_to_flag
 
     def setting(self, key: str, default=[]) -> list:
         """ Return the list that is entered for the dictionary 'key' """
-        if self.isSet(key):
+        if self.is_set(key):
             return self.translate_tag_to_flag[key]
         if isinstance(default, list):
             return default
@@ -222,6 +245,14 @@ class UiScriptSetting():
 
     def settings(self) -> dict:
         return self.translate_tag_to_flag
+
+    def __str__(self)->str:
+        rtn = ""
+        for key, items in self.translate_tag_to_flag.items():
+            rtn = rtn + "Key: {}\n".format( key )
+            for item in items:
+                rtn = rtn +"\tValue: '{}'\n".format( item)
+        return rtn
 
 
 class RunScriptBase():
@@ -268,7 +299,7 @@ class RunScriptBase():
         ScriptKeys.ENV_IMG_RES: DbKeys.SETTING_FILE_RES,
         ScriptKeys.ENV_IMG_TYPE: DbKeys.SETTING_FILE_TYPE,
         ScriptKeys.ENV_LAST_BACKUP: DbKeys.SETTING_LAST_BACKUP,
-        ScriptKeys.ENV_PDF_DEVICE: DbKeys.SETTING_DEFAULT_GSDEVICE,
+        ScriptKeys.ENV_IMG_FORMAT: DbKeys.SETTING_DEFAULT_IMGFORMAT,
     }
 
     def __init__(self):
@@ -313,7 +344,6 @@ class RunScriptBase():
 
     def add_final_vars(self):
         """ override- optional Child class last chance to add more variables """
-
         pass
 
     def _close_temporary_file(self):
@@ -343,12 +373,12 @@ class RunScriptBase():
             self.script_parms.setting_value(ScriptKeys.PREFIX, '-'),
             self.script_parms.setting_value(tag, tag))
 
-    def addVariableFlag(self, tag: str, front=False) -> None:
+    def add_variable_flag(self, tag: str, front=False) -> None:
         """ 
         Add just the tag to self.vars based on UiScriptSetting 
 
         For example, if you want 'debug' and call it as:
-        addVariableFlag( ScriptKeys.DEBUG ) it will add ['-X']
+        add_variable_flag( ScriptKeys.DEBUG ) it will add ['-X']
         """
         if front:
             self.vars.insert(0, self.variable_flag(tag))
@@ -366,7 +396,7 @@ class RunScriptBase():
         """
         if front:
             self.vars.insert(0, value)
-            self.addVariableFlag(0, tag)
+            self.add_variable_flag(0, tag)
         else:
             self.vars.append(self.variable_flag(tag))
             self.vars.append(value)
@@ -376,16 +406,15 @@ class RunScriptBase():
 
     def add_system_to_vars(self):
         """ Add to vars list based on '#:system' tag in script file """
-        if self.script_parms.isSet(ScriptKeys.SYSTEM):
+        if self.script_parms.is_set(ScriptKeys.SYSTEM):
             for key in self.script_parms.get_options(ScriptKeys.SYSTEM):
                 if key == ScriptKeys.DEBUG:
                     self.add_debug_to_vars()
 
-
     def add_debug_to_vars(self, debug: bool = False):
         if debug:
             self.macro_replace['DEBUG'] = True
-            self.addVariableFlag(ScriptKeys.DEBUG, front=False)
+            self.add_variable_flag(ScriptKeys.DEBUG, front=False)
 
     def add_script_to_vars(self):
         """ Add script to the very first position in the variables being passed """
@@ -435,15 +464,13 @@ class RunScriptBase():
         self.vars = []
         self.add_includes_to_vars()
         self.add_system_to_vars()
-        self.add_variable(ScriptKeys.USERSCRIPT,
-                          path.dirname(self.script_file))
 
     def wait_for_process(self):
         if self._process is not None:
             self._process.waitForFinished(-1)
 
     def cancel_process(self):
-        if self._process is not None and self._process.state() == QProcess.ProcessState.Running :
+        if self._process is not None and self._process.state() == QProcess.ProcessState.Running:
             self.btnList['Execute'].hide()
             self.btnList['Close'].hide()
             self.btnList['Cancel'].hide()
@@ -463,27 +490,27 @@ class RunScriptBase():
         env.insert(ScriptKeys.ENV_DIR_SYS, get_scriptdir())
         env.insert(ScriptKeys.ENV_INC_USER, get_user_scriptinc())
         env.insert(ScriptKeys.ENV_DIR_USER, get_user_scriptdir())
-        
-        env.insert( ScriptKeys.ENV_MUSIC_DIR, pref.getDirectoryDB())
-        env.insert( ScriptKeys.ENV_DBFILE , pref.getPathDB() )
-        env.insert( ScriptKeys.ENV_SYSTEM_OS , platform.platform(terse=True))
-        env.insert( ScriptKeys.ENV_SYSTEM_CLASS , get_os_class() )
 
-        env.insert( ScriptKeys.ENV_QT_VERSION , PySide6.__version__)
-        env.insert( ScriptKeys.ENV_PYTHON_VERSION, platform.python_version())
-        env.insert( ScriptKeys.ENV_PYTHON_RUN , sys.executable)
-        env.insert( ScriptKeys.ENV_SHEETMUSIC, ProgramConstants.version )
-        keys = [ScriptKeys.ENV_INC_SYS,ScriptKeys.ENV_DIR_SYS, ScriptKeys.ENV_INC_USER,ScriptKeys.ENV_DIR_USER,
-                ScriptKeys.ENV_MUSIC_DIR, ScriptKeys.ENV_DBFILE, ScriptKeys.ENV_SYSTEM_OS, ScriptKeys.ENV_QT_VERSION ,
-                ScriptKeys.ENV_PYTHON_VERSION, ScriptKeys.ENV_PYTHON_RUN,ScriptKeys.ENV_SHEETMUSIC ,
-                ScriptKeys.ENV_SYSTEM_CLASS ]
-        
+        env.insert(ScriptKeys.ENV_MUSIC_DIR, pref.getDirectoryDB())
+        env.insert(ScriptKeys.ENV_DBFILE, pref.getPathDB())
+        env.insert(ScriptKeys.ENV_SYSTEM_OS, platform.platform(terse=True))
+        env.insert(ScriptKeys.ENV_SYSTEM_CLASS, get_os_class())
+
+        env.insert(ScriptKeys.ENV_QT_VERSION, PySide6.__version__)
+        env.insert(ScriptKeys.ENV_PYTHON_VERSION, platform.python_version())
+        env.insert(ScriptKeys.ENV_PYTHON_RUN, sys.executable)
+        env.insert(ScriptKeys.ENV_SHEETMUSIC, ProgramConstants.version)
+        keys = [ScriptKeys.ENV_INC_SYS, ScriptKeys.ENV_DIR_SYS, ScriptKeys.ENV_INC_USER, ScriptKeys.ENV_DIR_USER,
+                ScriptKeys.ENV_MUSIC_DIR, ScriptKeys.ENV_DBFILE, ScriptKeys.ENV_SYSTEM_OS, ScriptKeys.ENV_QT_VERSION,
+                ScriptKeys.ENV_PYTHON_VERSION, ScriptKeys.ENV_PYTHON_RUN, ScriptKeys.ENV_SHEETMUSIC,
+                ScriptKeys.ENV_SYSTEM_CLASS]
+
         # Transfer settings from database
         for env_key, db_key in RunScriptBase.transfer_from_db.items():
-            env.insert( env_key , pref.getValue( db_key ))
-            keys.append( env_key )
-        
-        env.insert( 'SHEETMUSIC_ENV' , ':'.join( keys ) )
+            env.insert(env_key, pref.getValue(db_key))
+            keys.append(env_key)
+
+        env.insert('SHEETMUSIC_ENV', ':'.join(keys))
         self._process.setProcessEnvironment(env)
 
     def start_process(self):
@@ -508,10 +535,10 @@ class RunScriptBase():
                 self.add_script_to_vars()
                 self.add_final_vars()
                 self.time_start = time.perf_counter()
-                self._process.setProgram( self.shell() )
-                self._process.setArguments( self.vars )
+                self._process.setProgram(self.shell())
+                self._process.setArguments(self.vars)
                 self._process.start()
-                if not self._process.waitForStarted() :
+                if not self._process.waitForStarted():
                     print("Process did not start")
             except Exception as err:
                 self._close_temporary_file()
@@ -718,7 +745,6 @@ class UiRunScript(RunScriptBase):
             self.btnList['Close'].hide()
             self.btnList['Cancel'].show()
 
-
     def notify_end(self, endMessage: str) -> None:
         """ Write the end message on the text file line and move cursor to top of output """
         self.output_message("Script complete.", mode='stdout')
@@ -728,7 +754,6 @@ class UiRunScript(RunScriptBase):
             self.btnList['Execute'].show()
             self.btnList['Close'].show()
             self.btnList['Cancel'].hide()
-
 
     def output_message(self, msgText: str, override=None,  mode: str = 'stdout') -> None:
         """ output_message will output the current state to the text in output tab
@@ -748,13 +773,13 @@ class UiRunScript(RunScriptBase):
 
     def notify_script_title_comment(self) -> bool:
         """ If the script has #:title / #:comment entries, display in output box """
-        if self.script_parms.isSet(ScriptKeys.TITLE):
+        if self.script_parms.is_set(ScriptKeys.TITLE):
             title = self.script_parms.setting_value(ScriptKeys.TITLE)
             if len(title) > 0:
                 tl = len(title)
                 self.output_message('<b>{}<br/>&nbsp;{}<br/>{}</b>'.format(
                     '='*tl, title, '='*tl), 'html')
-        if self.script_parms.isSet(ScriptKeys.COMMENT):
+        if self.script_parms.is_set(ScriptKeys.COMMENT):
             self.output_message("<br/><p>{}</p><br/>".format(
                 '<br/>'.join(self.script_parms.setting(ScriptKeys.COMMENT, ''))),
                 'html')
@@ -826,11 +851,11 @@ class UiRunScript(RunScriptBase):
         self.textScript = QPlainTextEdit()
         self.textScript.setFont(plainFont)
 
-    def action_single_click_tab(self, index) -> None:
+    def _action_single_click_tab(self, index) -> None:
         if index != 1 and self.tabLayout.tabText(1) != 'Script':
-            self.action_double_click_tab(1)
+            self._action_double_click_tab(1)
 
-    def action_double_click_tab(self, index) -> None:
+    def _action_double_click_tab(self, index) -> None:
         """ If the user double clicks on the script tab, it will show script parameters """
         if index == 1:
             if self.tabLayout.tabText(index) == 'Script':
@@ -854,15 +879,45 @@ class UiRunScript(RunScriptBase):
     def is_debug(self) -> bool:
         return self.debug_mode
 
-    def add_vars_from_simple_dialog(self, sd: SimpleDialog) -> None:
+    def _prompt_for_file(self) -> bool:
+        # See about any 'dialog' displays we have to do first
+        if self.script_parms.is_set(ScriptKeys.PICKER):
+            of = Openfile('Select Book to Resize')
+            of.exec()
+            if of.bookSelected is None:
+                return False
+            self.add_variable('PICKER', of.bookSelected)
+        return True
+
+    def _user_dialog(self , no_dialog:bool=False) -> bool:
+        if not no_dialog and self.script_parms.is_set(ScriptKeys.DIALOG):
+            sd = SimpleDialog()
+            try:
+                sd.parse(self.script_parms.setting(
+                    ScriptKeys.DIALOG), self.macro_replace)
+                if QMessageBox.Rejected == sd.exec():
+                    return False
+            except Exception as err:
+                QMessageBox.critical(None,
+                                     "Script error",
+                                     "Script has a dialog error and cannot run:\n" +
+                                     str(err),
+                                     QMessageBox.StandardButton.Cancel)
+                return False
+            self._add_vars_from_simple_dialog(sd)
+        return True
+
+    def _add_vars_from_simple_dialog(self, sd: SimpleDialog) -> None:
         for entry in sd.data:
             self.add_variable(entry[SDOption.KEY_TAG],
                               entry[SDOption.KEY_VALUE])
 
-    def run(self, startMsg: str = "Hit Execute button to run program") -> bool:
+    def run(self, startMsg: str = "Hit Execute button to run program", no_dialog:bool=False) -> bool:
         """
         run is the interface between the dialog box displaying information and the
         actual process that will be executed.
+
+        It will run dialog interactions unless you set no_dialog
 
         It returns True to continue, False to Cancel
         """
@@ -876,7 +931,7 @@ class UiRunScript(RunScriptBase):
                     self.add_debug_to_vars(self.debug_mode)
                     self.text.clear()
                     self.start_process()
-                    
+
                     # don't close dialog box!
 
                 case 'Cancel':
@@ -889,38 +944,14 @@ class UiRunScript(RunScriptBase):
                     dlgRun.accept()
 
         if self.status == self.RETURN_CONTINUE:
-            # See about any 'dialog' displays we have to do first
-            if self.script_parms.isSet(ScriptKeys.PICKER):
-                of = Openfile('Select Book to Resize')
-                of.exec()
-                if of.bookSelected is not None:
-                    self.add_variable('PICKER', of.bookSelected)
-                else:
-                    return self.RETURN_CANCEL
+            if not self._prompt_for_file() or not self._user_dialog(no_dialog):
+                self.status = self.RETURN_CANCEL
+                return self.RETURN_CANCEL
 
-            if self.script_parms.isSet(ScriptKeys.DIALOG):
-                sd = SimpleDialog()
-                try:
-                    # if True:
-                    sd.parse(self.script_parms.setting(
-                        ScriptKeys.DIALOG), self.macro_replace)
-                    if QMessageBox.Rejected == sd.exec():
-                        self.status = self.RETURN_CANCEL
-                        return self.status
-                except Exception as err:
-                    QMessageBox.critical(None,
-                                         "Script error",
-                                         "Script has a dialog error and cannot run:\n" +
-                                         str(err),
-                                         QMessageBox.StandardButton.Cancel)
-                    self.status = self.RETURN_CANCEL
-                    # dlgRun.reject()
-                    return self.RETURN_CANCEL
-                self.add_vars_from_simple_dialog(sd)
             self.tabLayout = self._run_tab_layout()
             self.tabLayout.tabBarDoubleClicked.connect(
-                self.action_double_click_tab)
-            self.tabLayout.tabBarClicked.connect(self.action_single_click_tab)
+                self._action_double_click_tab)
+            self.tabLayout.tabBarClicked.connect(self._action_single_click_tab)
             (btnBox, btnList) = self._run_buttons()
             btnBox.clicked.connect(button_clicked)
 
@@ -1061,6 +1092,7 @@ class UiRunScriptFile(UiRunScript):
         self.output_message("{}: (none)".format(prompt))
         return not required
 
+
 class UiRunSimpleNote(RunScriptBase):
     """
     Display any dialogs asked for, run the script and only show a close button.
@@ -1179,6 +1211,7 @@ class UiRunSimpleNote(RunScriptBase):
     def set_size(self, w: int, h: int) -> None:
         self.dlgW = w
         self.dlgH = h
+
 
 class RunSilentRunDeep(UiRunSimpleNote):
     """ Run a script with no output box UNLESS we have an error occur """

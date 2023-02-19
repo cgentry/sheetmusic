@@ -316,10 +316,10 @@ class UiPreferences(QDialog):
 
     def formatFileDevice( self ,layout:QGridLayout, row:int )->int:
         self.cmbDevice = QComboBox()
-        self.cmbDevice.setObjectName( DbKeys.SETTING_DEFAULT_GSDEVICE )
+        self.cmbDevice.setObjectName( DbKeys.SETTING_DEFAULT_IMGFORMAT )
         layout.addWidget( self.cmbDevice, row, 1)
 
-        ftype = self.settings.getValue( DbKeys.SETTING_DEFAULT_GSDEVICE,DbKeys.SETTING_DEFAULT_GSDEVICE )
+        ftype = self.settings.getValue( DbKeys.SETTING_DEFAULT_IMGFORMAT,DbKeys.SETTING_DEFAULT_IMGFORMAT )
         type = self.cmbType.currentData()
         self.cmbDevice.clear()
         for key,value in self._device_settings[type].items():
@@ -606,7 +606,7 @@ class UiPreferences(QDialog):
         #self.formatFileDevice( self.layoutShellScript, 3 )
 
     def action_device_changed( self, value ):
-        self.states[ DbKeys.SETTING_DEFAULT_GSDEVICE] = self.cmbDevice.currentData()
+        self.states[ DbKeys.SETTING_DEFAULT_IMGFORMAT] = self.cmbDevice.currentData()
         self.flagChanged = True
 
     def action_name_import( self, value ):

@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.12"
+    version      = "0.5.13"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -65,7 +65,7 @@ class DbKeys():
     ###
     #       STORED ONLY IN System table
     ###
-    SETTING_DEFAULT_GSDEVICE    = 'gsdevice'       ## Which ghostscript device will we use 
+    SETTING_DEFAULT_IMGFORMAT    = 'gsdevice'       ## Which ghostscript device will we use 
     SETTING_DEFAULT_PATH_MUSIC  = 'sheetmusicPath' ## Where is the music folder?
     SETTING_PATH_USER_SCRIPT    = 'userScriptDir'  ## Where to store user scripts?
     SETTING_PAGE_EDITOR         = 'pageEditor'     ## Page editor

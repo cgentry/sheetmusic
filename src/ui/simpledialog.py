@@ -102,7 +102,7 @@ class SimpleDialog( QDialog , SDEntriesMixin):
             new_label = QLineEdit()
             new_label.setDragEnabled( True )
         
-        new_label.setObjectName(  element.formatUniqueName() )
+        new_label.setObjectName(  element.format_unique_name() )
         new_label.setMinimumWidth( int( element.value(  SDOption.KEY_WIDTH , '75' )))
         return new_label
 
@@ -118,7 +118,7 @@ class SimpleDialog( QDialog , SDEntriesMixin):
             filter=filter )
         if filename :
             element.setValue( SDOption.KEY_VALUE, filename )
-            element.setChanged(True)
+            element.set_changed(True)
             if feedback is not None:
                 feedback.setText( filename )
         return True
@@ -133,24 +133,24 @@ class SimpleDialog( QDialog , SDEntriesMixin):
         button.setEnabled(True)
         if new_directory_name :
             element.setValue( SDOption.KEY_VALUE, new_directory_name )
-            element.setChanged(True)
+            element.set_changed(True)
             if feedback is not None:
                 feedback.setText( new_directory_name )
         return True
 
     def event_text_changed( self, textField:QLineEdit , element:SDEntry ):
         element.setValue( SDOption.KEY_VALUE, textField.text())
-        element.setChanged(True)
+        element.set_changed(True)
 
     def event_dropdown_changed( self, dropitem:QComboBox , element:SDEntry ):
         index =dropitem.currentIndex()
         if index > -1:
             element.setValue( SDOption.KEY_VALUE, element.value( SDOption.KEY_DATA)[ index ] )
-            element.setChanged(True)
+            element.set_changed(True)
 
     def event_checkbox_changed( self, checkboxitem:QCheckBox, element:SDEntry ):
         element.setValue( SDOption.KEY_VALUE , checkboxitem.isChecked() )
-        element.setChanged(True)
+        element.set_changed(True)
                                                                      
     def add_element_file( self, row:int, element:SDEntry )->int:
         self._grid_layout.addWidget( QLabel( element.value( SDOption.KEY_LABEL) ), row, 0 )
@@ -159,7 +159,7 @@ class SimpleDialog( QDialog , SDEntriesMixin):
         text_file.textChanged.connect( lambda: self.event_text_changed( text_file , element ))
 
         button_file = QPushButton( self.TEXT_CHOOSE_FILE)
-        button_file.setObjectName( element.formatUniqueName() )
+        button_file.setObjectName( element.format_unique_name() )
         button_file.clicked.connect( lambda: self.btn_choose_filename( element , feedback=text_file ) )
         button_file.setAutoDefault(False )
         if element.is_option( SDOption.OPTION_READONLY ) :
@@ -179,7 +179,7 @@ class SimpleDialog( QDialog , SDEntriesMixin):
         text_dir.textChanged.connect( lambda: self.event_text_changed( text_dir , element ))
         
         button_dir = QPushButton( self.TEXT_CHOOSE_DIR)
-        button_dir.setObjectName( element.formatUniqueName( ) )
+        button_dir.setObjectName( element.format_unique_name( ) )
         button_dir.clicked.connect( lambda: self.btn_choose_directory( button_dir, element , feedback=text_dir ) )
         if element.is_option(  SDOption.OPTION_READONLY ) :
             self.setRetry( element , button_dir )
@@ -194,13 +194,14 @@ class SimpleDialog( QDialog , SDEntriesMixin):
     
     def add_element_text( self, row:int, element:SDEntry )->int:
         self._grid_layout.addWidget( QLabel( element.value( SDOption.KEY_LABEL)) , row, 0 )
-        if element.is_option(SDOption.KEY_OPTIONS):
+        if element.is_option(SDOption.OPTION_READONLY):
             text_label = QLabel( element.value( SDOption.KEY_VALUE))
+            text_label.setStyleSheet( """border-style: outset;border-width: 1px;border-color: blue;""")
         else:
             text_label = QLineEdit( element.value( SDOption.KEY_VALUE) )
-            #text_label.setText( element.value( SDOption.KEY_VALUE ) )
             text_label.textChanged.connect( lambda: self.event_text_changed( text_label , element ))
-        text_label.setObjectName( element.formatUniqueName() )
+            
+        text_label.setObjectName( element.format_unique_name() )
         self.setRetry( element , text_label )
         
         self._grid_layout.addWidget( text_label , row , 1)
@@ -228,10 +229,10 @@ class SimpleDialog( QDialog , SDEntriesMixin):
             """
         
         check_box = QCheckBox( element.value( SDOption.KEY_LABEL ) )
-        check_box.setObjectName( element.formatUniqueName() )
+        check_box.setObjectName( element.format_unique_name() )
         check_box.stateChanged.connect( lambda: self.event_checkbox_changed( check_box, element ))
         check_box.setChecked( bool(element.value( SDOption.KEY_VALUE) ) )
-        element.setChanged( True )
+        element.set_changed( True )
 
         self._grid_layout.addWidget( check_box , row , 1)
 
@@ -245,7 +246,7 @@ class SimpleDialog( QDialog , SDEntriesMixin):
             """
         self._grid_layout.addWidget( QLabel( element.value( SDOption.KEY_LABEL)) , row, 0 )
         dropdown = QComboBox()
-        dropdown.setObjectName( element.formatUniqueName() )
+        dropdown.setObjectName( element.format_unique_name() )
         dropdown.setEditable( False )
     
         dropdown.addItems( element.value( SDOption.KEY_DROP) )
@@ -286,14 +287,14 @@ class SimpleDialog( QDialog , SDEntriesMixin):
             self.bbox.addButton(QDialogButtonBox.Cancel )
 
     def set_element_Focus( self, element:SDEntry ):
-        if element.isKey( SDOption.KEY_RETRY ):
+        if element.is_key( SDOption.KEY_RETRY ):
             retry = element.value( SDOption.KEY_RETRY )
             if retry is not None:
                 retry.setStyleSheet( """border-style: outset;border-width: 2px;border-color: orange;""")
                 retry.setFocus()
 
     def clear_element_Focus( self, element:SDEntry ):
-        if element.isKey( SDOption.KEY_RETRY ):
+        if element.is_key( SDOption.KEY_RETRY ):
             retry = element.value( SDOption.KEY_RETRY )
             if retry is not None:
                 retry.setStyleSheet("" )

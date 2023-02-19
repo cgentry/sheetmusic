@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.12
+# sheetmusic version 0.5.13
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -15,6 +15,11 @@ Features:
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
 
+# 0.5.13 (unstable)
+* Making major changes to how we run PDF imports: having different scripts for differnt systems
+* Adding script filters for OS systems
+* started altering how we store import settings. Won't be finished for at least one more version
+  
 # 0.5.12
 * Change the way scripts are invoked. Now most parms are set in the environment rather than as CLI options.
 * Bug cleanup

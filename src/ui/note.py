@@ -126,7 +126,7 @@ class UiNote(QDialog):
     def text( self )->str:
         return self.textField.toMarkdown()
 
-    def setChanged(self)->None:
+    def set_changed(self)->None:
         self._textChanged = True
     
     def delete(self)->bool:

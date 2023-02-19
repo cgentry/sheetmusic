@@ -38,6 +38,11 @@ class _SimplePdfInfo:
         pass
 
 class _DefaultPdfInfo( _SimplePdfInfo ):
+    """ This actually doesn't do anything but returns an empty dictionary
+    
+        This allows us to add any default information as if it came from 
+        a PDF
+    """
 
     def get_info_from_pdf( self, filename:str )->dict:
         super().get_info_from_pdf( filename )
@@ -135,7 +140,7 @@ class PdfInfo:
     _pdf_import = None
 
     def __init__(self, prefer:str=None ):
-        if PdfInfo._pdf_import is None:
+        if not self.has_pdf_library() :
             if prefer is not None:
                 position = PdfInfo._pdf_library_list.index( prefer )
                 if position > -1 :
@@ -154,6 +159,10 @@ class PdfInfo:
         return PdfInfo._pdf_import is not None
     
     def get_info_from_pdf( self, sourcefile)->dict: 
+        """
+            Get info from PDF using a PDF library If none are availble it will return
+            default information.
+        """
         if PdfInfo._pdf_import == 'pypdf':
             pdf = _UsePyPDF( __import__( PdfInfo._pdf_import ) )
         else:
