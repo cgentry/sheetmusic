@@ -122,13 +122,13 @@ class UiProperties(QDialog):
             self.accept()
     
     def isReject(self)->bool:
-        return (self.result() == self.Rejected )
+        return (self.result() == self.DialogCode.Rejected )
     
     def isSkip(self)->bool:
-        return( self.result()==self.Accepted and len(self.changes) == 0 )
+        return( self.result()==self.DialogCode.Accepted and len(self.changes) == 0 )
 
     def isApply( self )->bool:
-        return( self.result()==self.Accepted and len(self.changes) > 0 )
+        return( self.result()==self.DialogCode.Accepted and len(self.changes) > 0 )
 
     def _format_static_property(self, label:str, itemValue, isMutable:bool):
         headerW = QTableWidgetItem( str( label ))

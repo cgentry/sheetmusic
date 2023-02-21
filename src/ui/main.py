@@ -87,23 +87,24 @@ class UiMain(object):
             return s
 
         # FILE actions
-        self.actionOpen         = action(u'Open',   title='Open...',  shortcut=QKeySequence.Open)
-        self.actionOpenRecent   = action(u'Recent')
-        self.actionReopen       = action(u'Reopen' ,title="Reopen" )
-        self.actionClose        = action(u"Close",                    shortcut=QKeySequence.Close)
-        self.actionDelete       = action(u'Delete', title='Delete...',shortcut=QKeySequence.DeleteEndOfWord)
-        self.actionImport       = action(u'Import')
+        self.action_file_open          = action(u'Open',   title='Open...',  shortcut=QKeySequence.Open)
+        self.action_file_open_recent   = action(u'Recent')
+        self.action_file_reopen        = action(u'Reopen' ,title="Reopen" )
+        self.action_file_close         = action(u"Close",                    shortcut=QKeySequence.Close)
+        self.action_file_delete        = action(u'Delete', title='Delete...',shortcut=QKeySequence.DeleteEndOfWord)
+        self.action_file_import        = action(u'Import')
         ### file -> import actions
-        self.actionImportPDF    =    action( u'ImportPDF',    title=u'Import PDF ...'  )
-        self.actionImportDirectory = action( u'ImportDir',    title=u"Import Directory of PDFs...")
-        self.actionReimportPDF =     action( u'ReimportPDF' , title=u'Reimport PDF...')
+        self.action_file_select_import        = action( u'SelectImport', title=u'Select Import Script ...')
+        self.action_file_import_PDF    = action( u'ImportPDF',    title=u'Import PDF ...'  )
+        self.action_file_import_dir    = action( u'ImportDir',    title=u"Import Directory of PDFs...")
+        self.action_file_reimport_PDF  = action( u'ReimportPDF' , title=u'Reimport PDF...')
 
         # EDIT actions
         self.actionEditPage             = action( u'PageEdit'  , title='Edit Page #', shortcut=u'Ctrl+E')
         self.actionProperties           = action( u"Properties", shortcut=u'Ctrl+I')
         self.actionNoteBook             = action( u"BookNote"  , title="Note for Book")
         self.actionNotePage             = action( u'PageNote'  , title='Note for Page')
-        self.actionDeleteAllBookmarks   = action( u'DeleteAllBookmarks', title=u'Delete All Bookmarks')
+        self.action_file_deleteAllBookmarks   = action( u'DeleteAllBookmarks', title=u'Delete All Bookmarks')
 
         # VIEW actions
         self.actionRefresh             = action(u'Refresh'     ,  title=u'Refresh',                 shortcut=QKeySequence.Refresh)
@@ -130,7 +131,7 @@ class UiMain(object):
         # TOOL actions (Bookmark controls are set in 'setBookmarkShortcuts')
         self.actionBookmarkCurrentPage  = action(u"BookmarkCurrentPage", title=u'Bookmark current page')
         self.actionAdd_Bookmark         = action(u"Add_Bookmark",        title=u'Add Bookmark...')
-        self.actionCheckIncomplete      = action( u"CheckIncomplete",    title=u'Check for incomplete entries ...')
+        self.action_tool_check_incomplete  = action( u"CheckIncomplete",    title=u'Check for incomplete entries ...')
         self.actionToolRefresh          = action( u"RefreshTool",        title=u'Refresh script list')
         #self.actionCleanDB              = action(u'CleanDB',             title=u'Clean Database')
         #self.actionDumpDB               = action(u'DumpDB',              title=u'Backup Database...')
@@ -223,8 +224,9 @@ class UiMain(object):
         self.setMarkBookmark    = self.actionBookmarkCurrentPage.triggered.connect
         self.setAddBookmark     = self.actionAdd_Bookmark.triggered.connect
         self.setShowBookmarks   = self.actionShowBookmarks.triggered.connect
-        self.setImportPDF       = self.actionImportPDF.triggered.connect
-        self.setReimportPDF     = self.actionReimportPDF.triggered.connect
+        self.setImportScript    = self.action_file_select_import.triggered.connect
+        self.setImportPDF       = self.action_file_import_PDF.triggered.connect
+        self.setReimportPDF     = self.action_file_reimport_PDF.triggered.connect
 
     def createMenus(self, MainWindow)->None:
         """
@@ -278,19 +280,19 @@ class UiMain(object):
         self.addHelpActions()
 
     def addFileActions(self)->None:
-        self.menuFile.addAction(self.actionOpen)
-        self.actionOpenRecent = self.menuFile.addMenu( self.menuOpenRecent )
-        self.menuFile.addAction( self.actionReopen )
-        self.menuFile.addAction(self.actionClose)
-        self.menuFile.addAction( self.actionDelete )
+        self.menuFile.addAction(self.action_file_open)
+        self.action_file_open_recent = self.menuFile.addMenu( self.menuOpenRecent )
+        self.menuFile.addAction( self.action_file_reopen )
+        self.menuFile.addAction(self.action_file_close)
+        self.menuFile.addAction( self.action_file_delete )
         self.menuFile.addSeparator()   # -------------------
         # import submenu...
         self.menuImport = self.menuFile.addMenu( "Import")
         self.menuImport.setTitle('Import music')
-        self.menuImport.addAction( self.actionImportPDF )
-        self.menuImport.addAction( self.actionReimportPDF)
-        self.menuImport.addAction( self.actionImportDirectory)
-        self.menuImport.addAction( self.actionCheckIncomplete)
+        self.menuImport.addAction( self.action_file_select_import )
+        self.menuImport.addAction( self.action_file_import_PDF )
+        self.menuImport.addAction( self.action_file_reimport_PDF)
+        self.menuImport.addAction( self.action_file_import_dir)
 
         self.menuFile.addSeparator()   # -------------------
         self.menuFile.addAction(self.actionPreferences)
@@ -302,7 +304,7 @@ class UiMain(object):
         self.menuEdit.addAction(self.actionNoteBook)
         self.menuEdit.addAction(self.actionNotePage)
         self.menuEdit.addSeparator()   # -------------------
-        self.menuEdit.addAction( self.actionDeleteAllBookmarks )
+        self.menuEdit.addAction( self.action_file_deleteAllBookmarks )
 
     def addViewActions(self)->None:
         self.menuView.addAction( self.actionRefresh )
@@ -334,6 +336,7 @@ class UiMain(object):
         self.menuTools.addAction(self.actionBookmarkCurrentPage)
         self.menuTools.addAction(self.actionAdd_Bookmark)
         self.menuTools.addSeparator()   # -------------------
+        self.menuTools.addAction( self.action_tool_check_incomplete)
         self.actionToolScript = self.menuTools.addMenu( self.menuToolScript )
         self.menuTools.addAction( self.actionToolRefresh )
         #self.menuTools.addAction( self.actionCleanDB )

@@ -20,10 +20,10 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
 # Dialog only runs during configuration. Key should be stored as 'unix_gs_png.sh'
 #:dialog "type='title'    label='Ghostscript settings'"
-#:dialog "type='dropdown' label='Conversion type' tag='IMG_FORMAT'  dropdown='24bit RGB Color;Grayscale' data='png16m;pnggray' value='pnggray'"
-#:dialog "type='dropdown' label='Resolution'      tag='IMG_RES'     dropdown='150;200;300' value='200' "
-#:dialog "type='text'     label='Options for GS'  tag='IMG_OPTIONS' value='-dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false -dGraphicsAlphaBits=4'"
-#:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    value='png'  option='ro'"
+#:dialog "type='drop'     label='Conversion type' option='include' tag='IMG_FORMAT'  dropdown='24bit RGB Color;Grayscale' data='png16m;pnggray' value='pnggray'"
+#:dialog "type='drop'     label='Resolution'      option='include' tag='IMG_RES'     dropdown='150;200;300' value='200' "
+#:dialog "type='text'     label='Options for GS'  option='include' tag='IMG_OPTIONS' value='-dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false -dGraphicsAlphaBits=4'"
+#:dialog "type='text'     label='Image Type'      option='include' tag='IMG_TYPE'    value='png'  option='ro'"
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"

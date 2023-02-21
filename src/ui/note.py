@@ -37,7 +37,7 @@ class UiNote(QDialog):
 
     actionCancel = 0
     actionSave   = 1
-    actionDelete = 2
+    action_file_delete = 2
 
     def __init__(self):
         super().__init__()
@@ -107,7 +107,7 @@ class UiNote(QDialog):
             "Delete note for page?",
             QMessageBox.No | QMessageBox.Yes 
         ) :
-            self._action = self.actionDelete
+            self._action = self.action_file_delete
             self.accept()
 
     def setID( self, id:int ):
@@ -130,7 +130,7 @@ class UiNote(QDialog):
         self._textChanged = True
     
     def delete(self)->bool:
-        return self._action == self.actionDelete
+        return self._action == self.action_file_delete
 
     def action( self ):
         return self._action

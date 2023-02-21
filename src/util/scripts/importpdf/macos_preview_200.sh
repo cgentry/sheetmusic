@@ -10,8 +10,10 @@
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
 #:title Import PDF to Sheetmusic using MacOS Preview
-#:comment This program will run the MacOS utility Preview convert PDFs 
-#:comment into one-page images. This renders text much better than Ghostscript
+#:comment This program will run the MacOS utility Preview 
+#:comment to convert PDFs into one-page images.
+#:comment <br/>
+#:comment This may render text better than Ghostscript
 #:require debug ontop
 #:system  music pdf-res pdf-type pdf-device 
 #:width   800
@@ -20,9 +22,10 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
 # Dialog only runs during configuration. Key should be stored as 'unix_gs_png.sh'
 #:dialog "type='title'    label='Preview conversion settings'"
-#:dialog "type='dropdown' label='Conversion type' tag='IMG_FORMAT'  dropdown='color;greyscale'  value='greyscale' option='required'"
-#:dialog "type='text'     label='Resolution'      tag='IMG_RES'     value='200' option='ro required' "
-#:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    value='png'  option='ro required'"
+#:dialog "type='drop'     label='Conversion type' tag='IMG_FORMAT'  option='include required'    value='greyscale' dropdown='color;greyscale'  "
+#:dialog "type='text'     label='Resolution'      tag='IMG_RES'     option='include ro'          value='200'"
+#:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    option='include ro'          value='png'"
+#:dialog "type='size'     width='400'"
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"

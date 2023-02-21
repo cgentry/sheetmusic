@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.13"
+    version      = "0.5.14"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -109,6 +109,8 @@ class DbKeys():
     VALUE_NAME_IMPORT_FILE_0    = 0           # Minimal cleanup only (bad chars)
     VALUE_NAME_IMPORT_FILE_1    = 1           # Just use filename but get rid of characters
     VALUE_NAME_IMPORT_FILE_2    = 2           # Try and tidy up the filename more
+
+    SETTING_IMPORT_SCRIPT       = 'importScript'
     
     
 

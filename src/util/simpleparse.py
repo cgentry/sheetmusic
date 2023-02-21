@@ -284,20 +284,21 @@ class SDEntry( ):
 
     def replace( self , keywords:dict )->None:
         """ Replace all the occurances of a keyword in value, data and drop."""
-        for key, word in keywords.items():
-            key = '$' + key 
+        if isinstance( keywords, dict ):
+            for key, word in keywords.items():
+                key = '$' + key 
 
-            value = self._tokens[ SDOption.KEY_VALUE ]
-            if isinstance( value , str ) and key in value:
-                self._tokens[ SDOption.KEY_VALUE ] = value.replace( key , word  ) 
+                value = self._tokens[ SDOption.KEY_VALUE ]
+                if isinstance( value , str ) and key in value:
+                    self._tokens[ SDOption.KEY_VALUE ] = value.replace( key , word  ) 
 
-            if self.is_type( SDOption.TYPE_DROPDOWN ):
-                for index, entry in enumerate( self.value( SDOption.KEY_DROP ) ):
-                    if key in entry:
-                        self._tokens[ SDOption.KEY_DROP ][index] = entry.replace( key, word )
-                for index, entry in enumerate( self.value( SDOption.KEY_DATA ) ):
-                    if entry == key:
-                        self._tokens[ SDOption.KEY_DATA ][index] = entry.replace( key, word )
+                if self.is_type( SDOption.TYPE_DROPDOWN ):
+                    for index, entry in enumerate( self.value( SDOption.KEY_DROP ) ):
+                        if key in entry:
+                            self._tokens[ SDOption.KEY_DROP ][index] = entry.replace( key, word )
+                    for index, entry in enumerate( self.value( SDOption.KEY_DATA ) ):
+                        if entry == key:
+                            self._tokens[ SDOption.KEY_DATA ][index] = entry.replace( key, word )
 
     def _parse_line( self , line_input:str , line_number:int=0 )->dict:
         """

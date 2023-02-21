@@ -29,7 +29,7 @@ import os
 import logging
 import platform
 
-from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QDir, QByteArray
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
 from PySide6.QtGui import QPixmap, QAction
 
@@ -44,16 +44,16 @@ from qdil.book import DilBook
 from qdil.bookmark import DilBookmark
 
 from ui.main import UiMain
-from ui.pagewidget import (PageLabelWidget, PageWidget)
+from ui.pagewidget import (PageLabelWidget)
 from ui.properties import UiProperties
 from ui.bookmark import UiBookmark
 from ui.file import Openfile, Deletefile, DeletefileAction, Reimportfile
 from ui.note import UiNote
-from util.toollist import GenerateToolList, ToolScript
 from ui.runscript import RunSilentRunDeep
 
 from util.convert import toBool
-
+from util.toollist import GenerateToolList
+from util.toolconvert import ImportSettings
 
 class MainWindow(QMainWindow):
     MAX_PAGES = 3
@@ -338,45 +338,37 @@ class MainWindow(QMainWindow):
 
     def connectMenus(self) -> None:
         """ Connect menus and events to the routines handling the function"""
-        self.ui.actionBookmarkCurrentPage.triggered.connect(
-            self.actionMakeBookmark)
-        self.ui.actionShowBookmarks.triggered.connect(self.actionShowBookmark)
-        self.ui.actionAdd_Bookmark.triggered.connect(self.actionAddBookmark)
-        #  self.ui.actionCleanDB.triggered.connect( self.actionCleanDB )
-        #  self.ui.actionDumpDB.triggered.connect( self.actionDumpDB )
-        self.ui.actionToolRefresh.triggered.connect(self.action_tool_refresh)
 
-        self.ui.menuToolScript.aboutToShow.connect(
-            self.actionToolScriptUpdateList)
-        self.ui.menuToolScript.triggered.connect(self.actionToolScript)
+        # FILE:
+        self.ui.menuFile.aboutToShow.connect( self._about_to_show_file_menu )
+        self.ui.action_file_open.triggered.connect(self._action_file_open)
+        self.ui.menuOpenRecent.aboutToShow.connect(self._about_to_show_file_recent )
+        self.ui.menuOpenRecent.triggered.connect(self._action_file_open_recent)
+        self.ui.action_file_reopen.triggered.connect( self._action_file_reopen )
+        self.ui.action_file_close.triggered.connect(self._action_file_close)
+        self.ui.action_file_delete.triggered.connect(self._action_file_delete)
+        # --------------
+        self.ui.action_file_select_import.triggered.connect( self._action_file_select_import )
+        self.ui.action_file_import_PDF.triggered.connect(self._action_file_import_PDF)
+        self.ui.action_file_import_dir.triggered.connect(
+            self._action_file_import_dir)
+        self.ui.action_tool_check_incomplete.triggered.connect(
+            self._action_tool_check_incomplete)
+        self.ui.action_file_reimport_PDF.triggered.connect(self._action_file_reimport_PDF)
 
-        # self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
-        self.ui.action_previous_bookmark.triggered.connect(
-            self.goPreviousBookmark)
-        self.ui.action_next_bookmark.triggered.connect(self.goNextBookmark)
-        self.ui.btn_bookmark.clicked.connect(self.actionClickedBookmark)
-
-        self.ui.actionOpen.triggered.connect(self.actionFileOpen)
-        self.ui.menuOpenRecent.aboutToShow.connect(
-            self.actionOpenRecentUpdateFiles)
+        # EDIT:
         self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
-        self.ui.menuOpenRecent.triggered.connect(self.actionOpenRecent)
-        self.ui.actionReopen.triggered.connect( self.actionReopen )
         self.ui.actionEditPage.triggered.connect(self.actionPageEdit)
         self.ui.actionProperties.triggered.connect(self.actionProperties)
+        self.ui.actionPreferences.triggered.connect(self.actionPreferences)
         self.ui.actionNoteBook.triggered.connect(self.actionNoteBook)
         self.ui.actionNotePage.triggered.connect(self.actionNotePage)
-        self.ui.actionDeleteAllBookmarks.triggered.connect(
-            self.actionDeleteAllBookmarks)
-        self.ui.actionPreferences.triggered.connect(self.actionPreferences)
-        self.ui.actionAbout.triggered.connect(self.actionAbout)
-        self.ui.actionHelp.triggered.connect(self.actionHelp)
-        self.ui.actionClose.triggered.connect(self.actionClose)
-        self.ui.actionDelete.triggered.connect(self.actionDelete)
-
-        self.ui.actionFirstPage.triggered.connect(self.goFirstPageShown)
-        self.ui.actionLastPage.triggered.connect(self.goLastPageShown)
-
+        self.ui.action_file_deleteAllBookmarks.triggered.connect(self._action_file_deleteAllBookmarks)
+        
+        # VIEW:
+        self.ui.actionToolRefresh.triggered.connect(self.action_tool_refresh)
+        self.ui.actionShowBookmarks.triggered.connect(self.actionShowBookmark)
+        # --------------
         self.ui.actionOne_Page.triggered.connect(self.actionOnePage)
         self.ui.actionTwo_Pages.triggered.connect(self.actionTwoPagesSide)
         self.ui.actionTwo_Pages_Stacked.triggered.connect(
@@ -384,28 +376,45 @@ class MainWindow(QMainWindow):
         self.ui.actionThree_Pages.triggered.connect(self.actionThreePagesSide)
         self.ui.actionThree_Pages_Stacked.triggered.connect(
             self.actionThreePagesStacked)
-        self.ui.actionViewStatus.triggered.connect(self.actionViewStatusBar)
+        # --------------
         self.ui.actionAspectRatio.triggered.connect(self.actionAspectRatio)
+        self.ui.actionViewStatus.triggered.connect(self.actionViewStatusBar)
         self.ui.actionSmartPages.triggered.connect(self.actionSmartPages)
 
+        # GO:
         self.ui.actionGo_to_Page.triggered.connect(self.actionGoPage)
-        self.ui.actionDown.triggered.connect(self.page_forward)
+        self.ui.actionFirstPage.triggered.connect(self.goFirstPageShown)
+        self.ui.actionLastPage.triggered.connect(self.goLastPageShown)
+        # --------------
         self.ui.actionUp.triggered.connect(self.page_previous)
+        self.ui.actionDown.triggered.connect(self.page_forward)
+        # --------------
+        self.ui.action_previous_bookmark.triggered.connect(
+            self.goPreviousBookmark)
+        self.ui.action_next_bookmark.triggered.connect(self.goNextBookmark)
+        self.ui.btn_bookmark.clicked.connect(self.actionClickedBookmark)
 
+        # TOOLS
+        self.ui.actionBookmarkCurrentPage.triggered.connect(
+            self.actionMakeBookmark)
+        self.ui.actionAdd_Bookmark.triggered.connect(self.actionAddBookmark)
+        self.ui.menuToolScript.aboutToShow.connect(
+            self.actionToolScriptUpdateList)
+        self.ui.menuToolScript.triggered.connect(self.actionToolScript)
+
+        # HELP:
+        self.ui.actionAbout.triggered.connect(self.actionAbout)
+        self.ui.actionHelp.triggered.connect(self.actionHelp)
+
+        # INTERNAL
         self.ui.slider_page_position.valueChanged.connect(
             self._action_slider_changed)
         self.ui.slider_page_position.sliderReleased.connect(
             self._action_slider_released)
 
+        # self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         # self.ui.twoPagesSide.installEventFilter( self)
-
-        self.ui.actionImportPDF.triggered.connect(self.actionImportPDF)
-        self.ui.actionImportDirectory.triggered.connect(
-            self.actionImportDirectory)
-        self.ui.actionCheckIncomplete.triggered.connect(
-            self.actionCheckIncomplete)
-        self.ui.actionReimportPDF.triggered.connect(self.actionReimportPDF)
-
+       
     def openLastBook(self) -> None:
         if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
@@ -541,7 +550,7 @@ class MainWindow(QMainWindow):
             title = "Book: {}".format(absolute_page)
         self._actionNote(page=absolute_page, seq=0, titleSuffix=title)
 
-    def actionDeleteAllBookmarks(self) -> None:
+    def _action_file_deleteAllBookmarks(self) -> None:
         rtn = QMessageBox.warning(
             None,
             "{}".format(self.book.getTitle()),
@@ -601,6 +610,14 @@ class MainWindow(QMainWindow):
         if self.ui.btn_bookmark.text() != "":
             self.actionGoBookmark()
 
+    def actionToolScriptUpdateList(self) -> None:
+        self.ui.menuToolScript.clear()
+        keys = sorted(self.toollist.keys())
+        for key in keys:
+            recent = self.ui.menuToolScript.addAction(key)
+            recent.setData(self.toollist[key])
+        self.ui.menuToolScript.setEnabled(len(keys) > 0)
+
     def actionMakeBookmark(self) -> None:
         self.bookmark.thisBook(
             self.book.getTitle(),
@@ -648,25 +665,102 @@ class MainWindow(QMainWindow):
                     continue
                 if bmk.action == bmk.actionGo:
                     self._finishBookmarkNavigation(bmk.selected)
-                if bmk.action == bmk.actionDelete:
+                if bmk.action == bmk.action_file_delete:
                     self.bookmark.delBookmark(
                         book_id=self.book.getID(), bookmark=bmk.selected[BOOKMARK.name])
                 break
 
-    def actionFileOpen(self) -> None:
+    ###### FILE ACTIONS
+    def _about_to_show_file_menu(self)->None:
+        is_import_set = ( ImportSettings.get_select() is not None )
+        self.ui.action_file_import_PDF.setEnabled( is_import_set )
+        self.ui.action_file_import_dir.setEnabled( is_import_set )
+        self.ui.action_file_reimport_PDF.setEnabled( is_import_set )
+        
+    def _action_file_open(self) -> None:
         of = Openfile()
         of.exec()
         if of.bookName is not None:
             self.open_book(of.bookName)
 
-    def actionReopen(self)->None:
+    def _action_file_open_recent(self, action: QAction) -> None:
+        if action is not None:
+            if self.open_book(action.data()) == QMessageBox.Retry:
+                self._action_file_open()
+    
+    def _about_to_show_file_recent(self) -> None:
+        self.ui.menuOpenRecent.clear()
+        fileNames = DilBook().getRecent()
+        if fileNames is not None and len(fileNames) > 0:
+            for entry, bookEntry in enumerate(fileNames, start=1):
+                recent_action = self.ui.menuOpenRecent.addAction(
+                    '&{:2d}.  {} - {}'.format(
+                        entry, bookEntry[BOOK.name], bookEntry[BOOK.location])
+                )
+                recent_action.setData(bookEntry[BOOK.name])
+        # end if len(fileNames)
+        self.ui.menuOpenRecent.setEnabled((len(fileNames) > 0))
+
+    def _action_file_reopen(self)->None:
         self.close_book()
         self.openLastBook()
 
-    def actionOpenRecent(self, action: QAction) -> None:
-        if action is not None:
-            if self.open_book(action.data()) == QMessageBox.Retry:
-                self.actionFileOpen()
+    def _action_file_close(self) -> None:
+        self.close_book()
+        self._update_recent_files()
+
+    def _action_file_delete(self) -> None:
+        df = Deletefile()
+        rtn = df.exec()
+        if rtn == QMessageBox.Accepted:
+            DeletefileAction(df.bookName)
+
+    def _action_file_select_import(self)->None:
+        """ Select a PDF import script """
+        from util.toolconvert import UiImportSetting
+        importset = UiImportSetting()
+        importset.pick_import()
+        
+    def _action_file_import_PDF(self) -> None:
+        from util.toolconvert import UiConvert
+        uiconvert = UiConvert()
+        uiconvert.setBaseDirectory(self.import_dir)
+        if uiconvert.process_files():
+            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+        self.import_dir = str(uiconvert.baseDirectory())
+        del uiconvert
+
+    def _action_file_import_dir(self) -> None:
+        from util.toolconvert import UiConvertDirectory
+        uiconvert = UiConvertDirectory()
+        uiconvert.setBaseDirectory(self.import_dir)
+        if uiconvert.exec_():
+            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+        self.import_dir = uiconvert.baseDirectory()
+        del uiconvert
+
+    def _action_file_reimport_PDF(self) -> None:
+        rif = Reimportfile()
+        if rif.exec() == QMessageBox.Accepted:
+            book = self.book.getBook(book=rif.bookName)
+            from util.toolconvert import UiConvertFilenames
+            uiconvert = UiConvertFilenames()
+            if not isfile(book[BOOK.source]):
+                book[BOOK.source] = self._lost_and_found_book(book[BOOK.name])
+                if book[BOOK.source] is None:
+                    return
+
+            if uiconvert.processFile(book[BOOK.source]):
+                self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+            del uiconvert
+        del rif
+    
+    ###### TOOL ACTIONS
+    def _action_tool_check_incomplete(self) -> None:
+        from qdil.book import DilBook
+        print("Update incomplete books")
+        DilBook().updateIncompleteBooksUI()
+        pass
 
     def action_tool_refresh(self, action: QAction) -> None:
         tl = GenerateToolList()
@@ -683,37 +777,6 @@ class MainWindow(QMainWindow):
                 else:
                     runner = UiRunScriptFile(self.toollist[key].path())
                 runner.run()
-
-    def actionToolScriptUpdateList(self) -> None:
-        self.ui.menuToolScript.clear()
-        keys = sorted(self.toollist.keys())
-        for key in keys:
-            recent = self.ui.menuToolScript.addAction(key)
-            recent.setData(self.toollist[key])
-        self.ui.menuToolScript.setEnabled(len(keys) > 0)
-
-    def actionOpenRecentUpdateFiles(self) -> None:
-        self.ui.menuOpenRecent.clear()
-        fileNames = DilBook().getRecent()
-        if fileNames is not None and len(fileNames) > 0:
-            for entry, bookEntry in enumerate(fileNames, start=1):
-                recent_action = self.ui.menuOpenRecent.addAction(
-                    '&{:2d}.  {} - {}'.format(
-                        entry, bookEntry[BOOK.name], bookEntry[BOOK.location])
-                )
-                recent_action.setData(bookEntry[BOOK.name])
-        # end if len(fileNames)
-        self.ui.menuOpenRecent.setEnabled((len(fileNames) > 0))
-
-    def actionClose(self) -> None:
-        self.close_book()
-        self.actionOpenRecentUpdateFiles()
-
-    def actionDelete(self) -> None:
-        df = Deletefile()
-        rtn = df.exec()
-        if rtn == QMessageBox.Accepted:
-            DeletefileAction(df.bookName)
 
     def actionGoBookmark(self) -> None:
         uiBookmark = UiBookmark(self.book.getTitle(
@@ -738,14 +801,14 @@ class MainWindow(QMainWindow):
     def _set_menu_book_options(self, show=True) -> None:
         """ Enable menus when file is open"""
         self.ui.actionProperties.setEnabled(show)
-        self.ui.actionClose.setEnabled(show)
-        self.ui.actionReopen.setEnabled( show )
-        self.ui.actionDelete.setEnabled(show)
+        self.ui.action_file_close.setEnabled(show)
+        self.ui.action_file_reopen.setEnabled( show )
+        self.ui.action_file_delete.setEnabled(show)
         self.ui.actionRefresh.setEnabled(show)
 
         self.ui.actionBookmarkCurrentPage.setEnabled(show)
         self.ui.actionShowBookmarks.setEnabled(show)
-        self.ui.actionDeleteAllBookmarks.setEnabled(show)
+        self.ui.action_file_deleteAllBookmarks.setEnabled(show)
         self.ui.actionAdd_Bookmark.setEnabled(show)
 
         self.ui.actionUp.setEnabled(show)
@@ -830,15 +893,6 @@ class MainWindow(QMainWindow):
                     self.bookmark.addBookmark(
                         book[BOOK.name], marks[BOOKMARK.name], marks[BOOKMARK.page])
 
-    def actionImportPDF(self) -> None:
-        from util.toolconvert import UiConvert
-        uiconvert = UiConvert()
-        uiconvert.setBaseDirectory(self.import_dir)
-        if uiconvert.process_files():
-            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
-        self.import_dir = str(uiconvert.baseDirectory())
-        del uiconvert
-
     def _lost_and_found_book(self, book_name: str) -> str:
         if QMessageBox.Yes != QMessageBox.critical(
             None,
@@ -855,35 +909,6 @@ class MainWindow(QMainWindow):
 
         return filename
 
-    def actionReimportPDF(self) -> None:
-        rif = Reimportfile()
-        if rif.exec() == QMessageBox.Accepted:
-            book = self.book.getBook(book=rif.bookName)
-            from util.toolconvert import UiConvertFilenames
-            uiconvert = UiConvertFilenames()
-            if not isfile(book[BOOK.source]):
-                book[BOOK.source] = self._lost_and_found_book(book[BOOK.name])
-                if book[BOOK.source] is None:
-                    return
-
-            if uiconvert.processFile(book[BOOK.source]):
-                self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
-            del uiconvert
-        del rif
-
-    def actionImportDirectory(self) -> None:
-        from util.toolconvert import UiConvertDirectory
-        uiconvert = UiConvertDirectory()
-        uiconvert.setBaseDirectory(self.import_dir)
-        if uiconvert.exec_():
-            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
-        self.import_dir = uiconvert.baseDirectory()
-        del uiconvert
-
-    def actionCheckIncomplete(self) -> None:
-        from qdil.book import DilBook
-        DilBook().updateIncompleteBooksUI()
-        pass
 
     def introImage(self) -> None:
         imagePath = os.path.join(os.path.dirname(

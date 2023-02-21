@@ -10,8 +10,8 @@
 trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
 #:title Import PDF to Sheetmusic using Ghostscript
-#:comment This program will run the free utility Ghostscript to read and convert PDFs 
-#:comment into one-page images.
+#:comment This program will run the free utility Ghostscript 
+#:comment to read and convert PDFs into one-page images.
 #:require debug ontop
 #:system  music pdf-res pdf-type pdf-device 
 #:width   800
@@ -20,10 +20,11 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 
 # Dialog only runs during configuration. Key should be stored as 'unix_gs_png.sh'
 #:dialog "type='title'    label='Ghostscript settings'"
-#:dialog "type='dropdown' label='Conversion type' tag='IMG_FORMAT'  dropdown='24bit RGB Color;Grayscale' data='png16m;pnggray' value='pnggray'"
-#:dialog "type='dropdown' label='Resolution'      tag='IMG_RES'     dropdown='150;200;300' value='200' "
-#:dialog "type='text'     label='Options for GS'  tag='IMG_OPTIONS' value='-dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false -dGraphicsAlphaBits=4'"
-#:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    value='png'  option='ro'"
+#:dialog "type='drop'     label='Conversion type' tag='IMG_FORMAT'  option='include' dropdown='24bit RGB Color;Grayscale' data='png16m;pnggray' value='pnggray'"
+#:dialog "type='drop'     label='Resolution'      tag='IMG_RES'     option='include' dropdown='150;200;300' value='200'"
+#:dialog "type='text'     label='Options for GS'  tag='IMG_OPTIONS' option='include' value='-dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false -dGraphicsAlphaBits=4' width='1024'"
+#:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    option='include' value='png'  option='ro'"
+#:dialog "type='size'     width='1024'"
 
 if [ ! -e ${INCLUDE_SYSTEM}/start.sh ] ; then
     echo "ERROR! Can't include ${INCLUDE_SYSTEM}/start.sh"

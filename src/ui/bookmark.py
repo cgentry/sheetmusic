@@ -312,7 +312,7 @@ class UiBookmark( UiBookmarkBase):
     '''
     This is a disposable class (don't keep instances of it alive). This handles goto and destroy
     '''
-    actionDelete = 'delete'
+    action_file_delete = 'delete'
     actionGo = 'go'
     actionEdit = 'edit'
 
@@ -373,7 +373,7 @@ class UiBookmark( UiBookmarkBase):
 
     def actionButtonClicked(self, button ):
         if button.objectName() == 'Delete' :
-            self.action = self.actionDelete
+            self.action = self.action_file_delete
             self.returnSelect()
         if button.objectName() == 'Edit':
             self.action = self.actionEdit

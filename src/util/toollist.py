@@ -46,6 +46,9 @@ class ToolScript():
 
     def path(self) -> str:
         return self.tool[ToolScript.Path]
+    
+    def comment(self)->str:
+        return self.tool[ToolScript.Comment]
 
     def todict(self )->dict:
         return self.tool 
@@ -103,7 +106,7 @@ class GenerateListMixin():
 
         title = self.script_parms.setting_value(
             ScriptKeys.TITLE, 'Script:{}'.format(filename))
-        comment = "<br/><p>{}</p><br/>".format(
+        comment = "<p>{}</p><br/>".format(
             '<br/>'.join(self.script_parms.setting(ScriptKeys.COMMENT, '')))
         running_os = self.script_parms.flag( ScriptKeys.OS  )
         if self.script_parms.is_set( ScriptKeys.OS ): 

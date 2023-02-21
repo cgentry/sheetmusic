@@ -15,6 +15,13 @@ Features:
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes. 
 
+# 0.5.14 (unstable)
+* Tied in OS-specific feature for import
+* Removed import setup from Preferences and moved to 'File' menu
+* Begun creating multiple import options. Found that the 'Preview' option does produce better images ... sometimes.
+* Allows selection of import options per-import
+
+
 # 0.5.13 (unstable)
 * Making major changes to how we run PDF imports: having different scripts for differnt systems
 * Adding script filters for OS systems
