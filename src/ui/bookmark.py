@@ -122,6 +122,7 @@ class UiBookmarkSingle(QDialog):
         self.changes = {}
         self.numberingOffset = None
         self.pageValid = QIntValidator( 1, 999 , self)
+        self.button_was_save = None
 
     def setTotalPages(self, totalPages:int=None ):
         if totalPages is not None:
@@ -214,6 +215,8 @@ class UiBookmarkSingle(QDialog):
         self.pageShown.setChecked( False )
         self.bookmarkName.clear()
         self.bookPage.clear()
+        self.show()
+        self.bookmarkName.setFocus()
 
     def hasAcceptableInput(self)->bool:
         if not self.bookPage.hasAcceptableInput():
@@ -240,7 +243,8 @@ class UiBookmarkSingle(QDialog):
             self.error( "(Book page is {})".format(page  ))
 
     def actionButtonClicked(self, button ):
-        if self.button.text() == 'Cancel' :
+        self.button_was_save = (button.text() == 'Save' )
+        if button.text() == 'Cancel' :
             self.changes = {}
             self.reject()
 
@@ -437,6 +441,9 @@ class UiBookmark( UiBookmarkBase):
 
     def onBookmarkSelected( self):
         pass
+
+    def exec(self)->int:
+        return super().exec()
 
 if __name__ == "__main__":
     app = QApplication()
