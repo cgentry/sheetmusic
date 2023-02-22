@@ -139,33 +139,35 @@ class DilBook(DbBook):
             Each book read will also include all the BookSettings
         """
         self.newBook = super().getBook(book=book)
-
+        dlg = QMessageBox()
+        dlg.setIcon( QMessageBox.Warning )
+        dlg.setInformativeText( book )
+        
+        btnCancel = dlg.addButton( QMessageBox.Cancel )
+        btnDelete = dlg.addButton( 'Delete', QMessageBox.DestructiveRole )
+        btnRetry  = dlg.addButton( QMessageBox.Retry)
+        
         if self.newBook == None:
             if onError is not None:
                 return onError
-            return QMessageBox.warning(None,
-                                       "Opening sheetmusic",
-                                       "Book {} is not valid.".format(book),
-                                       QMessageBox.Retry,
-                                       QMessageBox.Cancel
-                                       )
+            dlg.setWindowTitle('Opening sheetmusic')
+            dlg.setText("Book is not valid.")
+            dlg.exec()
+            return dlg.buttonRole( dlg.clickedButton() )
 
         if not os.path.isdir(self.newBook[BOOK.location]):
-            return QMessageBox.warning(None,
-                                       "Opening directory",
-                                       "Book directory '{}' is not valid.".format(
-                                           self.newBook[BOOK.location]),
-                                       QMessageBox.Retry,
-                                       QMessageBox.Cancel)
+            dlg.setWindowTitle( 'Opening directory')
+            dlg.setText( "Book directory is not valid." )
+            dlg.exec()
+            return dlg.buttonRole( dlg.clickedButton() )
 
         if self.newBook[BOOK.totalPages] == 0:
             if onError is not None:
                 return onError
-            return QMessageBox.warning(None,
-                                       "Opening book",
-                                       "There are no pages in '{}'.".format(
-                                           self.book[BOOK.name]),
-                                       QMessageBox.Retry, QMessageBox.Cancel)
+            dlg.setWindowTitle('Opening book')
+            dlg.setText("The book is empty." )
+            dlg.exec()
+            return dlg.buttonRole( dlg.clickedButton() )
 
         self.closeBook()
         self.book = self.newBook
@@ -461,7 +463,6 @@ class DilBook(DbBook):
             some in BookSettings. We need to know where to put it.
         """
         book_id = self.getID()
-        book_name = self.getTitle()
         settings, database = self._splitParms(self.changes)
         for key in settings:
             self.dbooksettings.upsertBookSetting(
@@ -504,9 +505,9 @@ class DilBook(DbBook):
 
     def editProperties(self, ui):
         ui.setPropertyList(self.book)
-        rtn = ui.exec()
-
+        rtn = ui.exec()   
         if rtn:
+            self.setProperty( BOOK.id , self.book[ BOOK.id ])
             for key, value in ui.changes.items():
                 self.setProperty(key, value)
 

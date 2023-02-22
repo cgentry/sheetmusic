@@ -370,33 +370,56 @@ class UiPreferences(QDialog):
 
     def formatLayout(self , layout:QGridLayout, row:int)->int:
         pageLayout = self.settings.getValue(DbKeys.SETTING_PAGE_LAYOUT )
+
         self.btnOnePage = QRadioButton()
         self.btnOnePage.setText(u"1 page")
         self.btnOnePage.setObjectName(DbKeys.VALUE_PAGES_SINGLE)
+
         self.btnTwoPage = QRadioButton()
         self.btnTwoPage.setText(u"2 pages, side-by-side")
         self.btnTwoPage.setObjectName(DbKeys.VALUE_PAGES_SIDE_2)
-        self.btnTwoPage.setText(u"2 pages, stacked")
-        self.btnTwoPage.setObjectName(DbKeys.VALUE_PAGES_STACK_2)
-        self.btnTwoPage.setText(u"3 pages, side-by-side")
-        self.btnTwoPage.setObjectName(DbKeys.VALUE_PAGES_SIDE_3)
-        self.btnTwoPage.setText(u"3 pages, stacked")
-        self.btnTwoPage.setObjectName(DbKeys.VALUE_PAGES_STACK_3)
+
+        self.btnTwoStack = QRadioButton()
+        self.btnTwoStack.setText(u"2 pages, stacked")
+        self.btnTwoStack.setObjectName(DbKeys.VALUE_PAGES_STACK_2)
+
+        self.btnThreePage = QRadioButton()
+        self.btnThreePage.setText(u"3 pages, side-by-side")
+        self.btnThreePage.setObjectName(DbKeys.VALUE_PAGES_SIDE_3)
+
+        self.btnThreeStack = QRadioButton()
+        self.btnThreeStack.setText(u"3 pages, stacked")
+        self.btnThreeStack.setObjectName(DbKeys.VALUE_PAGES_STACK_3)
+
         self.btnBox = QButtonGroup()
-        self.btnBox.addButton( self.btnOnePage)
+        self.btnBox.addButton(self.btnOnePage)
         self.btnBox.addButton(self.btnTwoPage)
+        self.btnBox.addButton(self.btnTwoStack)
+        self.btnBox.addButton(self.btnThreePage)
+        self.btnBox.addButton(self.btnThreeStack)
         self.btnBox.setExclusive(True)
+    
+        btnLayout = QGridLayout()
+        btnLayout.addWidget(self.btnOnePage,    0, 0)
+        btnLayout.addWidget(self.btnTwoPage,    1, 0)
+        btnLayout.addWidget(self.btnTwoStack,   1, 1)
+        btnLayout.addWidget(self.btnThreePage,  2, 0)
+        btnLayout.addWidget(self.btnThreeStack, 2, 1)
+
         if pageLayout == DbKeys.VALUE_PAGES_SINGLE:
             self.btnOnePage.setChecked(True)
-        else:
+        elif pageLayout == DbKeys.VALUE_PAGES_SIDE_2:
             self.btnTwoPage.setChecked(True)
-        btnLayout = QHBoxLayout()
-        btnLayout.addWidget(self.btnOnePage)
-        btnLayout.addWidget(self.btnTwoPage)
-        layout.addLayout( btnLayout , row,1 )
-        return row+1
+        elif pageLayout == DbKeys.VALUE_PAGES_STACK_2:
+            self.btnTwoStack.setChecked(True)
+        elif pageLayout == DbKeys.VALUE_PAGES_SIDE_3:
+            self.btnThreePage.setChecked(True)
+        elif pageLayout == DbKeys.VALUE_PAGES_STACK_3:
+            self.btnThreeStack.setChecked(True)
 
+        layout.addLayout( btnLayout , row,1 )
         self.btnBox.buttonClicked.connect( self.action_layout)
+        return row+1
 
     def formatScript(self, layout:QGridLayout, row:int )->int:
         self.txtScriptShell = QLineEdit()

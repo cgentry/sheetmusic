@@ -311,6 +311,7 @@ class RunScriptBase():
         self._process_state = None
         self._temp_file = None
         self.macro_replace = {}
+        self._extra_env = {}
 
     def __del__(self):
         self._close_temporary_file()
@@ -478,6 +479,15 @@ class RunScriptBase():
             self._process.waitForFinished()
             self.btnList['Close'].show()
 
+    def add_to_environment(self , env_dict:dict):
+        self._extra_env = env_dict
+
+    def _clean_environment( self )->None:
+        env = QProcessEnvironment.systemEnvironment()
+        for key in self._extra_env.keys():
+            env.remove( key  )
+        self._process.setProcessEnvironment(env)
+
     def setup_environment(self):
         """ Add in environment variables that are standard for all runs """
         import platform
@@ -486,6 +496,9 @@ class RunScriptBase():
         pref = DilPreferences()
 
         env = QProcessEnvironment.systemEnvironment()
+        for key, value in self._extra_env.items():
+            env.insert( key , value )
+
         env.insert(ScriptKeys.ENV_INC_SYS, get_scriptinc())
         env.insert(ScriptKeys.ENV_DIR_SYS, get_scriptdir())
         env.insert(ScriptKeys.ENV_INC_USER, get_user_scriptinc())

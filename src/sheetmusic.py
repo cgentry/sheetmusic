@@ -186,10 +186,13 @@ class MainWindow(QMainWindow):
                 self._notelist[note[NOTE.page]] = note
         return self._notelist
 
-    def open_book(self, newBookName: str, page=None):
+    def open_book(self, newBookName: str, page=None)->None:
         """ """
         self.close_book()
-        rtn = self.book.openBook(newBookName, page)
+        rtn = QMessageBox.Retry
+        while rtn == QMessageBox.Retry:
+            rtn = self.book.openBook(newBookName, page)
+
         if rtn == QMessageBox.Ok:
             self.book_layout = self.book.getPropertyOrSystem(
                 BOOKPROPERTY.layout)
@@ -212,7 +215,11 @@ class MainWindow(QMainWindow):
             self._set_display_page_layout(
                 self.book.getPropertyOrSystem(BOOKPROPERTY.layout))
             self.updateStatusBar()
-        return rtn
+        else:
+            if rtn == QMessageBox.DestructiveRole:
+                self.book.delBook( newBookName )
+            self.openLastBook()
+        return
 
     def close_book(self) -> None:
         """ Close the book, save a pointer to it, and hide the menu items. """
@@ -529,8 +536,7 @@ class MainWindow(QMainWindow):
 
     def _action_file_open_recent(self, action: QAction) -> None:
         if action is not None:
-            if self.open_book(action.data()) == QMessageBox.Retry:
-                self._action_file_open()
+            self.open_book(action.data() )
 
     def _about_to_show_file_recent(self) -> None:
         self.ui.menuOpenRecent.clear()

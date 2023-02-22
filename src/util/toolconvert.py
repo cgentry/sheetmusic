@@ -189,11 +189,11 @@ class UiImportSetting():
         self.cmb_script.currentIndexChanged.connect( self._picked_entry )
         index = 0
         self.cmb_script.setCurrentIndex( -1 )
-        for key, values in import_list.items():
-            self.cmb_script.addItem( key , values)
-            if current is not None and values['path'] == current :
+        for key, tscript in import_list.items():
+            self.cmb_script.addItem( key , tscript)
+            if current is not None and tscript.path() == current :
                 self.cmb_script.setCurrentIndex( index )
-                self.txt_comment = values['comment']
+                self.txt_comment = tscript.comment()
             index += 1
         if current is None:
             self.cmb_script.setCurrentIndex(0)
@@ -218,7 +218,8 @@ class UiBaseConvert(UiRunScript):
     CONVERT_RES = 'r'
 
     def __init__(self) -> None:
-        super().__init__(get_scriptpath(UiBaseConvert.SCRIPT))
+        super().__init__(ImportSettings.get_select() )
+        self.add_to_environment( ImportSettings.setting( self.script_file ) )
         self.pref = DilPreferences()
         self.status = self.RETURN_CANCEL
         self.set_output('text')
@@ -231,6 +232,7 @@ class UiBaseConvert(UiRunScript):
         self.baseDir = '~'
         self.data = []
         self.duplicateList = []
+    
 
     def setBaseDirectory(self, dir: str):
         if dir is not None:
@@ -414,19 +416,6 @@ class UiBaseConvert(UiRunScript):
         return self.status
 
     def add_final_vars(self):
-        # self.add_variable_flag( self.CONVERT_TYPE , self.bookType )
-        # varString = self.pref.getValue(  DbKeys.SETTING_DEFAULT_SCRIPT_VAR, None )
-        # if varString is None:
-        #     raise RuntimeError("No script variables found")
-        # vars = varString.split( DbKeys.VALUE_SCRIPT_SPLIT )
-        # ## fun 'macro' expansion. This can take a keyname and fill in from database
-        # for index, var in enumerate( vars ):
-        #     if var.startswith('::'):
-        #         if var == '::script':
-        #             vars[ index ] = scriptFilename
-        #         else: ## fill in from database
-        #             vars[ index ] = self.pref.getValue( var[2:], '' )
-
         pass
 
     def getDuplicateList(self) -> list:

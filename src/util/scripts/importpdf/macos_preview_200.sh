@@ -40,6 +40,8 @@ require_var "${IMG_FORMAT}"   "Environment variable"
 file_exists "${SOURCE_FILE}" "-SOURCE_FILE Source PDF file"
 require_var "${TARGET_DIR}"  "-TARGET_DIR new-music-directory"
 
+export   WRITE_TO="${MUSIC_DIR}/${TARGET_DIR}"
+export   SOURCE_FILE
 ${DEBUG} cd       "${MUSIC_DIR}"
 ${DEBUG} mkdir -p "${TARGET_DIR}" 
 
@@ -55,12 +57,19 @@ Write To . .'${MUSIC_DIR}/${TARGET_DIR}
 ==========================================================================
 
 START_PREVIEW
-
+AUTOMATER=$()
 if [ "$IMG_FORMAT" = "greyscale" ]; then
-${DEBUG} automator ${INCLUDE_SYSTEM}/importpdf/automator/pdf-to-png-grey.workflow
+RUN=${INCLUDE_SYSTEM}/../importpdf/automator/pdf-to-png-grey.workflow
 else
-${DEBUG} automator ${INCLUDE_SYSTEM}/importpdf/automator/pdf-to-png-rgb.workflow
+RUN=${INCLUDE_SYSTEM}/../importpdf/automator/pdf-to-png-rgb.workflow
 fi
+echo       Script: ${RUN}
+
+
+echo "${SOURCE_FILE}"  > /tmp/preview_source_file.txt
+echo "${WRITE_TO}"     > /tmp/preview_write_to.txt 
+automator  ${RUN}
+rm /tmp/preview_*.txt
 
 if [ -z "${DEBUG}" ]; then
 cat <<END_PREVIEW

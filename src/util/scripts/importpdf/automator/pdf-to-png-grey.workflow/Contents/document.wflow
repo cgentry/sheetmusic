@@ -885,7 +885,10 @@ cd ${TARGET_DIR} </string>
 					<key>nameDateSeparator</key>
 					<dict/>
 					<key>nameSingleItem</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>numberLocation</key>
 					<dict/>
 					<key>numberSeparator</key>
@@ -895,15 +898,24 @@ cd ${TARGET_DIR} </string>
 					<key>renameType</key>
 					<dict/>
 					<key>replaceWithText</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>singleItemOption</key>
 					<dict/>
 					<key>startingNumber</key>
 					<dict/>
 					<key>textInput</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>textToFind</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>useLeadingZeros</key>
 					<dict/>
 				</dict>

@@ -59,7 +59,8 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>echo ${SOURCE_FILE}</string>
+					<string>read SOURCE_FILE &lt; /tmp/preview_source_file.txt
+echo "${SOURCE_FILE}"</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
@@ -170,14 +171,14 @@
 					</dict>
 				</dict>
 				<key>isViewVisible</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:43.000000</string>
+				<string>371.500000:184.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>action</key>
@@ -206,7 +207,9 @@
 						<key>isPathPopUp</key>
 						<false/>
 						<key>selectedVariableUUID</key>
-						<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+						<string>03173457-2DF5-448F-8789-1011F17ED6BF</string>
+						<key>variableUUIDsInMenu</key>
+						<array/>
 					</dict>
 				</dict>
 				<key>AMProvides</key>
@@ -227,7 +230,7 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>variableUUID</key>
-					<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+					<string>03173457-2DF5-448F-8789-1011F17ED6BF</string>
 				</dict>
 				<key>BundleIdentifier</key>
 				<string>com.apple.Automator.SetValueofVariable</string>
@@ -280,7 +283,7 @@
 				<key>isViewVisible</key>
 				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:146.000000</string>
+				<string>371.500000:287.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Set Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -336,9 +339,9 @@
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>mkdir -p ${TARGET_DIR}
-echo ${TARGET_DIR}
-cd ${TARGET_DIR} </string>
+					<string>read WRITE_TO &lt; /tmp/preview_write_to.txt
+echo ${WRITE_TO}
+</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
@@ -449,14 +452,14 @@ cd ${TARGET_DIR} </string>
 					</dict>
 				</dict>
 				<key>isViewVisible</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:187.000000</string>
+				<string>371.500000:469.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>action</key>
@@ -485,7 +488,9 @@ cd ${TARGET_DIR} </string>
 						<key>isPathPopUp</key>
 						<false/>
 						<key>selectedVariableUUID</key>
-						<string>8AF01EDE-2C2C-4202-A9EC-0FF70AD8053F</string>
+						<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
+						<key>variableUUIDsInMenu</key>
+						<array/>
 					</dict>
 				</dict>
 				<key>AMProvides</key>
@@ -506,7 +511,7 @@ cd ${TARGET_DIR} </string>
 				<key>ActionParameters</key>
 				<dict>
 					<key>variableUUID</key>
-					<string>8AF01EDE-2C2C-4202-A9EC-0FF70AD8053F</string>
+					<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
 				</dict>
 				<key>BundleIdentifier</key>
 				<string>com.apple.Automator.SetValueofVariable</string>
@@ -557,14 +562,14 @@ cd ${TARGET_DIR} </string>
 					</dict>
 				</dict>
 				<key>isViewVisible</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:228.000000</string>
+				<string>371.500000:572.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Set Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>action</key>
@@ -593,7 +598,7 @@ cd ${TARGET_DIR} </string>
 						<key>isPathPopUp</key>
 						<false/>
 						<key>selectedVariableUUID</key>
-						<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+						<string>03173457-2DF5-448F-8789-1011F17ED6BF</string>
 						<key>variableUUIDsInMenu</key>
 						<array/>
 					</dict>
@@ -616,7 +621,7 @@ cd ${TARGET_DIR} </string>
 				<key>ActionParameters</key>
 				<dict>
 					<key>variableUUID</key>
-					<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+					<string>03173457-2DF5-448F-8789-1011F17ED6BF</string>
 				</dict>
 				<key>BundleIdentifier</key>
 				<string>com.apple.Automator.GetValueofVariable</string>
@@ -669,7 +674,7 @@ cd ${TARGET_DIR} </string>
 				<key>isViewVisible</key>
 				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:330.000000</string>
+				<string>371.500000:730.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Get Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -820,7 +825,7 @@ cd ${TARGET_DIR} </string>
 				<key>isViewVisible</key>
 				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:528.000000</string>
+				<string>371.500000:928.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Render PDF Pages as Images.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -877,7 +882,10 @@ cd ${TARGET_DIR} </string>
 					<key>nameDateSeparator</key>
 					<dict/>
 					<key>nameSingleItem</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>numberLocation</key>
 					<dict/>
 					<key>numberSeparator</key>
@@ -887,15 +895,24 @@ cd ${TARGET_DIR} </string>
 					<key>renameType</key>
 					<dict/>
 					<key>replaceWithText</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>singleItemOption</key>
 					<dict/>
 					<key>startingNumber</key>
 					<dict/>
 					<key>textInput</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>textToFind</key>
-					<dict/>
+					<dict>
+						<key>tokenizedValue</key>
+						<array/>
+					</dict>
 					<key>useLeadingZeros</key>
 					<dict/>
 				</dict>
@@ -1294,7 +1311,7 @@ cd ${TARGET_DIR} </string>
 				<key>isViewVisible</key>
 				<integer>0</integer>
 				<key>location</key>
-				<string>371.500000:569.000000</string>
+				<string>371.500000:969.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Rename Finder Items.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
@@ -1330,11 +1347,10 @@ cd ${TARGET_DIR} </string>
 						<key>isPathPopUp</key>
 						<true/>
 						<key>selectedVariableUUID</key>
-						<string>8AF01EDE-2C2C-4202-A9EC-0FF70AD8053F</string>
+						<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
 						<key>variableUUIDsInMenu</key>
 						<array>
-							<string>8AF01EDE-2C2C-4202-A9EC-0FF70AD8053F</string>
-							<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+							<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
 						</array>
 					</dict>
 				</dict>
@@ -1356,7 +1372,7 @@ cd ${TARGET_DIR} </string>
 					<key>replaceExisting</key>
 					<true/>
 					<key>toDirectory</key>
-					<string></string>
+					<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
 				</dict>
 				<key>BundleIdentifier</key>
 				<string>com.apple.Automator.MoveFiles</string>
@@ -1419,14 +1435,14 @@ cd ${TARGET_DIR} </string>
 					</dict>
 				</dict>
 				<key>isViewVisible</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>location</key>
-				<string>371.500000:610.000000</string>
+				<string>371.500000:1069.000000</string>
 				<key>nibPath</key>
 				<string>/System/Library/Automator/Move Finder Items.action/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 	</array>
 	<key>connectors</key>
@@ -1485,21 +1501,21 @@ cd ${TARGET_DIR} </string>
 	<array>
 		<dict>
 			<key>UUID</key>
-			<string>8AF01EDE-2C2C-4202-A9EC-0FF70AD8053F</string>
+			<string>03173457-2DF5-448F-8789-1011F17ED6BF</string>
 			<key>identifier</key>
-			<string>com.apple.Automator.Variable.Path</string>
+			<string>com.apple.Automator.Variable.Text</string>
 			<key>name</key>
-			<string>Path</string>
+			<string>SOURCE_FILE</string>
 			<key>value</key>
-			<string>~/Desktop</string>
+			<array/>
 		</dict>
 		<dict>
 			<key>UUID</key>
-			<string>8F45C38B-845C-4113-8D02-FEDEF70A0D7E</string>
+			<string>A2984B64-C7AA-4DC0-9F77-3C7A949A55D1</string>
 			<key>identifier</key>
 			<string>com.apple.Automator.Variable.Path</string>
 			<key>name</key>
-			<string>Pdf</string>
+			<string>WRITE_TO</string>
 			<key>value</key>
 			<string>~/Desktop</string>
 		</dict>

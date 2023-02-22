@@ -223,21 +223,24 @@ class DbBook(DbBase):
         query.addBindValue( bookName )
         return query.exec()
 
-    def update( self, **kwargs ):
+    def update( self, **kwargs ) ->int:
         newAdditions = self.cleanupArguments( kwargs )
         kwargs.update( newAdditions )
-        book = kwargs.pop( BOOK.name )
-        id = self.getId( book )
-        sql = self._formatUpdateVariable( 'Book', BOOK.name, kwargs)
+
+        if BOOK.id in kwargs :
+            id = kwargs.pop( BOOK.id )
+        else:
+            id = self.getId(  kwargs.pop( BOOK.name ) )
+
+        sql = self._formatUpdateVariable( 'Book', BOOK.id, kwargs)
+
         query = DbHelper.prep( sql )
         values = list( kwargs.values() ) 
-        values.append( book )
+        values.append( id )
         query = DbHelper.bind( query, values )
-        if query.exec() :
-            return id
-        return -1
+        return id if query.exec() else -1
 
-    def upsertBook( self, **kwargs ):
+    def upsertBook( self, **kwargs )->int:
         '''
             Update or insert a book into the database.
             This requires keyword parms (book="", pages="", etc)
