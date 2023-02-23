@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.16"
+    version      = "0.5.17"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -45,6 +45,7 @@ class DbKeys():
     VALUE_LAST_IMPORT_DIR = '~'
     VALUE_RECENT_SIZE_MIN = 5
     VALUE_RECENT_SIZE_MAX = 20
+    VALUE_SHOW_FILEPATH = True
     VALUE_RECENT_SIZE_DEFAULT = 10
     VALUE_SHEETMUSIC_DOC        = 'sheetmusic_doc'
     VALUE_SHEETMUSIC_INDEX      = "index.doc"
@@ -84,6 +85,7 @@ class DbKeys():
     SETTING_LAST_BOOK_NAME      = 'book'             ## Last book opened.
     SETTING_LAST_BOOK_REOPEN    = 'reopen'           ## Should we reopen? BOOL (text)
     SETTING_MAX_RECENT_SIZE     = 'size_booklist'
+    SETTING_SHOW_FILEPATH       = 'recentFilepath'
     
     #       window settings
     SETTING_WIN_GEOMETRY        = 'geometry'

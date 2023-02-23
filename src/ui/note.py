@@ -30,10 +30,10 @@ class UiNote(QDialog):
     This will populate a simple text box from the 'notes' field
     '''
 
-    btnTxtClear  = u'Clear'
-    btnTxtCancel = u'Cancel'
-    btnTxtSave   = u'Save'
-    btnTxtDelete = u'Delete'
+    btn_text_clear  = u'Clear'
+    btn_text_cancel = u'Cancel'
+    btn_text_save   = u'Save'
+    btn_text_delete = u'Delete'
 
     actionCancel = 0
     actionSave   = 1
@@ -45,8 +45,8 @@ class UiNote(QDialog):
         self._delete_entry  = False
         self._action        = self.actionCancel
         self._id            = None
-        self.createTextField()
-        self.createButtons()
+        self._create_text_field()
+        self._create_buttons()
         mainLayout = QGridLayout()
         mainLayout.addWidget(self.textField)
         mainLayout.addWidget(self.buttons)
@@ -57,20 +57,20 @@ class UiNote(QDialog):
     def set_size( self, size:QSize , scale=.5)->None:
         self.resize( int(size.width() *scale), int(size.height()* scale) ) 
 
-    def createTextField(self):
+    def _create_text_field(self):
         self.textField = QTextEdit()
         self.textField.setAcceptRichText(True)
         self._textChanged = False
-        self.textField.textChanged.connect( self.setChanged )
+        self.textField.textChanged.connect( self.set_changed )
 
     def clear(self)->None:
         self.textField.clear()
 
-    def createButtons(self)->None:
-        self.btn_clear = QPushButton(  self.btnTxtClear )
-        self.btn_save = QPushButton(   self.btnTxtSave )
-        self.btn_cancel = QPushButton( self.btnTxtCancel)
-        self.btn_delete = QPushButton( self.btnTxtDelete )
+    def _create_buttons(self)->None:
+        self.btn_clear = QPushButton(  self.btn_text_clear )
+        self.btn_save = QPushButton(   self.btn_text_save )
+        self.btn_cancel = QPushButton( self.btn_text_cancel)
+        self.btn_delete = QPushButton( self.btn_text_delete )
 
         self.btn_clear.setObjectName('clear')
         self.btn_save.setObjectName( 'save')
@@ -89,16 +89,16 @@ class UiNote(QDialog):
         self.buttons.clicked.connect(self.button_clicked)
 
     def button_clicked(self, btn:QAbstractButton ):
-        if btn.text() == self.btnTxtClear :
+        if btn.text() == self.btn_text_clear :
             self.clear()
 
-        if btn.text() == self.btnTxtSave:
+        if btn.text() == self.btn_text_save:
             self._action = self.actionSave
             self.accept()
-        if btn.text() == self.btnTxtCancel :
+        if btn.text() == self.btn_text_cancel :
             self._action = self.actionCancel
             self.reject()
-        if btn.text() == self.btnTxtDelete:
+        if btn.text() == self.btn_text_delete:
             self.confirm_delete()
 
     def confirm_delete(self):

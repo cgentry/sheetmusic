@@ -190,7 +190,7 @@ class DbBook(DbBase):
     def getRecentNext( self, query:QSqlQuery )->dict:
         return DbHelper.record( query , DbBook.COL_SELECT_RECENT )
 
-    def getTotal( self  )->int:
+    def count( self  )->int:
         """
             How many books?
         """

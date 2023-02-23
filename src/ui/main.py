@@ -116,7 +116,7 @@ class UiMain(object):
         
 
         # VIEW actions
-        self.actionRefresh = action(
+        self.action_refresh = action(
             u'Refresh',  title=u'Refresh',                 shortcut=QKeySequence.Refresh)
         
         self.actionOne_Page = action(
@@ -348,7 +348,7 @@ class UiMain(object):
         self.menuEdit.addSeparator()   # -------------------
 
     def addViewActions(self) -> None:
-        self.menuView.addAction(self.actionRefresh)
+        self.menuView.addAction(self.action_refresh)
         self.menuView.addSeparator()   # -------------------
         self.menuView.addAction(self.actionOne_Page)
         self.menuView.addAction(self.actionTwo_Pages)

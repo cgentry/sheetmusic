@@ -41,8 +41,8 @@ class DilBookmark( DbBookmark):
     def isOpen( self )->bool:
         return self.bookName is not None
     
-    def getTotal(self)->int:
-        return super().getTotal( book=self.bookName )
+    def count(self)->int:
+        return super().count( book=self.bookName )
 
     def getAll( self )->list:
         """
@@ -61,8 +61,8 @@ class DilBookmark( DbBookmark):
     def getBookmarkPage( self, page:int)->dict:
         return super().getBookmarkForPage( book=self.bookName, page=page )
 
-    def getFirst(self):
-        return super().getFirst( book = self.bookName )
+    def first(self):
+        return super().first( book = self.bookName )
 
     def getLast(self):
         return super().getLast( book = self.bookName )
@@ -97,7 +97,7 @@ class DilBookmark( DbBookmark):
         '''
         if bookmarkName is None:
             bookmarkName = 'Page-{}'.format( pageNumber )
-        super().addBookmark( self.bookName, bookmarkName, pageNumber )
+        super().add( self.bookName, bookmarkName, pageNumber )
 
     def thisBook(self , book:str, relativePage:int, absolutePage:int ):
         prompt = "Name for bookmark at "
@@ -115,7 +115,8 @@ class DilBookmark( DbBookmark):
         if dlg.exec() :
             self.saveBookmark( bookmarkName=dlg.textValue() , pageNumber=absolutePage)
     
-    def delete( self , bookName:str , uiBookmark:UiBookmark )->dict:
+
+    def delete_select( self , bookName:str , uiBookmark:UiBookmark )->dict:
         uiBookmark.setBookmarkList( self.getBookmarkList() )
         bookm = {}
         rtn = uiBookmark.exec()
@@ -140,7 +141,7 @@ class DilBookmark( DbBookmark):
                     qbox.setInformativeText(uiBookmark.selectedBookmark)
                     qbox.setDetailedText(title)
                     if qbox.exec() == QMessageBox.AcceptRole:
-                        DbBookmark().delBookmark( 
+                        DbBookmark().delete( 
                             book=bookName ,
                             bookmark=uiBookmark.selectedBookmark )
                     qbox.close()

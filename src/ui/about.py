@@ -21,18 +21,20 @@
 
 import os
 import platform
+from   PySide6.QtGui     import QPixmapCache
 from   PySide6.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QTextEdit, QPushButton
 import PySide6
 from   qdb.keys import ProgramConstants
 
 class UiAbout(QDialog):
-    __about="""<center><h1>Sheetmusic</h1>
+    __about="""<center><h1><u>Sheetmusic</u></h1>
     <table>
     <tr><td>Author</td><td>Charles Gentry</td></tr>
-    <tr><td>Sheetmusic version:</td><td>{}</td></tr>
+    <tr><td>Sheetmusic version&nbsp;&nbsp;</td><td>{}</td></tr>
     <tr><td>Python version</td><td>{}</td></tr>
     <tr><td>PySide version</td><td>{}</td></tr>
     <tr><td>QT Version</td><td>{}</td></tr>
+    <tr><td>Image Cache Size</td><td>{} KB</td></tr>
     </table>
     </center>
     <p>
@@ -66,7 +68,8 @@ class UiAbout(QDialog):
             platform.python_version(), 
             PySide6.__version__, 
             PySide6.QtCore.qVersion() ,
-            ProgramConstants.copyright 
+            QPixmapCache.cacheLimit(),
+            ProgramConstants.copyright
         )
 
     def information(self)->QTextEdit:

@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.16
+# sheetmusic version 0.5.17
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -14,6 +14,14 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes.
+
+# 0.5.17
+Version should be more stable and less prone to falling over.
+Need to continue finding/fixing bugs.
+* Many bug fixes: Bookmark, Book properties, Notes, Reopen, Refresh
+* Add in preference for using/hiding filenames on 'Recent file' list
+* Internal fixes for code to continue making it more compliant
+* General cleanup
 
 # 0.5.16 (unstable)
 * Fix book property name changes

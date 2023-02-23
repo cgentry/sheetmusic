@@ -154,13 +154,13 @@ class TestDbBookmark(unittest.TestCase):
     def test_delAllBooks(self):
         rtn = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.assertTrue( rtn )
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
         rtn = self.book.addBook(book="title2",composer="minogue", genre="pop", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 2 )
+        self.assertEqual( self.book.count(), 2 )
         self.assertTrue( rtn )
 
         self.assertTrue( self.book.delAllBooks() )
-        self.assertEqual( self.book.getTotal(), 0)
+        self.assertEqual( self.book.count(), 0)
         self.assertIsNone( self.book.getBook( book="title1"  ) )
         self.assertIsNone( self.book.getBook( book="title2"  ) )
 
@@ -173,7 +173,7 @@ class TestDbBookmark(unittest.TestCase):
         self.assertTrue( rtn )
         rtn = self.book.addBook(book="title3",composer="bell", genre="jazz", source="Source",location="loc")
         self.assertTrue( rtn )
-        self.assertEqual( self.book.getTotal(), 4 )
+        self.assertEqual( self.book.count(), 4 )
 
         rtn =  DbComposer().getall() 
         self.assertEqual( len( rtn), 3)
@@ -196,9 +196,9 @@ class TestDbBookmark(unittest.TestCase):
     def test_getAll(self):
         rtn = self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc1")
         self.assertTrue( rtn )
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
         rtn = self.book.addBook(book="title2",composer="bach", genre="classical", source="Source",location="loc2")
-        self.assertEqual( self.book.getTotal(), 2 )
+        self.assertEqual( self.book.count(), 2 )
 
         bk = self.book.getAll()
         self.assertEqual( len(bk), 2 )
@@ -225,7 +225,7 @@ class TestDbBookmark(unittest.TestCase):
         self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.book.addBook(book="title2",composer="bach", genre="ensemble", source="Source",location="loc")
         self.book.addBook(book="title3",composer="Handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 3 )
+        self.assertEqual( self.book.count(), 3 )
 
         rtn = self.book.editAllComposers('bach', newValue)
         self.assertEqual( rtn , 2 ,'How many composer records changed')
@@ -243,7 +243,7 @@ class TestDbBookmark(unittest.TestCase):
         self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.book.addBook(book="title2",composer="bach", genre="ensemble", source="Source",location="loc")
         self.book.addBook(book="title3",composer="handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 3 )
+        self.assertEqual( self.book.count(), 3 )
 
         rtn = self.book.editAllGenres('classical', newValue)
         self.assertEqual( rtn , 2 ,'how many genre records changed')
@@ -257,29 +257,29 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc") , 1 )
         self.assertEqual(self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc"), -1 )
         self.assertTrue( self.book.isError() )
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
 
     def test_upsert_exists(self):
         self.book.addBook(book="title1",composer="bach", genre="classical", source="Source",location="loc")
         self.book.upsertBook(book="title1",composer="handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
         bk = self.book.getBook(book='title1')
         self.assertEqual( bk['composer'], 'handel')
 
     def test_upsert_not_exists(self):
         self.book.upsertBook(book="title1",composer="handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
 
     def test_is_book(self):
         self.book.upsertBook(book="title1",composer="handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
         self.assertTrue( self.book.isBook('title1'))
         self.assertFalse( self.book.isBook('title2'))
         self.assertFalse( self.book.isBook( None))
 
     def test_is_location( self ):
         self.book.addBook(book="title1",composer="Handel", genre="classical", source="Source",location="loc")
-        self.assertEqual( self.book.getTotal(), 1 )
+        self.assertEqual( self.book.count(), 1 )
         self.assertTrue(  self.book.isLocation('loc'))
         self.assertFalse( self.book.isLocation('noloc'))
         self.assertFalse( self.book.isLocation( None))

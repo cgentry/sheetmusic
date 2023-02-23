@@ -106,11 +106,11 @@ class UiBookmarkSingle(QDialog):
         self.setTotalPages( totalPages )
         self.setNumberingOffset( numberingOffset )
 
-        mainLayout = QVBoxLayout()
-        mainLayout.addWidget(self.createHeading())
-        mainLayout.addLayout(self.createGridLayout())
-        mainLayout.addWidget(self.createButtons())
-        self.setLayout(mainLayout)
+        _main_layout = QVBoxLayout()
+        _main_layout.addWidget(self._create_heading())
+        _main_layout.addLayout(self._create_grid_layout())
+        _main_layout.addWidget(self._create_buttons())
+        self.setLayout(_main_layout)
         self.setSizeGripEnabled(True)
 
         self.setHeading( heading )
@@ -142,26 +142,26 @@ class UiBookmarkSingle(QDialog):
             self.pageShown.setEnabled( False )
         self.bookPage.setText( str(page) )
 
-    def createHeading(self)->QLabel:
+    def _create_heading(self)->QLabel:
         self.heading = QLabel()
         return self.heading
 
-    def createGridLayout(self)->QGridLayout:
+    def _create_grid_layout(self)->QGridLayout:
         gridLayout = QGridLayout()
         row = 0
-        row = self.createName(  gridLayout, row )
-        row = self.createPage(  gridLayout, row )
-        row = self.createShown( gridLayout, row )
-        row = self.createError( gridLayout, row )
+        row = self._create_name(  gridLayout, row )
+        row = self._create_page(  gridLayout, row )
+        row = self._create_shown( gridLayout, row )
+        row = self._create_error( gridLayout, row )
         return gridLayout
 
-    def createName(self,  grid:QGridLayout, row)->int:
+    def _create_name(self,  grid:QGridLayout, row)->int:
         self.bookmarkName = QLineEdit()
         grid.addWidget( QLabel("Bookmark Name"), row, 0 )
         grid.addWidget( self.bookmarkName , row, 1)
         return row+1
 
-    def createPage(self ,grid:QGridLayout, row)->int:
+    def _create_page(self ,grid:QGridLayout, row)->int:
         self.bookPage = QLineEdit()
         self.bookPage.setValidator( self.pageValid )
         self.bookPage.textChanged.connect( self.pageNumberChanged )
@@ -170,7 +170,7 @@ class UiBookmarkSingle(QDialog):
         grid.addWidget( self.bookPage , row, 1 )
         return row+1
 
-    def createShown(self,grid:QGridLayout, row)->int:
+    def _create_shown(self,grid:QGridLayout, row)->int:
         self.pageShown = QCheckBox()
         self.pageShown.setText("Page number is page shown.")
         self.pageShown.setCheckable( self.numberingOffset is not None )
@@ -180,7 +180,7 @@ class UiBookmarkSingle(QDialog):
         grid.addWidget( self.pageShown, row, 1 )
         return row+1
 
-    def createError(self, grid:QGridLayout, row:int)->int:
+    def _create_error(self, grid:QGridLayout, row:int)->int:
         self.errorMessage = QLabel()
         grid.addWidget( self.errorMessage , row, 1 )
         return row+1
@@ -252,7 +252,7 @@ class UiBookmarkSingle(QDialog):
             self.accept()
     
     ## VIRTUAL FUNCTIONS
-    def createButtons(self)->QDialogButtonBox:
+    def _create_buttons(self)->QDialogButtonBox:
         raise NotImplementedError()
 
     def setupData(self):
@@ -260,7 +260,8 @@ class UiBookmarkSingle(QDialog):
 
 class UiBookmarkEdit( UiBookmarkSingle ):
     """
-        UiBookmarkEdit will edit one entry """
+        UiBookmarkEdit will edit one entry 
+    """
     def __init__(self, totalPages:int=None, numberingOffset:int=None, parent=None):
         super().__init__( totalPages=totalPages, numberingOffset=numberingOffset, parent=parent)
 
@@ -274,7 +275,7 @@ class UiBookmarkEdit( UiBookmarkSingle ):
                 isRelative = True
         self.setFields( bookmarkEntry[BOOKMARK.name] ,page , isRelative )
         
-    def createButtons(self)->QDialogButtonBox:
+    def _create_buttons(self)->QDialogButtonBox:
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Save | QDialogButtonBox.Cancel
         )
@@ -291,7 +292,7 @@ class UiBookmarkAdd(UiBookmarkSingle):
     def __init__(self, heading:str=None, totalPages:int=None, numberingOffset:int=None):
         super().__init__(totalPages=totalPages, numberingOffset=numberingOffset )
 
-    def createButtons(self, )->QDialogButtonBox :
+    def _create_buttons(self, )->QDialogButtonBox :
         self.buttons = QDialogButtonBox()
         self.buttons.addButton(self.BtnSaveContinue, QDialogButtonBox.ApplyRole )
         self.buttons.addButton(QDialogButtonBox.Save   )
@@ -323,11 +324,11 @@ class UiBookmark( UiBookmarkBase):
     def __init__(self, heading:str=None, bookmark_list:list=None, numberingOffset:int=None):
         super().__init__()
         self.createBookmarkTable()
-        self.createButtons()
-        mainLayout = QGridLayout()
-        mainLayout.addWidget(self.bookmarkTable, 3, 0, 1, 3)
-        mainLayout.addWidget(self.buttons)
-        self.setLayout(mainLayout)
+        self._create_buttons()
+        _main_layout = QGridLayout()
+        _main_layout.addWidget(self.bookmarkTable, 3, 0, 1, 3)
+        _main_layout.addWidget(self.buttons)
+        self.setLayout(_main_layout)
         self.selected = {}
         self.action = ''
         self.setWindowTitle( heading )
@@ -353,7 +354,7 @@ class UiBookmark( UiBookmarkBase):
         self.clickedBookmark(row, column)
         self.acceptBookmarkSelect()
 
-    def createButtons(self):
+    def _create_buttons(self):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Open | QDialogButtonBox.Cancel| QDialogButtonBox.Discard | QDialogButtonBox.Apply
         )

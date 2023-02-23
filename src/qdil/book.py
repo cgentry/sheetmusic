@@ -29,59 +29,14 @@ from PySide6.QtWidgets import QMessageBox
 from PySide6.QtGui import QPixmap
 
 
-class TinyCache():
-
-    def __init__(self, size=6):
-        self.cache = OrderedDict()
-        self.size(size)
-        self.hits = 0
-        self.miss = 0
-        self.label('cache')
-
-    def size(self, new_maxsize):
-        self.max = new_maxsize
-
-    def label(self, name) -> None:
-        self.label = name
-
-    def is_set(self, key):
-        return key in self.cache
-
-    def get(self, key):
-        if key in self.cache:
-            self.hits = self.hits + 1
-            self.cache.move_to_end(key, last=False)
-            return self.cache[key]
-        self.miss = self.miss + 1
-        return None
-
-    def set(self, key, value):
-        while len(self.cache) >= self.max:
-            self.cache.popitem(last=True)  # pop last entry
-        self.cache[key] = value
-        self.cache.move_to_end(key, last=False)  # Move to first location
-        return value
-
-    def cache_clear(self):
-        """ Clear will wipe out all entries. You don't really need to call this """
-        while len(self.cache) > 0:
-            self.cache.popitem()
-
-    def cache_info(self) -> str:
-        return "CacheInfo(hits={}, misses={}, maxsize={}, currsize={})".format(
-            self.hits, self.miss, self.max, len(self.cache))
-
-
 class DilBook(DbBook):
     """
         DilBook is a data interface layer that will act as the general
         data interface between the program or UI and the database layer
     """
-    CACHE_SIZE = 5
 
     def __init__(self):
         super().__init__()
-        self.tcache = TinyCache(size=self.CACHE_SIZE)
         self.dbooksettings = DbBookSettings()
         s = DbSystem()
         self.page_prefix = s.getValue(
@@ -132,7 +87,7 @@ class DilBook(DbBook):
     def getFileType(self) -> str:
         return self.page_suffix
 
-    def openBook(self, book: str, page=None, fileType="png", onError=None):
+    def open(self, book: str, page=None, fileType="png", onError=None):
         """
             Close current book and open new one. Use BookView for data
 
@@ -169,7 +124,7 @@ class DilBook(DbBook):
             dlg.exec()
             return dlg.buttonRole( dlg.clickedButton() )
 
-        self.closeBook()
+        self.close()
         self.book = self.newBook
         rows = self.dbooksettings.getAll(book)
         for row in rows:
@@ -180,7 +135,7 @@ class DilBook(DbBook):
 
         return QMessageBox.Ok
 
-    def closeBook(self):
+    def close(self):
         """ closeBook will clear caches, values, and name paths. 
             Values will be saved to the Book or BookSettings tables
         """
@@ -340,7 +295,7 @@ class DilBook(DbBook):
             return fromPage
         return fromPage+self.getRelativePageOffset()-1
 
-    def getTotal(self) -> int:
+    def count(self) -> int:
         """ Return the total number of pages in a book """
         return self.getProperty(BOOK.totalPages, 0)
 
@@ -498,7 +453,7 @@ class DilBook(DbBook):
                 "Page numbering starts at":     [self.getRelativePageOffset(), True, False],
                 "Keep aspect ratio for pages":  [self.getAspectRatio(), True, False],
 
-                "Total Pages":                  [self.getTotal(), False, False],
+                "Total Pages":                  [self.count(), False, False],
                 "Location":                     [self.getBookPath(), False, True],
             }
         return properties
