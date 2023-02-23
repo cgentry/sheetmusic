@@ -69,7 +69,16 @@ class DbGenericName( ):
         del query
         return all
 
-        return self.toList( self.cursor.execute( sql).fetchall() )
+    def getColumn( self, sql )->list:
+        query = QSqlQuery( DbConn.db() )
+        if not query.exec( sql ):
+            self.logger.critical( "getColumn: {}".format(  query.lastError().text() ) )
+            return []
+        all =  DbHelper.allList( query  , 0 )
+        query.finish()
+        del query
+        return all
+    
 
     def getID( self, name:str , create:bool=False )->int:
         """ This will lookup the record ID for 'name'.

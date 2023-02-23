@@ -43,11 +43,11 @@ class FileBase(QDialog):
         item.setFlags( Qt.ItemIsEnabled|Qt.ItemIsSelectable)
 
     def loadGenre(self):
-        for name in DbGenre().getall():
+        for name in DbGenre().getactive():
             item = QTreeWidgetItem( self.itemGenre , [name])
             
     def loadComposer(self):
-        for name in DbComposer().getall():
+        for name in DbComposer().getactive():
             item = QTreeWidgetItem( self.itemComposer , [name])
 
     def bookItem(self,name:str )->QTableWidgetItem:

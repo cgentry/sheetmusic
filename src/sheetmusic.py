@@ -419,7 +419,7 @@ class MainWindow(QMainWindow):
         self.ui.btn_bookmark.clicked.connect(self.actionClickedBookmark)
 
         # TOOLS
-        
+
         self.ui.menuToolScript.aboutToShow.connect(
             self._about_to_show_script_list)
         self.ui.action_tool_check.triggered.connect(self._action_tool_check)

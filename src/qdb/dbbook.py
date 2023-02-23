@@ -40,12 +40,20 @@ class DbGenre( DbGenericName ):
         super().__init__()
         self.tableName = 'Genre'
         self.setupLogger()
+
+    def getactive( self )->list:
+        SQL_GET_ACTIVE='SELECT name FROM Genre WHERE Genre.id IN ( SELECT genre_id FROM Book ) ORDER BY name'
+        return self.getColumn( SQL_GET_ACTIVE )
     
 class DbComposer( DbGenericName ):
     def __init__(self):
         super().__init__()
         self.tableName = 'Composer'
         self.setupLogger()
+    
+    def getactive( self )->list:
+        SQL_GET_ACTIVE='SELECT name FROM Composer WHERE Composer.id IN ( SELECT composer_id FROM Book ) ORDER BY name'
+        return self.getColumn( SQL_GET_ACTIVE )
     
 class DbBook(DbBase):
     SQL_DELETE="""
