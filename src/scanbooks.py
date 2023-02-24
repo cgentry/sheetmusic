@@ -280,7 +280,7 @@ def scan( ):
     app = QApplication()
     
     bk = DilBook()
-    bk.addBookDirectoryUI()
+    bk.import_book_directory()
 
 def update():
     from qdil.book import DilBook

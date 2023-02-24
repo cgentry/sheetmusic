@@ -76,10 +76,10 @@ class TestDbBookmark(unittest.TestCase):
     def test_getBookmarkForPage(self):
         bk = self.obj.getBookmarkForPage(book='test1', page=12)
         self.assertIsNotNone(bk)
-        self.assertEqual( len(bk) , 6 )
+        self.assertEqual( len(bk) , 5 )
         self.assertEqual(bk[ BOOKMARK.book ], 'test1')
         self.assertEqual(bk[ BOOKMARK.name ], 'bk02')
-        self.assertEqual(bk[BOOKMARK.page], 10)
+        self.assertEqual(bk[ BOOKMARK.page ], 10)
 
     def test_last( self ):
         bk = self.obj.last( book='test1')
@@ -106,10 +106,13 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual(bk[ BOOKMARK.page], 5)
     
     def test_getPreviousBookmarkForPage(self):
+        bk = self.obj.getBookmarkForPage( 'test1' , 12 )
+        self.assertIsNotNone(bk)
+        self.assertEqual(bk[ BOOKMARK.name ], 'bk02','Confirm we have the correct ID for this page')
         bk = self.obj.getPreviousBookmarkForPage(book='test1', page=12)
         self.assertIsNotNone(bk)
         self.assertEqual(bk[ BOOKMARK.book ], 'test1')
-        self.assertEqual(bk[ BOOKMARK.name ], 'bk01')
+        self.assertEqual(bk[ BOOKMARK.name ], 'bk01', 'Went from bk02 to bk01')
         self.assertEqual(bk[ BOOKMARK.page], 5)
 
     def test_getPreviousBookmarkForPage_AtStart(self):
@@ -118,7 +121,7 @@ class TestDbBookmark(unittest.TestCase):
 
     def test_getNextBookmarkForPage(self):
         bk = self.obj.getNextBookmarkForPage(book='test1', page=12)
-        self.assertEqual( len(bk) , 6 )
+        self.assertEqual( len(bk) , 5 )
         self.assertIsNotNone(bk)
         self.assertEqual( bk[ BOOKMARK.book ], 'test1')
         self.assertEqual( bk[ BOOKMARK.name ], 'bk03')

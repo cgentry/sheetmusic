@@ -107,7 +107,7 @@ class DbNote(DbBase):
         return self.getNote( book ,0,0 )
 
     def getAll( self, book_id:int )->list:
-        """ Get all notes for this page """
+        """ Get all notes for this book (includes all pages) """
         return  DbHelper.fetchrows( DbNote.SQL_GET_ALL_NOTES , [book_id] , DbNote.columnNames, endquery=self._checkError )
     
     def deletePage( self, book, page:int=0, seq:int=0)->bool:

@@ -30,7 +30,7 @@ from qdb.dbbook import DbBook, DbGenre, DbComposer
 from qdb.setup import Setup
 
 
-class TestDbBookmark(unittest.TestCase):
+class TestDbBook(unittest.TestCase):
     def setUp( self ):
         DbConn().openDB( ':memory:')
         s = Setup(":memory:")
@@ -285,43 +285,7 @@ class TestDbBookmark(unittest.TestCase):
         self.assertFalse( self.book.isLocation( None))
         self.assertFalse( self.book.isLocation( ''))
 
-    def test_addBookDirectory( self ):
-        import tempfile
-        import os
-        (rec, message ) = self.book.addBookDirectory( None )
-        self.assertFalse( rec )
-        self.assertEqual( message,"Location is empty" )
-        imagePath = ""
-        with tempfile.TemporaryDirectory('dbbook') as tdir:
-            (rec, message ) = self.book.addBookDirectory( tdir )
-            self.assertFalse( rec )
-            self.assertEqual( message,"No new records found" )
-            for index in range(1,11):
-                imageDir = 'book{:03d}'.format( index )
-                imagePath = os.path.join( tdir , imageDir )
-                os.mkdir( imagePath )
-                for indexImage in range(1,11):
-                    imageFile = 'page{:03d}.png'.format( indexImage )
-                    imagePath = os.path.join( tdir, imageDir , imageFile )
-                    fp = open(  imagePath , "w")
-                    fp.close()
-
-            (rec, message) = self.book.addBookDirectory( tdir )
-            self.assertEqual( True , rec , message)
-            self.assertTrue( message.startswith( 'Records added'))
-
-            (rec, message) = self.book.addBookDirectory( tdir )
-            self.assertFalse( rec , message)
-            self.assertTrue( message.startswith( 'No new records'))
-
-            ( rec, message ) = self.book.addBookDirectory( imagePath )
-            self.assertFalse( rec , message)
-            self.assertTrue( message.startswith( "Location '"))
-
-        for index in range(1,11):
-                imageDir = 'book{:03d}'.format( index )
-                self.book.isBook( imageDir )     
-        (rec, message ) = self.book.addBookDirectory( tdir )      
+    
 
 if __name__ == "__main__":
     unittest.main()

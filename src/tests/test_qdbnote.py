@@ -31,7 +31,7 @@ from PySide6.QtSql  import QSqlQuery
 from PySide6.QtCore import QSize, QByteArray
 
 NOTE_TEST_DB = ':memory:'
-class TestDbBookmark(unittest.TestCase):
+class TestNote(unittest.TestCase):
     def glue( self, query:QSqlQuery , bulkdata:dict ):
         for row in bulkdata:
             for key in row:
@@ -89,8 +89,8 @@ class TestDbBookmark(unittest.TestCase):
         self.assertEqual( note[NOTE.note] , 'note.2.2.1')
 
     def test_getNoteAll(self):
-        notes = self.obj.getAll( 2,2)
-        self.assertEqual( len(notes), 2 )
+        notes = self.obj.getAll( 2)
+        self.assertEqual( len(notes), 3 , "Number of notes for book 2")
         self.assertEqual( self.obj.count( 2, 2) , 2)
 
     def test_deletePage( self ):
@@ -101,7 +101,7 @@ class TestDbBookmark(unittest.TestCase):
 
     def test_DeleteAllPageNotes( self ):
         self.assertTrue( self.obj.deleteAllPageNotes( 2, 2 ))
-        notes = self.obj.getAll( 2,2)
+        notes = self.obj.getNotesForPage( 2,2)
         self.assertEqual( len(notes), 0 )
 
     def test_Update(self):

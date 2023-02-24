@@ -485,9 +485,3 @@ class UiConvertDirectory(UiBaseConvert):
         return self.fileName
 
 
-if __name__ == "__main__":
-    app = QApplication()
-    converter = UiConvert()
-    converter.exec_()
-    app.quit()
-    sys.exit(0)

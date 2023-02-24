@@ -298,7 +298,7 @@ class TestSimpleParser(unittest.TestCase):
         btn = SDButton()
         self.obj._parse_line( TestSimpleParser.BUTTON_ACCEPT )
         btn.setElement( self.obj )
-        self.assertEqual( btn.text , 'BUTTON_ACCEPT')
+        self.assertEqual( btn.text() , 'BUTTON_ACCEPT', 'button text type {}'.format( type(btn.text)))
         self.assertTrue( btn.isAccept() )
         self.assertFalse( btn.isReject() )
 
@@ -307,7 +307,7 @@ class TestSimpleParser(unittest.TestCase):
         self.obj._parse_line( TestSimpleParser.BUTTON_ACCEPT )
         self.obj.setValue( SDOption.KEY_VALUE , QDialogButtonBox.AcceptRole )
         btn.setElement( self.obj )
-        self.assertEqual( btn.text , 'BUTTON_ACCEPT')
+        self.assertEqual( btn.text() , 'BUTTON_ACCEPT')
         self.assertTrue( btn.isAccept() )
         self.assertFalse( btn.isReject() )
 
@@ -315,7 +315,7 @@ class TestSimpleParser(unittest.TestCase):
         btn = SDButton()
         self.obj._parse_line( TestSimpleParser.BUTTON_REJECT )
         btn.setElement( self.obj )
-        self.assertEqual( btn.text , 'BUTTON_REJECT')
+        self.assertEqual( btn.text() , 'BUTTON_REJECT')
         self.assertFalse( btn.isAccept() )
         self.assertTrue( btn.isReject() )
 
@@ -324,7 +324,7 @@ class TestSimpleParser(unittest.TestCase):
         self.obj._parse_line( TestSimpleParser.BUTTON_REJECT )
         self.obj.setValue( SDOption.KEY_VALUE , QDialogButtonBox.RejectRole )
         btn.setElement( self.obj )
-        self.assertEqual( btn.text , 'BUTTON_REJECT')
+        self.assertEqual( btn.text() , 'BUTTON_REJECT')
         self.assertFalse( btn.isAccept() )
         self.assertTrue( btn.isReject() )
 
@@ -359,13 +359,13 @@ class TestSimpleParser(unittest.TestCase):
 
         btn = find[0]
         self.assertIsInstance( btn , SDButton )
-        self.assertEqual( btn.text , 'BUTTON_ACCEPT')
+        self.assertEqual( btn.text() , 'BUTTON_ACCEPT')
         self.assertTrue( btn.isAccept() )
         self.assertFalse( btn.isReject() )
 
         btn = find[1]
         self.assertIsInstance( btn , SDButton )
-        self.assertEqual( btn.text , 'BUTTON_REJECT')
+        self.assertEqual( btn.text() , 'BUTTON_REJECT')
         self.assertFalse( btn.isAccept() )
         self.assertTrue( btn.isReject() )
         

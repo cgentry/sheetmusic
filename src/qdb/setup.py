@@ -49,6 +49,8 @@ class Setup():
                           book          TEXT NOT NULL UNIQUE, 
                           composer_id   INTEGER DEFAULT NULL, 
                           genre_id      INTEGER DEFAULT NULL, 
+                          author        TEXT default NULL,
+                          publisher     TEXT default NULL,
                           source        TEXT DEFAULT NULL, 
                           location      TEXT NOT NULL,
                           version       TEXT DEFAULT "0.5.3", 

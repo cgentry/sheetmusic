@@ -27,6 +27,7 @@ from qdb.keys import DbKeys, BOOK, BOOKPROPERTY
 from util.convert import toInt
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtGui import QPixmap
+import fnmatch
 
 
 class DilBook(DbBook):
@@ -87,6 +88,16 @@ class DilBook(DbBook):
     def getFileType(self) -> str:
         return self.page_suffix
 
+    def _load_book_setting( self, book , page=None):
+        """ Internal: loads the self.book with all of the book values"""
+        self.book = super().getBook( book=book )
+        rows = self.dbooksettings.getAll(book)
+        for row in rows:
+            self.book[row['key']] = row['value']
+        self.setPaths()
+        page = self.book[BOOK.lastRead] if page is None else page
+        self.setPageNumber(page)
+
     def open(self, book: str, page=None, fileType="png", onError=None):
         """
             Close current book and open new one. Use BookView for data
@@ -125,14 +136,8 @@ class DilBook(DbBook):
             return dlg.buttonRole( dlg.clickedButton() )
 
         self.close()
-        self.book = self.newBook
-        rows = self.dbooksettings.getAll(book)
-        for row in rows:
-            self.book[row['key']] = row['value']
-        self.setPaths()
-        page = self.book[BOOK.lastRead] if page is None else page
-        self.setPageNumber(page)
-
+        self._load_book_setting( book , page )
+        
         return QMessageBox.Ok
 
     def close(self):
@@ -192,27 +197,35 @@ class DilBook(DbBook):
         ui.close()
         del ui
         return
-
-    def addBookDirectoryUI(self):
-        """
-            This will interface with:
-                promptForDirectoryTo Scan: get the directory to check out
-                Add all directories
-                Prompt to see if they want us to correct new entries.
-                Get all the book information
-            """
+    
+    def import_book( self )->bool:
         from ui.addbookdir import AddBookDirectory
-        abd = AddBookDirectory()
-        (added, message) = self.addBookDirectory(
-            abd.promptForDirectoryToScan())
+        from ui.properties import UiProperties
+        ( book_info , error ) = self.import_one_book( AddBookDirectory.prompt_import_directory('Existing Book'))
+        if error:
+            AddBookDirectory.error_message( error )
+            return False
+        return self.editProperties(UiProperties())
+
+    def import_book_directory(self):
+        """
+        Import a directory of directories holding PNG images into the database
+            
+        This will interface with:
+            import_directory:   get the directory to check out
+            prompt_add_detail:  Confirm they want to add detail
+            Prompt to see if they want us to correct new entries.
+            Get all the book information
+        """
+        from ui.addbookdir import AddBookDirectory
+        (added, message) = self.addBookDirectory( newdir )
         if added:
-            if abd.questionAddDetail(message):
+            if AddBookDirectory.prompt_add_detail(message):
                 self.updateIncompleteBooksUI()
 
     def clear(self):
         # Control information: used to access files
         self.book = None
-        self.dirPath = ""
         self.changes = {}
         # Set whenever the dirpath alters
         self.bookPathFormat = ""
@@ -340,6 +353,7 @@ class DilBook(DbBook):
         return self.thisPage
 
     def getBookPath(self, bookPath: str = None) -> str:
+        """ Return the bookpath for this book or the normalised bookpath"""
         if bookPath is None:
             return self.dirPath
         else:
@@ -403,7 +417,8 @@ class DilBook(DbBook):
             raise RuntimeError("No book found for ID: {}".format(id))
         return book[BOOK.name]
 
-    def getAll(self):
+    def getAll(self)->dict|None:
+        """ Return all of the properties for the book """
         return self.book
 
     def getProperty(self, key: str, default=None) -> str:
@@ -469,3 +484,100 @@ class DilBook(DbBook):
         if len(self.changes) > 0:
             self.writeProperties()
         return rtn
+
+    def _toml_path(self, dir=None )->str:
+        if dir is None:
+            return os.path.join(self.getBookPath(), DbBook.CONFIG_TOML_FILE)
+        return os.path.join(dir, DbBook.CONFIG_TOML_FILE)
+    
+    def save_toml_config( self ):
+        if self.isOpen():
+            with open( self._toml_path(),'w') as f:  
+                for key, value in self.getAll().items():
+                    f.write("{}=\"{}\"\n".format( key, value ))
+        return
+
+    def read_toml_properties( self, directory:str )->dict:
+        return self.read_toml_properties_file( self._toml_path(directory) )
+    
+    def read_toml_properties_file(self, filename: str) -> dict:
+        """ Load the TOML file into a dictionary """
+        import tomllib
+        rtn = {}
+        if os.path.isfile( filename ):
+            with open(filename, "rb") as f:
+                data = tomllib.load(f)
+        
+            for key, data in data.items():
+                if key in DbBook.VALID_TOML_KEYS :
+                    rtn[key] = data
+        return rtn
+
+    def _book_default_values(self, bookDir: str) -> dict:
+        rtn = {}
+        image_extension = DbSystem().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
+        rtn[BOOK.totalPages] = len(fnmatch.filter(
+            os.listdir(bookDir), '*.' + image_extension))
+        rtn[BOOK.book] = os.path.basename(bookDir)
+        rtn[BOOK.numberStarts] = 1
+        rtn[BOOK.numberEnds] = rtn[BOOK.totalPages]
+        return rtn
+
+    def import_one_book(self, bookDir=dir):
+        """ 
+        This takes a directory of converted PNG images and adds to the database
+
+        if there is a file called 'properties.cfg' in the directory it used to set
+        values for the book This is a 'toml' file and ONLY these keywords are used.
+            book = "Name of book"
+            genre = "Genre name"
+            composer = "composer name"
+            numbering_starts = "Start page offset"
+            author = "Author name"
+            publisher = "Publisher (usually a program)"
+
+        Returns:
+            book:   default name stored in database
+            pages:  Total number of images found
+            error:  String that contains error message or None if no error
+        """
+        book_info = {}
+        error_msg = None
+        if not bookDir:
+            return (book_info, "No directory passed.")
+        if self.isLocation( bookDir ):
+            return( book_info, 'Book already in library')
+        if not os.path.isdir(bookDir):
+            return (book_info, "Location '{}' is not a directory".format(bookDir))
+        book_info = self._book_default_values(bookDir)
+        if book_info[BOOK.totalPages] == 0:
+            return (book_info, "No pages for book")
+        book_info.update(self.read_toml_properties(bookDir))
+
+        rec_id = self.addBook(**book_info)
+        book_info[BOOK.id] = rec_id
+        return (book_info, error_msg)
+
+    def addBookDirectory(self, location=dir):
+        """
+            Returns true if we added anything, 
+            False is it we added nothing or you passed nothing for location
+        """
+        addedRecords = False
+        if location is None or location == "":
+            return (False, "Location is empty")
+        if not os.path.isdir(location):
+            return (False, "Location '{}' is not a directory".format(location))
+        sys = DbSystem()
+        type = sys.getValue(DbKeys.SETTING_FILE_TYPE, 'png')
+        query = DbHelper.prep(DbBook.SQL_INSERT_BOOK)
+
+        for bookDir in [f.path for f in os.scandir(location) if f.is_dir()]:
+            if not self.isLocation(bookDir):
+                pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + type))
+                name = os.path.basename(bookDir)
+                if DbHelper.bind(query, [name, pages, bookDir]).exec():
+                    addedRecords = True
+        addedMessage = "Records added" if addedRecords else "No new records found"
+        query.finish()
+        return (addedRecords, addedMessage)
