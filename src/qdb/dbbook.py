@@ -266,12 +266,12 @@ class DbBook(DbBase):
             Update or insert a book into the database.
             This requires keyword parms (book="", pages="", etc)
         '''
-        id = self.addBook(**kwargs)
+        id = self.add(**kwargs)
         if id < 1:
             id = self.update(**kwargs)
         return id
 
-    def addBook(self, **kwargs) -> int:
+    def add(self, **kwargs) -> int:
         """
             Add a book to the database.
             this requires keyword parms (book='', pages='', etc.)
@@ -279,12 +279,13 @@ class DbBook(DbBase):
             sqlite3.IntegrityError exception.
             The return is the record ID (>0)
         """
+        
         if BOOK.composer_id not in kwargs and BOOK.composer not in kwargs:
             kwargs['composer'] = 'Unknown'
         if BOOK.composer_id not in kwargs and BOOK.genre not in kwargs:
             kwargs['genre'] = 'Unknown'
         if BOOK.source not in kwargs:
-            kwargs['BOOK.source'] = None
+            kwargs[BOOK.source] = None
         if BOOK.nameDefault not in kwargs:
             kwargs[BOOK.nameDefault] = 0
             
@@ -369,6 +370,7 @@ class DbBook(DbBase):
         return self._checkIfExists(BOOK.location, location)
 
     def isSource(self, source: str) -> bool:
+        """ Check if the book source is already in the library"""
         return self._checkIfExists(BOOK.source, source)
 
     def getUniqueName(self, name: str) -> str:

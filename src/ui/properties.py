@@ -240,7 +240,7 @@ class UiProperties(QDialog):
         combo.currentTextChanged.connect( changeFunction )
         self._insertPropertyEntry( [ QTableWidgetItem( label ) , combo ])
 
-    def setPropertyList(self, musicbook:dict ):
+    def set_properties(self, musicbook:dict ):
         """
         musicbook is the database row for the book which can be indexed
         by name. We pick out the names and put them into the table.

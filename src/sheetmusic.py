@@ -640,10 +640,13 @@ class MainWindow(QMainWindow):
         self._action_refresh()
 
     def _action_edit_properties(self) -> None:
-        if self.book.editProperties(UiProperties()):
-            self.setTitle()
-            self.update_status_bar()
-            self.loadPages()
+        property_editor = UiProperties()
+        property_editor.set_properties( self.book.get_properties() )
+        if property_editor.exec():
+            if self.book.update_properties( property_editor.changes ):
+                self.setTitle()
+                self.update_status_bar()
+                self.loadPages()
 
     def _action_edit_preferences(self) -> None:
         try:
@@ -713,7 +716,7 @@ class MainWindow(QMainWindow):
         self.loadPages()
 
     def _action_view_smart_pages(self, state: bool) -> None:
-        self.book.setProperty(DbKeys.SETTING_SMART_PAGES, state)
+        self.book.set_property(DbKeys.SETTING_SMART_PAGES, state)
         self._use_smart_page_turn = state
         self.ui.pageWidget.setSmartPageTurn(self._use_smart_page_turn)
 
@@ -905,13 +908,13 @@ class MainWindow(QMainWindow):
 
     def _set_display_page_layout(self, value):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
-        self.book.setProperty(DbKeys.SETTING_PAGE_LAYOUT, value)
+        self.book.set_property(DbKeys.SETTING_PAGE_LAYOUT, value)
         self.ui.pageWidget.setDisplay(value)
         self._set_menu_page_options(value)
         self.loadPages()
 
     def _set_smart_pages(self, value):
-        self.book.setProperty(DbKeys.SETTING_SMART_PAGES, value)
+        self.book.set_property(DbKeys.SETTING_SMART_PAGES, value)
         self._use_smart_page_turn = value
 
     def _importPDF(self, insertData, duplicateData):

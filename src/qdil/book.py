@@ -18,8 +18,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
-from collections import OrderedDict
 from qdb.dbbook import DbBook
 from qdb.dbbooksettings import DbBookSettings
 from qdb.dbsystem import DbSystem
@@ -27,7 +25,10 @@ from qdb.keys import DbKeys, BOOK, BOOKPROPERTY
 from util.convert import toInt
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtGui import QPixmap
+
 import fnmatch
+import os
+from typing import Tuple
 
 
 class DilBook(DbBook):
@@ -89,14 +90,12 @@ class DilBook(DbBook):
         return self.page_suffix
 
     def _load_book_setting( self, book , page=None):
-        """ Internal: loads the self.book with all of the book values"""
+        """ Internal: loads the self.book with all database values """
+        self.setPageNumber(page)
         self.book = super().getBook( book=book )
-        rows = self.dbooksettings.getAll(book)
-        for row in rows:
-            self.book[row['key']] = row['value']
         self.setPaths()
         page = self.book[BOOK.lastRead] if page is None else page
-        self.setPageNumber(page)
+        
 
     def open(self, book: str, page=None, fileType="png", onError=None):
         """
@@ -153,7 +152,7 @@ class DilBook(DbBook):
                     1 if self.book[DbKeys.SETTING_KEEP_ASPECT] else 0)
             if self.book[DbKeys.SETTING_PAGE_LAYOUT] is not None:
                 self.changes[DbKeys.SETTING_PAGE_LAYOUT] = self.book[DbKeys.SETTING_PAGE_LAYOUT]
-            self.writeProperties()
+            self.write_properties()
             self.clearCache()
         self.clear()
 
@@ -167,7 +166,7 @@ class DilBook(DbBook):
         """
         bookname = kwargs[BOOK.name]
         settings, newBook = self._splitParms(kwargs)
-        recId = super().addBook(**newBook)
+        recId = super().add(**newBook)
 
         for key, value in settings.items():
             self.dbooksettings.upsertBookSetting(
@@ -183,7 +182,7 @@ class DilBook(DbBook):
         ui = UiProperties()
         for bookName in super().getIncompleteBooks().keys():
             book = super().getBook(book=bookName)
-            ui.setPropertyList(book)
+            ui.set_properties(book)
             ui.exec()
             if ui.isReject():
                 break
@@ -198,33 +197,11 @@ class DilBook(DbBook):
         del ui
         return
     
-    def import_book( self )->bool:
-        from ui.addbookdir import AddBookDirectory
-        from ui.properties import UiProperties
-        ( book_info , error ) = self.import_one_book( AddBookDirectory.prompt_import_directory('Existing Book'))
-        if error:
-            AddBookDirectory.error_message( error )
-            return False
-        return self.editProperties(UiProperties())
-
-    def import_book_directory(self):
-        """
-        Import a directory of directories holding PNG images into the database
-            
-        This will interface with:
-            import_directory:   get the directory to check out
-            prompt_add_detail:  Confirm they want to add detail
-            Prompt to see if they want us to correct new entries.
-            Get all the book information
-        """
-        from ui.addbookdir import AddBookDirectory
-        (added, message) = self.addBookDirectory( newdir )
-        if added:
-            if AddBookDirectory.prompt_add_detail(message):
-                self.updateIncompleteBooksUI()
-
     def clear(self):
-        # Control information: used to access files
+        """ Clear all the book data that is stored for a book
+        
+            Use this after 'close' a book
+        """
         self.book = None
         self.changes = {}
         # Set whenever the dirpath alters
@@ -237,17 +214,17 @@ class DilBook(DbBook):
         self.firstPage = 0
 
     def isValidPage(self, page: int) -> bool:
-        return (page > 0 and page <= self.getProperty(BOOK.totalPages, 999))
+        return (page > 0 and page <= self.get_property(BOOK.totalPages, 999))
 
     def getNote(self) -> str:
-        return self.getProperty(BOOK.note)
+        return self.get_property(BOOK.note)
 
     def getTitle(self) -> str:
-        return self.getProperty(BOOK.name)
+        return self.get_property(BOOK.name)
 
     def setTitle(self, newTitle: str) -> bool:
         if newTitle != self.getTitle():
-            self.setProperty(BOOK.name, newTitle)
+            self.set_property(BOOK.name, newTitle)
             return True
         return False
 
@@ -274,11 +251,11 @@ class DilBook(DbBook):
 
     def getRelativePageOffset(self) -> int:
         ''' getRelativePageOffset returns the int value of the offset, from 1. If 1, there is no offset'''
-        return self.getProperty(BOOK.numberStarts, 1)
+        return self.get_property(BOOK.numberStarts, 1)
 
     def setRelativePageOffset(self, offset: any) -> bool:
         if self.getRelativePageOffset() != int(offset):
-            self.setProperty(BOOK.numberStarts, offset)
+            self.set_property(BOOK.numberStarts, offset)
             return True
         return False
 
@@ -286,7 +263,7 @@ class DilBook(DbBook):
         if aspect is not None and self.getAspectRatio() != aspect:
             newAspect = 1 if aspect else 0
             self.book[BOOK.aspectRatio] = newAspect
-            self.setProperty(BOOK.aspectRatio, newAspect)
+            self.set_property(BOOK.aspectRatio, newAspect)
             return True
         return False
 
@@ -310,12 +287,12 @@ class DilBook(DbBook):
 
     def count(self) -> int:
         """ Return the total number of pages in a book """
-        return self.getProperty(BOOK.totalPages, 0)
+        return self.get_property(BOOK.totalPages, 0)
 
     def getLastPageShown(self) -> int:
         if self.getPropertyOrSystem(BOOKPROPERTY.layout) == DbKeys.VALUE_PAGES_SIDE_2:
-            return max(self.getProperty(BOOK.totalPages)-1, 1)
-        return self.getProperty(BOOK.totalPages)
+            return max(self.get_property(BOOK.totalPages)-1, 1)
+        return self.get_property(BOOK.totalPages)
 
     def incPageNumber(self, inc: int) -> int:
         """ Increment the page number by the passed integer. Number can be positive or negative. """
@@ -326,7 +303,7 @@ class DilBook(DbBook):
 
             This is from the config setting KEY_PAGE_CONTENT
         '''
-        return self.getProperty(BOOK.numberStarts, 1)
+        return self.get_property(BOOK.numberStarts, 1)
 
     def setContentStartingPage(self, pageNumber) -> bool:
         pageNumber = toInt(pageNumber)
@@ -349,7 +326,7 @@ class DilBook(DbBook):
             self.thisPage = pnum
         else:
             self.thisPage = min(max(1, self.thisPage),
-                                self.getProperty(BOOK.totalPages, 999))
+                                self.get_property(BOOK.totalPages, 999))
         return self.thisPage
 
     def getBookPath(self, bookPath: str = None) -> str:
@@ -403,7 +380,7 @@ class DilBook(DbBook):
         return (BOOK.aspectRatio not in self.book or self.book[BOOK.aspectRatio] == 1)
 
     def getID(self) -> int:
-        return self.getProperty(BOOK.id)
+        return self.get_property(BOOK.id)
 
     def getBooknameByID(self, id: int = None) -> str:
         """
@@ -417,17 +394,31 @@ class DilBook(DbBook):
             raise RuntimeError("No book found for ID: {}".format(id))
         return book[BOOK.name]
 
-    def getAll(self)->dict|None:
+    def update_properties( self, change_list:dict )->bool:
+        """ Update properties for a book based on dictionary 
+        
+            Return True if any changes were made
+        """
+        self.set_property( BOOK.id , self.book[ BOOK.id ])
+        for key, value in change_list.items():
+            self.set_property( key, value )
+        if len( self.changes ) > 0 :
+            self.write_properties()
+            return True
+        return False
+    
+    def get_properties(self)->dict|None:
         """ Return all of the properties for the book """
         return self.book
 
-    def getProperty(self, key: str, default=None) -> str:
+    def get_property(self, key: str, default=None) -> str:
+        """ Get one property and, if doesn't exist, return default value"""
         return (self.book[key] if self.book is not None and key in self.book else default)
 
     def getPropertyOrSystem(self, key: str) -> str:
         return ((self.book[key] if self.book is not None and key in self.book else DbSystem().getValue(key)))
 
-    def writeProperties(self):
+    def write_properties(self):
         """
             We have several differenty keystores: some in Book and
             some in BookSettings. We need to know where to put it.
@@ -445,7 +436,7 @@ class DilBook(DbBook):
 
         self.changes = {}
 
-    def setProperty(self, key: str, value=None) -> bool:
+    def set_property(self, key: str, value=None) -> bool:
         """
             Set property for both the change list and the book
             If anything (other than name) is changed, return True
@@ -453,37 +444,6 @@ class DilBook(DbBook):
         self.changes[key] = value
         self.book[key] = value
         return len(self.changes) > 0
-
-    def getProperties(self):
-        """
-        Return the list of properties to display. The list is always name/value/Mutable/scrollable
-        Scrollable is set to ensure that if one of the fields is too large, the scroll bar will
-        show in the properties table
-        """
-        properties = {}
-        if self.book is not None:
-            properties = {
-                "Title":                        [self.getTitle(), True, True],
-                "Page for first content":       [self.getContentStartingPage(), True, False],
-                "Page numbering starts at":     [self.getRelativePageOffset(), True, False],
-                "Keep aspect ratio for pages":  [self.getAspectRatio(), True, False],
-
-                "Total Pages":                  [self.count(), False, False],
-                "Location":                     [self.getBookPath(), False, True],
-            }
-        return properties
-
-    def editProperties(self, ui):
-        ui.setPropertyList(self.book)
-        rtn = ui.exec()   
-        if rtn:
-            self.setProperty( BOOK.id , self.book[ BOOK.id ])
-            for key, value in ui.changes.items():
-                self.setProperty(key, value)
-
-        if len(self.changes) > 0:
-            self.writeProperties()
-        return rtn
 
     def _toml_path(self, dir=None )->str:
         if dir is None:
@@ -493,9 +453,15 @@ class DilBook(DbBook):
     def save_toml_config( self ):
         if self.isOpen():
             with open( self._toml_path(),'w') as f:  
-                for key, value in self.getAll().items():
+                for key, value in self.get_properties().items():
                     f.write("{}=\"{}\"\n".format( key, value ))
         return
+
+    def delete_toml_config(self)->bool:
+        file_exists = os.path.isfile( self._toml_path() )
+        if file_exists :
+            os.remove( self._toml_path() )
+        return file_exists
 
     def read_toml_properties( self, directory:str )->dict:
         return self.read_toml_properties_file( self._toml_path(directory) )
@@ -516,13 +482,19 @@ class DilBook(DbBook):
     def _book_default_values(self, bookDir: str) -> dict:
         rtn = {}
         image_extension = DbSystem().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
-        rtn[BOOK.totalPages] = len(fnmatch.filter(
-            os.listdir(bookDir), '*.' + image_extension))
-        rtn[BOOK.book] = os.path.basename(bookDir)
-        rtn[BOOK.numberStarts] = 1
-        rtn[BOOK.numberEnds] = rtn[BOOK.totalPages]
+        rtn = {
+            BOOK.book:  os.path.basename(bookDir),
+            BOOK.totalPages:  len(fnmatch.filter( os.listdir(bookDir), '*.' + image_extension)),
+            BOOK.source: bookDir,
+            BOOK.location: bookDir,
+            BOOK.numberStarts: 1,
+            BOOK.publisher: '(import images)',
+        }
+            
+        rtn[ BOOK.numberEnds] = rtn[BOOK.totalPages]
         return rtn
 
+        
     def import_one_book(self, bookDir=dir):
         """ 
         This takes a directory of converted PNG images and adds to the database
@@ -543,41 +515,46 @@ class DilBook(DbBook):
         """
         book_info = {}
         error_msg = None
+        
         if not bookDir:
             return (book_info, "No directory passed.")
-        if self.isLocation( bookDir ):
-            return( book_info, 'Book already in library')
+        
+        basedir = os.path.basename( bookDir )
+
+        if self.isLocation( bookDir ) or self.isSource( bookDir ):
+            return( book_info, 'Book already in library: {}'.format( basedir ))
+        
         if not os.path.isdir(bookDir):
             return (book_info, "Location '{}' is not a directory".format(bookDir))
+        
         book_info = self._book_default_values(bookDir)
         if book_info[BOOK.totalPages] == 0:
             return (book_info, "No pages for book")
         book_info.update(self.read_toml_properties(bookDir))
 
-        rec_id = self.addBook(**book_info)
+        rec_id = self.add(**book_info)
         book_info[BOOK.id] = rec_id
         return (book_info, error_msg)
 
-    def addBookDirectory(self, location=dir):
+    def import_directory(self, location=dir):
         """
-            Returns true if we added anything, 
-            False is it we added nothing or you passed nothing for location
+            Import contents of a complete directory
+
+            Return is:
+                bool :       Error occured during add
+                list:        list dictionaries containing added book info
+                ltr:         message to return to user
         """
-        addedRecords = False
+        addedRecords = []
         if location is None or location == "":
-            return (False, "Location is empty")
+            return (False, addedRecords, "Location is empty")
         if not os.path.isdir(location):
-            return (False, "Location '{}' is not a directory".format(location))
-        sys = DbSystem()
-        type = sys.getValue(DbKeys.SETTING_FILE_TYPE, 'png')
-        query = DbHelper.prep(DbBook.SQL_INSERT_BOOK)
+            return (False, addedRecords, "Location '{}' is not a directory".format(location))
 
         for bookDir in [f.path for f in os.scandir(location) if f.is_dir()]:
-            if not self.isLocation(bookDir):
-                pages = len(fnmatch.filter(os.listdir(bookDir), '*.' + type))
-                name = os.path.basename(bookDir)
-                if DbHelper.bind(query, [name, pages, bookDir]).exec():
-                    addedRecords = True
-        addedMessage = "Records added" if addedRecords else "No new records found"
-        query.finish()
-        return (addedRecords, addedMessage)
+            ( book_info , error_msg ) = self.import_one_book( bookDir )
+            if error_msg is not None:
+                return ( False , addedRecords, error_msg )
+            addedRecords.append( book_info )
+        addedMessage = "Records added" if len(addedRecords)>0 else "No new records found"
+        return (True, addedRecords, addedMessage)

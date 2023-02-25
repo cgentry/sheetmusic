@@ -80,7 +80,7 @@ def parseArgs()->bool:
 
 def list():
     global directory, options
-    bk = DbBook()
+    dbk = DbBook()
     sortOrder = 'book'
     skipFields = []
     fields = []
@@ -99,7 +99,7 @@ def list():
         else:
             fields = ['composer', 'genre', BOOK.dateAdded, BOOK.dateUpdated, BOOK.dateRead, 'last_read', 'numbering_starts', 'numbering_ends', 'location', 'source']
             skipFields=['id']
-    rows = bk.getAll( order=sortOrder)
+    rows = dbk.getAll( order=sortOrder)
     if rows is not None:
         if 'short' in options:
             for row in rows:
@@ -112,8 +112,8 @@ def list():
         print("There are no books to print")
 
 def listComposer():
-    bk = DbBook()
-    printColumns( bk.getAllComposers() )
+    dbk = DbBook()
+    printColumns( bdbkk.getAllComposers() )
 
 def listGenre():
     printColumns( DbGenre().getAll() )
@@ -218,7 +218,7 @@ def _getName( book )->str:
     return value
 
 def _update( list ):
-    bk = DbBook()
+    dbk = DbBook()
     
     for book, items in list.items():
         skip = False
@@ -267,7 +267,7 @@ def _update( list ):
             print( confirmFormat.format("-"*20, "-"*40 ))
             if question( "{}\n\nOK to continue".format( "\n".join( confirm)) ):
                 print("call with:", changes)
-                count=bk.update( **changes )
+                count=dbk.update( **changes )
                 print("\tchanged {} record.".format( count ))
 
             else:
@@ -280,7 +280,7 @@ def scan( ):
     app = QApplication()
     
     bk = DilBook()
-    bk.import_book_directory()
+    bk.import_directory()
 
 def update():
     from qdil.book import DilBook
@@ -294,24 +294,24 @@ def update():
 def migrate():
     global options
     if 'genre' in options:
-        bk = DbGenre()
-        list = bk.getAll()
+        genre = DbGenre()
+        list = genre.getAll()
         printColumns( list ,title='Current genre entries:')
         oldValue = selectListEntry( list , addEntry=False, allowBlank=False, confirm=False)
         newValue = inputIfNone( prompt="New genre name", required=True)
         if question("Change '{}' to '{}'".format( oldValue, newValue )) :
-            rcount = bk.editAllGenres( oldValue, newValue)
+            rcount = genre.editAllGenres( oldValue, newValue)
             print("Total records changed:", rcount )
         else:
             print("Change cancelled!\n")
     elif 'composer' in options:
-        bk = DbComposer()
-        list = bk.getAllComposers()
+        composer = DbComposer()
+        list = composer.getAllComposers()
         printColumns( list ,title='Current composer entries:')
         oldValue = selectListEntry( list , addEntry=False, allowBlank=False, confirm=False)
         newValue = inputIfNone( prompt="New composer name", required=True)
         if question("Change '{}' to '{}'".format( oldValue, newValue )) :
-            rcount = bk.editAllComposers( oldValue, newValue)
+            rcount = composer.editAllComposers( oldValue, newValue)
             print("Total records changed:", rcount )
         else:
             print("Change cancelled!\n")

@@ -329,7 +329,7 @@ class UiBaseConvert(UiRunScript):
         self.status = self.RETURN_CONTINUE
         self._fill_in_all_file_info(fileList)
         for index, currentFile in enumerate(self.data):
-            fileInfo.setPropertyList(currentFile)
+            fileInfo.set_properties(currentFile)
             if fileInfo.exec() == QDialog.Accepted:
                 if len(fileInfo.changes) > 0:
                     currentFile.update(fileInfo.changes)
