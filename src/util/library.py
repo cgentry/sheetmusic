@@ -4,7 +4,7 @@
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
-# This file is part of Sheetmusic. 
+# This file is part of Sheetmusic.
 
 # Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,14 +18,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from PySide6.QtGui import QScreen
-from PySide6.QtWidgets import QApplication, QWidget
 
+from qdb.dbbook import DbBook
+from qdb.keys   import BOOK
+from qdil.preferences import DilPreferences
 
-def centerWidgetOnScreen( widget:QWidget):
-    centerPoint = QScreen.availableGeometry(QApplication.primaryScreen()).center()
-    fg = widget.frameGeometry()
-    fg.moveCenter(centerPoint)
-    widget.move(fg.topLeft())
-    ##
-    widget.show()
+class LibraryConsolidate( ):
+    @staticmethod
+    def books_not_in_library()->list:
+        library = DilPreferences().getDirectoryDB()
+        dbbook = DbBook()
+        all_books = dbbook.getAll()
+        not_in_lib = []
+        for book in all_books:
+            if not book[ BOOK.location ].startswith( library ):
+                not_in_lib.append( book )
+        return not_in_lib

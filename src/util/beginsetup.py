@@ -56,10 +56,10 @@ class Initialise( QDialog ):
         QApplication.processEvents()
 
     def init_database(self, dblocation:str):
-        self.output("\n<b>Setup database</b>")
+        self.output("\n<b>Setup library (database)</b>")
         if not os.path.isdir( dblocation ):
             DbConn.openDB( dblocation ) 
-            self.output("Checking database at {}".format( dblocation))
+            self.output("Checking library at {}".format( dblocation))
             s = Setup( dblocation )
             self.output("&hellip;", end= " ")
         if s.initSystem():

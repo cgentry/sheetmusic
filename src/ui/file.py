@@ -1,3 +1,23 @@
+# This Python file uses the following encoding: utf-8
+# vim: ts=8:sts=8:sw=8:noexpandtab
+#
+# This file is part of SheetMusic
+# Copyright: 2022,2023 by Chrles Gentry
+#
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import shutil
 from qdb.dbbook import DbGenre, DbComposer, DbBook
@@ -11,7 +31,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QInputDialog,
     QMessageBox, QLineEdit
 )
-from PySide6.QtSql import QSqlQuery
 
 
 class FileBase(QDialog):
@@ -312,24 +331,37 @@ class Reimportfile( FileBase ):
 
 class DeletefileAction( ):
     def __init__( self , name:str ):
-        ans = QMessageBox.question(
+        dbb = DbBook()
+        book = dbb.getBook( book=name)
+        if self._delete_db_entry( dbb , book ):
+            self._delete_all_files( dbb , book )
+
+    
+    def _delete_db_entry( self , dbb:DbBook, book:dict )->bool:
+
+        if book is not None and QMessageBox.Yes == QMessageBox.question(
             None,
-            "File Delete",
-            "OK to delete {} and all files?".format( name ),
+            "Sheetmusic Delete",
+            "Delete library entry '{}'?".format( book[BOOK.book] ),
             QMessageBox.Yes | QMessageBox.No 
-        )
-        if ans == QMessageBox.Yes :
-            dbb = DbBook()
-            book = dbb.getBook( book=name)
-            if book is not None:
-                try:
-                    if dbb.delBook( name ):
-                        shutil.rmtree( book[ BOOK.location ], onerror=self.showError )
-                    else:
-                        self.showError( None, name, FileNotFoundError("No book was removed from database") )
-                except Exception as err:
-                    self.showError( None, name, err )
-        
+        ):
+            book_name = book[BOOK.book]
+            try:
+                if dbb.delBook( book_name):
+                    return True
+            except Exception as err:
+                self.showError( None, book_name, err )
+        return False
+
+    def _delete_all_files(self , dbb:DbBook, book:dict )->bool:
+        if book is not None and QMessageBox.Yes == QMessageBox.question(
+            None,
+            "Sheetmusic Delete",
+            "Delete all music files for '{}'?".format( book[BOOK.book] ),
+            QMessageBox.Yes | QMessageBox.No 
+        ):
+            shutil.rmtree( book[ BOOK.location ], onerror=self.showError )
+
     def showError( self , func, path, errinfo:Exception ):
         if isinstance( errinfo, tuple ):
             emsg = str( errinfo[1] ) 

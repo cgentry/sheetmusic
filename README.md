@@ -1,4 +1,4 @@
-# sheetmusic version 0.5.17
+# sheetmusic version 0.5.18
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.5.x may be unstable. a large number of structural changes have been made which should be corrected in 0.6.0
@@ -14,6 +14,17 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes.
+
+# 0.5.18
+Fixd more bugs. Cleanup some tests which were screwed up.
+* added in an import of images in a directory that have been scanned.
+  This lets you run a scanner for hi-res PNG directly into a directory
+  rather than a PDF and then output the stored images.
+* Added an import into library function for the images.
+  Can now copy the images from the PNG-scanned directory into the
+  sheetmusic directory. Just a consolidation feature
+* Started a 'check consistancy' function for making sure DB
+  is correct. Not yet finished.
 
 # 0.5.17
 Version should be more stable and less prone to falling over.

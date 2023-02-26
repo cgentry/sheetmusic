@@ -24,7 +24,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui  import QIntValidator, QValidator
 from PySide6.QtWidgets import (
     QDialog, QGridLayout, QDialogButtonBox, QLineEdit, QMessageBox,
-    QTableWidget, QAbstractItemView, QTableWidgetItem, QHeaderView, QPushButton )
+    QTableWidget, QAbstractItemView, QTableWidgetItem, QHeaderView, QPushButton , QCheckBox)
 
 from qdb.keys         import BOOK, DbKeys
 from ui.editItem      import UiGenericCombo
@@ -100,6 +100,9 @@ class UiProperties(QDialog):
         self.propertiesTable.setShowGrid(True)
         self.propertiesTable.setDisabled( False )
     
+    def add_buttons(self)->None:
+        """ OVERRIDE: Add additional buttons here. """
+        pass
 
     def createButtons(self):
         self.btn_skip = QPushButton( self.btnTxtIgnore )
@@ -110,7 +113,12 @@ class UiProperties(QDialog):
         self.buttons.addButton( self.btn_apply, QDialogButtonBox.YesRole)
         self.buttons.addButton( self.btn_cancel , QDialogButtonBox.RejectRole)
         self.buttons.clicked.connect(self.button_clicked)
-       
+        self.add_buttons()
+    
+    def button_default_action( self, btn ):
+        """ OVERRRIDE: To extend button actions on 'clicked', override and check btn.text """
+        self.accept()
+
     def button_clicked(self, btn ):
         if btn.text() == self.btnTxtIgnore:
             self.changes={}
@@ -119,7 +127,7 @@ class UiProperties(QDialog):
             self.changes={}
             self.reject()
         else:
-            self.accept()
+            self.button_default_action( btn )
     
     def isReject(self)->bool:
         return (self.result() == self.DialogCode.Rejected )
@@ -239,6 +247,22 @@ class UiProperties(QDialog):
         combo.fillTable( dbentry , currentEntry )
         combo.currentTextChanged.connect( changeFunction )
         self._insertPropertyEntry( [ QTableWidgetItem( label ) , combo ])
+    
+    def _checkboxProperty( self, label:str, ischecked:bool, checkedFunction ):
+        cbox = QCheckBox()
+        cbox.setText( label )
+        cbox.setCheckable(True)
+        cbox.setChecked( ischecked )
+        cbox.stateChanged.connect( checkedFunction )
+        self._insertPropertyEntry( [QTableWidgetItem( ''), cbox ])
+
+    def add_additional_properties(self)->None:
+        """ OVERRIDE: To extend the editable rows, use this hook """
+        pass
+
+    def add_additional_static_properties(self)->None:
+        """ OVERRIDE: To extend the static rows, use this hook """
+        pass
 
     def set_properties(self, musicbook:dict ):
         """
@@ -259,7 +283,8 @@ class UiProperties(QDialog):
         self._nameProperty( 'Last page number', musicbook, BOOK.numberEnds,   self.changedEnd  ,  isInt = True )
         self._nameProperty( 'Web Link',         musicbook, BOOK.link,         self.changedLink ,  isInt = False, cleanup=False)
         self._nameProperty( 'Author' ,          musicbook, BOOK.author,       self.changedAuthor, isInt = False )
-  
+        self.add_additional_properties()
+
         for prop in self.staticBookInformation:
             data = musicbook[ prop[ self.bpData] ] if prop[self.bpData] in musicbook else "(no data)"
             tableEntry = self._format_static_property(
@@ -268,8 +293,22 @@ class UiProperties(QDialog):
                 False,
             )
             self._insertPropertyEntry(tableEntry)
-
+        self.add_additional_static_properties()
         self.propertiesTable.resizeColumnsToContents()
 
         #self.adjustSize(  )
 
+class UiPropertiesImages( UiProperties ):
+    """ Property images extends the Properties to provide a checkbox for saving TOML informatin"""
+    
+    def save_toml_file(self)->bool:
+        return self._save_toml_file
+    
+    def add_additional_properties(self):
+        print("Add toml file flag")
+        self._save_toml_file = True
+        self._checkboxProperty( 'Save properties in file' , True, self.checkbox_changed)
+
+    def checkbox_changed( self , state ):
+        self._save_toml_file = state
+        print( 'State of toml_file is', self._save_toml_file )

@@ -97,6 +97,8 @@ class UiMain(object):
         self.action_file_delete = action(
             u'Delete', title='Delete...', shortcut=QKeySequence.DeleteEndOfWord)
         self.action_file_import = action(u'Import')
+        self.action_file_library = action(u'Library')
+
         # file -> import actions
         self.action_file_select_import = action(
             u'SelectImport', title=u'Select Import Script ...')
@@ -106,6 +108,17 @@ class UiMain(object):
             u'ImportDir',    title=u"Import Directory of PDFs...")
         self.action_file_reimport_PDF = action(
             u'ReimportPDF', title=u'Reimport PDF...')
+        
+        self.action_file_import_images = action(
+            u'ImportImages', title=u'Import directory of images...' )
+        self.action_file_import_images_dir = action(
+            u'ImportImagesDir', title=u'Import directory holding multiple directories of images...' )
+        
+        # file -> Library actions
+        self.action_file_library_consolidate = action(
+            u'LibraryConsolidate', title=u'Consolidate library entries...' )
+        self.action_file_library_check = action(
+            u'LibraryCheck', title=u'Check library for consistency...' )
 
         # EDIT actions
         self.action_edit_page = action(
@@ -335,6 +348,15 @@ class UiMain(object):
         self.menuImport.addAction(self.action_file_import_PDF)
         self.menuImport.addAction(self.action_file_reimport_PDF)
         self.menuImport.addAction(self.action_file_import_dir)
+        self.menuImport.addSeparator()   # -------------------
+        self.menuImport.addAction( self.action_file_import_images )
+        self.menuImport.addAction( self.action_file_import_images_dir )
+
+        # library submenu
+        self.menuLibrary = self.menuFile.addMenu("Library")
+        self.menuLibrary.setTitle(u'Library')
+        self.menuLibrary.addAction( self.action_file_library_consolidate)
+        self.menuLibrary.addAction( self.action_file_library_check )
 
         self.menuFile.addSeparator()   # -------------------
         self.menuFile.addAction(self.action_edit_preferences)

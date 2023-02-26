@@ -1,30 +1,55 @@
+# This Python file uses the following encoding: utf-8
+# vim: ts=8:sts=8:sw=8:noexpandtab
+#
+# This file is part of SheetMusic
+# Copyright: 2022,2023 by Chrles Gentry
+#
+# This file is part of Sheetmusic. 
+
+# Sheetmusic is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PySide6.QtWidgets  import QFileDialog, QMessageBox
 from qdil.book          import DilBook
 from qdil.preferences   import DilPreferences
 from qdb.keys           import DbKeys, BOOK
-from ui.properties      import UiProperties
+from ui.properties      import UiPropertiesImages
 
 class UiAddBook( ):
     def __init__(self):
         pass
 
+
     def import_book( self )->bool:
+        """ Prompt user for a book directory and import into the system
+        
+            This will also write out a TOML file with properties, in case
+            they want to re-import the file
+        """
         book = DilBook()
-        ( book_info , error ) = book.import_one_book( UiAddBook.prompt_import_directory('Existing Book'))
+        book_dir = UiAddBook.prompt_import_directory('Existing Book')
+        ( book_info , error ) = book.import_one_book( book_dir )
         if error:
             UiAddBook.error_message( error )
             return False
         
-        property_editor = UiProperties()
-        property_editor.set_properties( self.book.get_properties() )
-        if property_editor.exec():
-            self.book.update_properties( property_editor.changes )
-        
         book.open( book_info[ BOOK.book ])
-        property_editor = UiProperties()
+        property_editor = UiPropertiesImages()
         property_editor.set_properties(book.get_properties())
         if property_editor.exec():
-            self.book.update_properties( property_editor.changes )
+            book.update_properties( property_editor.changes )
+        if property_editor.save_toml_file():
+            book.write_toml_properties( book_dir , book.get_properties() )
 
     def import_directory(self, newdir ):
         """

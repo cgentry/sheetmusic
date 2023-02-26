@@ -62,7 +62,7 @@ class DbConn():
         if _qdb_conn is None or not _qdb_conn.isValid():
             if databasePath is None:
                 if _qdb_path is None:
-                    raise ValueError("\tNo database name passed")
+                    raise ValueError("\tNo library name passed")
                 else:
                     return DbConn.reopenDB( )
         else: # _qdb_conn is not none

@@ -323,10 +323,10 @@ class DbBook(DbBase):
         return rtn
 
     def write_toml_properties( self, directory: str , config:dict ):
-        with open( os.path.join( directory , DbBook.CONFIG_TOML_FILE), "wb") as f:
+        with open( os.path.join( directory , DbBook.CONFIG_TOML_FILE), "w") as f:
             for key, value in config.items():
                 if key in DbBook.VALID_TOML_KEYS:
-                    f.write( '{}}="{}\n"'.format( key, value ))
+                    f.write( '{}="{}"\n'.format( key.strip(), str(value).strip() ))
         return
     
 

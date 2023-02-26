@@ -362,6 +362,16 @@ class MainWindow(QMainWindow):
             self._action_file_import_dir)
         self.ui.action_file_reimport_PDF.triggered.connect(
             self._action_file_reimport_PDF)
+        self.ui.action_file_import_images.triggered.connect(
+            self._action_file_import_images)
+        self.ui.action_file_import_images_dir.triggered.connect(
+            self._action_file_import_images_dir)
+        #------
+        self.ui.action_file_library_consolidate.triggered.connect(
+            self._action_file_library_consolidate )
+        self.ui.action_file_library_check.triggered.connect(
+            self._action_file_library_check
+        )
 
         # EDIT:
         self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
@@ -597,6 +607,24 @@ class MainWindow(QMainWindow):
             del uiconvert
         del rif
 
+    def _action_file_import_images( self )->None:
+        from ui.addbook import UiAddBook
+        addbook = UiAddBook()
+        addbook.import_book()
+
+    def _action_file_import_images_dir( self )->None:
+        from ui.addbook import UiAddBook
+        addbook = UiAddBook()
+        addbook.import_directory()
+
+    def _action_file_library_consolidate( self )->None:
+        from ui.library import UiLibraryConsolidate
+        UiLibraryConsolidate().exec()
+
+    def _action_file_library_check( self )->None:
+        from ui.library import UiLibraryCheck
+        UiLibraryCheck()
+        
     # EDIT ACTIONS
     def _about_to_show_edit_menu(self) -> None:
         edit_label = self.ui.action_edit_page.text().split('#', 1)
@@ -839,7 +867,7 @@ class MainWindow(QMainWindow):
         self.ui.action_edit_properties.setEnabled(show)
         self.ui.action_file_close.setEnabled(show)
         self.ui.action_file_reopen.setEnabled(show)
-        self.ui.action_file_delete.setEnabled(show)
+        #self.ui.action_file_delete.setEnabled(show)
         self.ui.action_refresh.setEnabled(show)
 
         self.ui.action_bookmark_current.setEnabled(show)

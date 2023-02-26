@@ -172,7 +172,7 @@ class UiPreferences(QDialog):
                 grid.addWidget(lbl, i, 0)
 
     def createFileLayout(self) -> QWidget:
-        labels = ['Sheetmusic directory', 'Database Directory', 'User Script Directory',
+        labels = ['Sheetmusic directory', 'Library Directory (database)', 'User Script Directory',
                   "Number of recent files", "", "Editor", None, None]
         self.widgetFile = QWidget()
         self.layoutFile = QGridLayout()

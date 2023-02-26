@@ -2,12 +2,12 @@
 # Part of SheetMusic system.
 #
 #:title   Database: Make a backup
-#:comment This will make a backup of the key database file used by sheetmusic.
+#:comment This will make a backup of the key library file used by sheetmusic.
 #:comment The backup will be called 'sheetmusic-backup' and will have the
 #:comment extension of '.bak'.
 
 #:dialog  "type='dir' label='Select directory for backup' option='require' width='120' tag='BDIR'"
-#:dialog  "type='title' label='Backup Sheetmusic database'"
+#:dialog  "type='title' label='Backup Sheetmusic Library'"
 #:dialog  "type='size' width='600'"
 #:system  dbfile
 #:require debug
