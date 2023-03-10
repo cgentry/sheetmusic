@@ -18,18 +18,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 from os import path
-from datetime import datetime
 from pathlib import PurePath
 import fnmatch
 import os
-import re
 import shutil
-import sys
 
 from PySide6.QtWidgets import (
-    QApplication,       QDialog,
+    QDialog,
     QFileDialog,        QMessageBox,
     QComboBox,          QDialogButtonBox,
     QLabel,             QGridLayout,
@@ -37,14 +33,15 @@ from PySide6.QtWidgets import (
 )
 
 from qdb.dbbook import DbBook
-from qdb.keys import BOOK, BOOKPROPERTY, DbKeys
+from qdb.keys import BOOK, DbKeys
 from qdil.preferences import DilPreferences
+from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
+from qdb.mixin.fieldcleanup import  MixinFieldCleanup
+from qdb.mixin.tomlbook     import MixinTomlBook
 from ui.runscript import UiRunScript, UiScriptSetting, ScriptKeys
 from ui.simpledialog import SimpleDialog
-from util.simpleparse import SDOption
-from util.utildir import get_scriptpath
-from util.pdfinfo import PdfInfo
 from ui.util import centerWidgetOnScreen
+from util.simpleparse import SDOption
 
 
 class ImportSettings():
@@ -59,7 +56,7 @@ class ImportSettings():
         """ get the setting for a script_path """
         return DilPreferences().getValuePickle(ImportSettings.importKey(script_path), None)
 
-    def save( script_path: str, values: dict) -> str:
+    def save(script_path: str, values: dict) -> str:
         """ Save the dictionary into the name of the script. Add a prefix so there is never a conflict"""
         return DilPreferences().setValuePickle(key=ImportSettings.importKey(script_path), value=values, replace=True)
 
@@ -73,38 +70,41 @@ class ImportSettings():
 
 class UiImportSetting():
     """ Handle prompting, saving, return of fields """
+
     def __init__(self):
         self._changed = False
 
-    def setting(self ) -> dict|None:
+    def setting(self) -> dict | None:
         """ This returns the current selected import. If there is no selected, an error is displayed and None is returned
-        
+
         use this to get variables to export to the environment
         """
         script = ImportSettings.get_select()
         if script is None:
-            QMessageBox.critical( None, 'Import Error','No import filter is selected', QMessageBox.Cancel)
+            QMessageBox.critical(
+                None, 'Import Error', 'No import filter is selected', QMessageBox.Cancel)
             return None
-        
+
         return ImportSettings.setting(script)
 
-    def was_changed(self)->bool:
+    def was_changed(self) -> bool:
         return self._changed
-    
-    def edit_setting(self, script_path: str, current_setting: dict|None) -> dict|None:
+
+    def edit_setting(self, script_path: str, current_setting: dict | None) -> dict | None:
         """ Open and run a simple dialog from the script then save the setting """
-        self.script_parms = UiScriptSetting( script_path )
+        self.script_parms = UiScriptSetting(script_path)
         if not self.script_parms.is_set(ScriptKeys.DIALOG):
-            QMessageBox.critical(None, 'Invalid import script','Script does not contain dialog settings\n{}'.format( script_path), QMessageBox.Cancel)
+            QMessageBox.critical(None, 'Invalid import script', 'Script does not contain dialog settings\n{}'.format(
+                script_path), QMessageBox.Cancel)
             return None
         sd = SimpleDialog()
-        sd.parse(self.script_parms.setting(ScriptKeys.DIALOG) )
+        sd.parse(self.script_parms.setting(ScriptKeys.DIALOG))
         if sd.exec():
             self._changed = True
             data_dict = {}
-            for entry in sd.data :
-                data_dict[ entry[ SDOption.KEY_TAG]] = entry[ SDOption.KEY_VALUE]
-            ImportSettings.save( script_path , data_dict  )
+            for entry in sd.data:
+                data_dict[entry[SDOption.KEY_TAG]] = entry[SDOption.KEY_VALUE]
+            ImportSettings.save(script_path, data_dict)
             return sd.data
         self._changed = False
         return current_setting
@@ -113,9 +113,9 @@ class UiImportSetting():
         """ select saves the script_path as the current one and will display an edit dialog"""
         self._changed = False
         values = ImportSettings.setting(script_path)
-        return self.edit_setting( script_path , values )
-    
-    def _create_dialog( self ):
+        return self.edit_setting(script_path, values)
+
+    def _create_dialog(self):
         self.dlg = QDialog()
         self.dlg.setWindowTitle('Select Input Script')
         self.layout = QGridLayout()
@@ -123,85 +123,87 @@ class UiImportSetting():
         self.cmb_script = QComboBox()
         self.lbl_comment = QLabel('Description')
         self.txt_comment = QTextEdit()
-        
-        self.btnbox = QDialogButtonBox( )
-        self.btnbox.addButton( QDialogButtonBox.Save)
-        self.btnbox.addButton( QDialogButtonBox.Cancel )
-        self.btnbox.addButton( 'Edit settings' , QDialogButtonBox.ActionRole ) 
-        self.btnbox.accepted.connect( self._btn_accept )
-        self.btnbox.rejected.connect( self._btn_reject )
-        self.btnbox.clicked.connect( self._btn_clicked )
-        self.layout.addWidget( self.lbl_script, 0 , 0 )
-        self.layout.addWidget( self.cmb_script, 0 , 1)
-        self.layout.addWidget( self.lbl_comment, 1, 0 )
-        self.layout.addWidget( self.txt_comment , 1 , 1)
-        self.layout.addWidget( self.btnbox , 2, 1 )
 
-        self.dlg.setLayout( self.layout )
+        self.btnbox = QDialogButtonBox()
+        self.btnbox.addButton(QDialogButtonBox.Save)
+        self.btnbox.addButton(QDialogButtonBox.Cancel)
+        self.btnbox.addButton('Edit settings', QDialogButtonBox.ActionRole)
+        self.btnbox.accepted.connect(self._btn_accept)
+        self.btnbox.rejected.connect(self._btn_reject)
+        self.btnbox.clicked.connect(self._btn_clicked)
+        self.layout.addWidget(self.lbl_script, 0, 0)
+        self.layout.addWidget(self.cmb_script, 0, 1)
+        self.layout.addWidget(self.lbl_comment, 1, 0)
+        self.layout.addWidget(self.txt_comment, 1, 1)
+        self.layout.addWidget(self.btnbox, 2, 1)
 
-    def _picked_entry(self, value ):
+        self.dlg.setLayout(self.layout)
+
+    def _picked_importpdf_entry(self, value):
         """ Set the comment text to the comment from the list """
         if value > -1:
-            data = self.cmb_script.itemData( value )
+            data = self.cmb_script.itemData(value)
             if data is None:
                 self.txt_comment.clear()
             else:
-                self.txt_comment.setText( data.comment() )
+                self.txt_comment.setText(data.comment())
         self.cmb_script.setFocus()
 
-    def _btn_reject( self ):
+    def _btn_reject(self):
         self.dlg.reject()
 
-    def _get_script_current( self  )->str|None:
+    def _get_script_current(self) -> str | None:
         index = self.cmb_script.currentIndex()
-        if index > -1 :
-            toolscript =  self.cmb_script.itemData( index )
+        if index > -1:
+            toolscript = self.cmb_script.itemData(index)
             if toolscript is not None:
                 script = toolscript.path()
                 return script
         return None
 
-    def _btn_accept( self ):
-        script = self._get_script_current( )
+    def _btn_accept(self):
+        script = self._get_script_current()
         if script is not None:
-            ImportSettings.save_select( script )
+            ImportSettings.save_select(script)
         self.dlg.accept()
 
-    def _btn_clicked( self, btn ):
+    def _btn_clicked(self, btn):
         if btn.text() == 'Edit settings':
-            script = self._get_script_current( )
+            script = self._get_script_current()
             if script is not None:
-                self.edit_setting( script , ImportSettings.setting( script ))
-        
+                self.edit_setting(script, ImportSettings.setting(script))
+
     def pick_import(self):
         """ Pick import simply shows a list and comments, then allows the user to pick one and save it
-        
+
             Note: this doesn't set the values. That is done later when popped up OR when they click 'Edit'
         """
 
         from util.toollist import GenerateImportList
         import_list = GenerateImportList().list()
         current = ImportSettings.get_select()
-        
+
         self._create_dialog()
         if current is None:
-            self.cmb_script.addItem( '- No import script selected', None )
-        self.cmb_script.currentIndexChanged.connect( self._picked_entry )
+            self.cmb_script.addItem('- No import script selected', None)
+        self.cmb_script.currentIndexChanged.connect(
+            self._picked_importpdf_entry)
         index = 0
-        self.cmb_script.setCurrentIndex( -1 )
+        self.cmb_script.setCurrentIndex(-1)
         for key, tscript in import_list.items():
-            self.cmb_script.addItem( key , tscript)
-            if current is not None and tscript.path() == current :
-                self.cmb_script.setCurrentIndex( index )
-                self.txt_comment = tscript.comment()
+            self.cmb_script.addItem(key, tscript)
+            if current is not None and tscript.path() == current:
+                self.cmb_script.setCurrentIndex(index)
+                self.txt_comment.setText(tscript.comment())
             index += 1
         if current is None:
             self.cmb_script.setCurrentIndex(0)
         self.cmb_script.setFocus()
-        centerWidgetOnScreen( self.dlg )
+        centerWidgetOnScreen(self.dlg)
         self.dlg.exec()
 
-class UiBaseConvert(UiRunScript):
+
+class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, MixinFieldCleanup, MixinFilterFiles, UiRunScript):
     """
         UiBaseConvert contains code to process a list of PDF files and store them
         in the sheetmusic directory. Directory prompts should occur in the derived classes
@@ -218,8 +220,8 @@ class UiBaseConvert(UiRunScript):
     CONVERT_RES = 'r'
 
     def __init__(self) -> None:
-        super().__init__(ImportSettings.get_select() )
-        self.add_to_environment( ImportSettings.setting( self.script_file ) )
+        super().__init__(ImportSettings.get_select())
+        self.add_to_environment(ImportSettings.setting(self.script_file))
         self.pref = DilPreferences()
         self.status = self.RETURN_CANCEL
         self.set_output('text')
@@ -231,161 +233,88 @@ class UiBaseConvert(UiRunScript):
         self.music_path = self.pref.getMusicDir()
         self.baseDir = '~'
         self.data = []
-        self.duplicateList = []
-    
-
-    def setBaseDirectory(self, dir: str):
-        if dir is not None:
-            self.baseDir = dir
-
-    def baseDirectory(self) -> str:
-        return (self.baseDir if self.baseDir else DbKeys.VALUE_LAST_IMPORT_DIR)
 
     def _is_valid_book_directory(self, bookDir: str) -> bool:
         """
             Check if a directory exists for a book, check for pages that exist in directory
         """
-
         return (os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix)) > 0)
+        
+    def _fill_in_all_file_info(self, sourcelist: list[str]) -> list[dict]:
+        """ From the filelist, fill in all the data from files, tomls, etc """
+        self.data = []
+        for sourceFile in sourcelist:
+            self.open_pdf(sourceFile)  # Open first to give time to load
 
-    def _cleanup_book_name(self, bookName: str, level: int) -> str:
-        """ This takes a book name and gets rid of bad characters in prep for filename"""
+            # Load in file information first
+            currentFile = self.get_info_from_file(sourceFile)
 
-        # No newline, returns or tabs
-        bookName = re.sub(r'[\n\t\r]+', '', bookName)
-        bookName = re.sub(r'[#%{}<>*?$!\'":@+\\|=/]+',
-                          ' ', bookName)  # bad characters
-        # Only one space when multiples
-        bookName = re.sub(r'\s+',       ' ', bookName)
-        # Leading char must be Alphanumeric
-        bookName = re.sub(r'^[^a-zA-Z\d]+', '', bookName)
-
-        if level == DbKeys.VALUE_NAME_IMPORT_FILE_1:
-            bookName = re.sub(r'[_]*', ' ', bookName)
-        if level == DbKeys.VALUE_NAME_IMPORT_FILE_2:
-            bookName = re.sub(r'[_]*', ' ', bookName)
-            bookName = bookName.title()
-
-        return bookName.strip()
-
-    def _fill_in_from_database(self, sourceFile: str) -> dict:
-        """ This will read data from the database if the file has been imported before
-
-            This will override all of the data set from the PDF as it's already been cleaned up.
-        """
-
-        book = DbBook().getBookByColumn(BOOK.source, sourceFile)
-        if book is None:
-            currentFile = {}
-        else:
-            currentFile = {
-                BOOK.name:          book[BOOK.name],
-                BOOK.totalPages:    book[BOOK.totalPages],
-                BOOK.composer:      book[BOOK.composer],
-                BOOK.genre:         book[BOOK.genre],
-                BOOK.numberStarts:  book[BOOK.numberStarts],
-                BOOK.numberEnds:    book[BOOK.numberEnds]
-            }
-
-        return currentFile
-
-    def _fill_in_all_file_info(self, filelist: list):
-        """ Fill in default information, then get info from current entry if exists """
-
-        cleanup_level = self.pref.getValueInt(
-            DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_2)
-        for sourceFile in filelist:
-            currentFile = {
-                BOOK.name:          PurePath(sourceFile).stem,
-                BOOK.source:        sourceFile,
-                BOOK.numberStarts:  1,
-                BOOK.composer:      None,
-                BOOK.genre:         None,
-                BOOK.fileCreated:   datetime.fromtimestamp(os.path.getctime(sourceFile)).isoformat(' '),
-                BOOK.fileModified:  datetime.fromtimestamp(os.path.getmtime(sourceFile)).isoformat(' '),
-                BOOKPROPERTY.layout:        DbKeys.VALUE_PAGES_SINGLE,
-            }
             # PDF info
-            pdfinfo = PdfInfo()
-            if pdfinfo.has_pdf_library():
-                currentFile.update(pdfinfo.get_info_from_pdf(sourceFile))
-                cleanup_level = DbKeys.VALUE_NAME_IMPORT_PDF
-            currentFile[BOOK.name] = self._cleanup_book_name(
-                currentFile[BOOK.name], cleanup_level)
+            currentFile.update(self.get_info_from_pdf(sourceFile))
+
+            # TOML PROPERTIES FILE (optional)
+            currentFile.update(self.read_toml_properties_file(sourceFile))
+
+            # cleanup the filename
+            currentFile[BOOK.name] = self.clean_field_value(
+                currentFile[BOOK.name])
 
             # From database
             currentFile.update(self._fill_in_from_database(sourceFile))
 
+            # Add to the data list
             self.data.append(currentFile)
-
-    def getFileInfo(self, fileList: list) -> bool:
+        # Return datalist to user
+        return self.data
+    
+    def update_file_properties(self) -> bool:
         """
             This will go through all of the files and prompt the user
             for properties. It then fills in the information in the data array
         """
 
+        status = self.RETURN_CONTINUE
+
         from ui.properties import UiProperties
-        fileInfo = UiProperties()
-        self.status = self.RETURN_CONTINUE
-        self._fill_in_all_file_info(fileList)
+        uiproperties = UiProperties()
         for index, currentFile in enumerate(self.data):
-            fileInfo.set_properties(currentFile)
-            if fileInfo.exec() == QDialog.Accepted:
-                if len(fileInfo.changes) > 0:
-                    currentFile.update(fileInfo.changes)
-                    self.data[index] = currentFile
-            else:
-                self.status = self.RETURN_CANCEL
+            uiproperties.set_properties(currentFile)
+            if uiproperties.exec() != QDialog.Accepted:
+                # Cancel the conversion
+                status = self.RETURN_CANCEL
                 self.data = []
                 break
-        return self.status
 
-    def checkForProcessedFiles(self, fileList: list) -> list:
-        '''
-            Check for processed files and present list to user
-        '''
-        duplist = DbBook().sourcesExist(fileList)
-        self.duplicateList = []
+            if len(uiproperties.changes) > 0:
+                # UPDATE the data and TOML properties file
+                currentFile.update(uiproperties.changes)
+                self.write_toml_properties(currentFile, currentFile[BOOK.source])
+                self.data[index] = currentFile
 
-        if len(duplist) > 0:
-            # First, remove duplicates from filelist
-            fileList = [src for src in fileList if src not in duplist]
-            from ui.selectitems import SelectItems
-            sim = SelectItems("Books already processed",
-                              "Select files to reprocess")
-            dupDictionary = {os.path.basename(var): var for var in duplist}
-            sim.setData(dupDictionary)
-            sim.setButtonText("Include files", "Skip All")
-            rtn = sim.exec()
-            # Now, merge in selected IF they clicked 'Include'
-            if rtn == QMessageBox.Accepted:
-                dupDictionary = sim.getCheckedList()
-                if len(dupDictionary) > 0:
-                    self.duplicateList = list(dupDictionary.values())
-                    fileList.extend(list(self.duplicateList))
+        return status
 
-        return fileList
-
+    def _delete_current_book( self, dbb:DbBook, book_entry:dict )->bool:
+        """ Remove old files/directory and database entry for this location """
+        db_book = dbb.getBookByColumn( BOOK.source , book_entry[ BOOK.source ])
+        if db_book is not None and len( db_book) > 0 :
+            # Don't delete entries that point to the source (probably a PDF)
+            if db_book[ BOOK.source ] != db_book[ BOOK.location ]:
+                shutil.rmtree(db_book[BOOK.location], ignore_errors=True)
+            dbb.delbycolumn( BOOK.source, db_book[BOOK.source])
+        return ( db_book is not None and len( db_book ) > 0 )
+            
     def fixDuplicateNames(self):
         """
             Each entry in the list contains a book name and a location.
             If the location doesn't exist but the name does then we need to
             fix the names.    
         """
-
         dbb = DbBook()
         musicPath = self.pref.getValue(DbKeys.SETTING_DEFAULT_PATH_MUSIC)
         for index, entry in enumerate(self.data):
-
-            # Is this location already encoded? If so, we delete the old files
-            # and the database entry.
-            if dbb.isSource(entry[BOOK.source]):
-                book = dbb.getBookByColumn(BOOK.source, entry[BOOK.source])
-                dbb.delBook(book[BOOK.book])
-                shutil.rmtree(book[BOOK.location], ignore_errors=True)
-
-            # Is the source wasn't encoded but the name is the same
-            # ... if so, we need a different name
+            self._delete_current_book( dbb, entry )
+                
+            # see if the name is still there and get unique name for it
             if dbb.isBook(entry[BOOK.name]):
                 self.data[index][BOOK.name] = dbb.getUniqueName(
                     entry[BOOK.name])
@@ -393,9 +322,9 @@ class UiBaseConvert(UiRunScript):
     def processDirectoryList(self, fileList: list) -> bool:
         if fileList is None or len(fileList) == 0:
             return self.RETURN_CANCEL
-
-        fileList = self.checkForProcessedFiles(fileList)
-        if self.getFileInfo(fileList) == self.RETURN_CONTINUE:
+        self._fill_in_all_file_info( fileList )
+        self.status = self.update_file_properties()
+        if self.status == self.RETURN_CONTINUE:
             self.fixDuplicateNames()
             for index, entry in enumerate(self.data):
                 baseName = os.path.basename(entry[BOOK.source])
@@ -418,11 +347,6 @@ class UiBaseConvert(UiRunScript):
     def add_final_vars(self):
         pass
 
-    def getDuplicateList(self) -> list:
-        """
-            This gets a complete list of files that have been 'reprocessed'
-        """
-        return self.duplicateList
 
 class UiConvertFilenames(UiBaseConvert):
     def __init__(self, location=None):
@@ -437,24 +361,26 @@ class UiConvertFilenames(UiBaseConvert):
 
         return self.processDirectoryList([location])
 
+
 class UiConvert(UiBaseConvert):
 
     def __init__(self):
         super().__init__()
 
     def getListOfPdfFiles(self) -> str:
-        (self.fileName, _) = QFileDialog.getOpenFileNames(
+        (self.fileNames, _) = QFileDialog.getOpenFileNames(
             None,
             "Select PDF File",
             dir=path.expanduser(self.baseDirectory()),
-            filter="(*.pdf *.PDF)",
+            filter="(*.pdf *.PDF)"
         )
-        if len(self.fileName) > 0:
-            self.setBaseDirectory(PurePath(self.fileName[0]).parents[0])
-        return self.fileName
+        if len(self.fileNames) > 0:
+            self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
+        return self.fileNames
 
     def process_files(self) -> bool:
         return self.processDirectoryList(self.getListOfPdfFiles())
+
 
 class UiConvertDirectory(UiBaseConvert):
     def __init__(self):
@@ -483,5 +409,3 @@ class UiConvertDirectory(UiBaseConvert):
                 if name.endswith('.pdf') or name.endswith('.PDF'):
                     self.fileName.append(os.path.join(path, name))
         return self.fileName
-
-

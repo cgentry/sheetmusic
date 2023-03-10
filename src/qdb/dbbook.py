@@ -57,14 +57,15 @@ class DbComposer(DbGenericName):
         return self.getColumn(SQL_GET_ACTIVE)
 
 class DbBook(DbBase):
-    CONFIG_TOML_FILE='properties.cfg'
-    VALID_TOML_KEYS = [
-            BOOK.book, BOOK.genre, BOOK.composer, BOOK.author, BOOK.numberStarts, BOOK.author, BOOK.publisher, BOOK.source
-        ]
+    
     SQL_DELETE = """
             DELETE FROM Book 
             WHERE book=?;
         """
+    SQL_DELETE_BY_COLUMN="""
+        DELETE FROM Book 
+            WHERE ::column=?
+    """
     SQL_DELETE_ALL = """DELETE FROM Book"""
     SQL_EDIT_COMPOSER = "UPDATE Book SET composer_id=? WHERE composer_id = ?"
     SQL_EDIT_GENRE = "UPDATE Book SET genre_id=? WHERE genre_id = ?"
@@ -309,6 +310,15 @@ class DbBook(DbBase):
         query.finish()
         return rtn
 
+    def delbycolumn( self, column:str, value:str|int)->int:
+        self._checkColumnView(column)
+        sql = DbBook.SQL_DELETE_BY_COLUMN.replace('::column', column)
+        query = DbHelper.bind(DbHelper.prep(sql), value)
+        rtn = (query.numRowsAffected() if query.exec() else 0)
+        self._checkError(query)
+        query.finish()
+        return rtn
+
     def delAllBooks(self) -> int:
         """
             Delete every book in the book table. Don't do this unless you are really sure
@@ -320,15 +330,7 @@ class DbBook(DbBase):
         self._checkError(query)
         query.finish()
         del query
-        return rtn
-
-    def write_toml_properties( self, directory: str , config:dict ):
-        with open( os.path.join( directory , DbBook.CONFIG_TOML_FILE), "w") as f:
-            for key, value in config.items():
-                if key in DbBook.VALID_TOML_KEYS:
-                    f.write( '{}="{}"\n'.format( key.strip(), str(value).strip() ))
-        return
-    
+        return rtn    
 
     def getIncompleteBooks(self):
         """

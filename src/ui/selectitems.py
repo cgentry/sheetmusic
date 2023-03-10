@@ -31,6 +31,7 @@ class SelectItems( QDialog ):
         super().__init__()
         self.dataList = {}
         self._ignoreCheckedItems = False
+        self.totalSelected = 0
         self.setDialog(
             self.createTitle(title) ,
             self.createList() ,
@@ -75,6 +76,7 @@ class SelectItems( QDialog ):
     def setButtonText( self, btn_yes:str='Yes', btn_no:str='No' ):
         self.btn_yes.setText( btn_yes)
         self.btn_no.setText( btn_no)
+        self.btn_yes.setEnabled(False)
 
     def _widgetFromDatum( self, label )->QListWidgetItem:
         lim = QListWidgetItem()
@@ -122,13 +124,17 @@ class SelectItems( QDialog ):
             dataList[ self.checkList.item(i).text() ] = self.data[i]
         return dataList
 
-    def getCheckedList(self):
-        if self._ignoreCheckedItems :
-            return {}
-        return self._fillInCheckedItems( Qt.Checked )
-
-    def getUncheckedList(self):
+    def getCheckedList(self)->dict:
+        """ Return the dictionary of checked items """
+        return ( {} if self._ignoreCheckedItems else self._fillInCheckedItems( Qt.Checked ) )
+    
+    def getUncheckedList(self)->dict:
         return ( self.getDataList() if self._ignoreCheckedItems else self._fillInCheckedItems( Qt.Unchecked ) )
+    
+    def getCheckedListValues(self)->list:
+        """ This returns just the values - the full paths - of items selected"""
+        checked = self.getCheckedList()
+        return list( self._fillInCheckedItems( Qt.Checked ).values() )
 
     def actionAccepted(self):
         self._ignoreCheckedItems = False
@@ -141,6 +147,9 @@ class SelectItems( QDialog ):
     def actionSelected(self, item:QListWidgetItem ):
         if item.checkState() == Qt.Checked :
             item.setCheckState( Qt.Unchecked)
+            self.totalSelected += -1
         else:
             item.setCheckState( Qt.Checked )
+            self.totalSelected += 1
+        self.btn_yes.setEnabled( self.totalSelected > 0 )
         item.setSelected( False )

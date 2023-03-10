@@ -23,6 +23,7 @@
 from   os import path
 from   datetime import datetime
 from   pathlib import PurePath
+from   PySide6.QtPdf import QPdfDocument
 
 from qdb.keys         import BOOK, DbKeys, ImportNameSetting
 
@@ -47,6 +48,23 @@ class _DefaultPdfInfo( _SimplePdfInfo ):
     def get_info_from_pdf( self, filename:str )->dict:
         super().get_info_from_pdf( filename )
         return self.pdf_info
+
+class _UsePdfDocument:
+    def open( self, name ):
+        self.pdfDocument = QPdfDocument()
+        self.pdfDocument.load( name )
+    
+    def get_info_from_pdf(self, sourcefile ):
+        self.open( sourcefile )
+        pdf_info = {
+            BOOK.name : self.pdfDocument.metaData( QPdfDocument.MetaDataField.Title ),
+            BOOK.author : self.pdfDocument.metaData( QPdfDocument.MetaDataField.Author ),
+            BOOK.publisher : self.pdfDocument.metaData( QPdfDocument.MetaDataField.Producer ),
+            BOOK.name : self.pdfDocument.metaData( QPdfDocument.MetaDataField.Title ),
+            BOOK.pdfCreated: self.pdfDocument.metaData( QPdfDocument.MetaDataField.CreationDate ),
+            BOOK.pdfModified: self.pdfDocument.metaData( QPdfDocument.MetaDataField.ModificationDate),
+        }
+        return pdf_info
     
 class _UsePyPDF( _SimplePdfInfo ):
            
@@ -140,33 +158,36 @@ class PdfInfo:
     _pdf_import = None
 
     def __init__(self, prefer:str=None ):
-        if not self.has_pdf_library() :
-            if prefer is not None:
-                position = PdfInfo._pdf_library_list.index( prefer )
-                if position > -1 :
-                    PdfInfo._pdf_library_list.pop( position )
-                    PdfInfo._pdf_library_list.insert(0,prefer)
+        return 
+        # if not self.has_pdf_library() :
+        #     if prefer is not None:
+        #         position = PdfInfo._pdf_library_list.index( prefer )
+        #         if position > -1 :
+        #             PdfInfo._pdf_library_list.pop( position )
+        #             PdfInfo._pdf_library_list.insert(0,prefer)
 
-            for library_name in PdfInfo._pdf_library_list:
-                try:
-                    lib = __import__( library_name )
-                    PdfInfo._pdf_import = library_name
-                    break
-                except:
-                    pass
+        #     for library_name in PdfInfo._pdf_library_list:
+        #         try:
+        #             lib = __import__( library_name )
+        #             PdfInfo._pdf_import = library_name
+        #             break
+        #         except:
+        #             pass
 
     def has_pdf_library(self)->bool:
-        return PdfInfo._pdf_import is not None
+        return True
+        # return PdfInfo._pdf_import is not None
     
     def get_info_from_pdf( self, sourcefile)->dict: 
         """
             Get info from PDF using a PDF library If none are availble it will return
             default information.
         """
-        if PdfInfo._pdf_import == 'pypdf':
-            pdf = _UsePyPDF( __import__( PdfInfo._pdf_import ) )
-        else:
-            pdf = _DefaultPdfInfo( None )
-        return pdf.get_info_from_pdf( sourcefile )
-
+        return _UsePdfDocument( ).get_info_from_pdf( sourcefile )
     
+        # if PdfInfo._pdf_import == 'pypdf':
+        #     pdf = _UsePyPDF( __import__( PdfInfo._pdf_import ) )
+        # else:
+        #     pdf = _DefaultPdfInfo( None )
+        # return pdf.get_info_from_pdf( sourcefile )
+

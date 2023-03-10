@@ -61,7 +61,6 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self._use_smart_page_turn = False
 
         self.loadUi()
 
@@ -109,7 +108,7 @@ class MainWindow(QMainWindow):
             page = self.book.getAbsolutePage()
             # work some 'magic' Show page-n...page IF page is last page.
             totalPages = self.book.count()
-            showingPages = self.ui.pageWidget.numberPages()
+            showingPages = self.ui.pager.numberPages()
             if page == totalPages and showingPages and showingPages > 1:
                 plist = self.pageList(page-showingPages+1, self.MAX_PAGES)
                 self._loadPageWidgetList(plist)
@@ -119,7 +118,7 @@ class MainWindow(QMainWindow):
 
     def reloadPages(self) -> bool:
         if self.book.isOpen():
-            self._loadPageWidgetList(self.ui.pageWidget.page_numbers())
+            self._loadPageWidgetList(self.ui.pager.page_numbers())
         return self.book.isOpen()
 
     def _loadPageWidgetList(self, plist: list):
@@ -131,7 +130,7 @@ class MainWindow(QMainWindow):
         page1 = self.book.get_page_file(pg1)
         page2 = self.book.get_page_file(pg2)
         page3 = self.book.get_page_file(pg3)
-        self.ui.pageWidget.loadPages(page1, pg1, page2, pg2, page3, pg3)
+        self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
 
     def _update_pages_shown(self, absolute_page_number: int = None) -> None:
         """ Update status bar with page numbers """
@@ -197,26 +196,27 @@ class MainWindow(QMainWindow):
             rtn = self.book.open(newBookName, page)
 
         if rtn == QMessageBox.Ok:
-            self.book_layout = self.book.getPropertyOrSystem(
-                BOOKPROPERTY.layout)
-            self._use_smart_page_turn = toBool(
-                self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
+            book_layout = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
+            smart_page_turn = toBool(self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
+            aspect_ratio = self.book.getAspectRatio()
 
-            self.ui.pageWidget.setSmartPageTurn(self._use_smart_page_turn)
-            self.ui.pageWidget.setKeepAspectRatio(self.book.getAspectRatio())
-            # self.ui.pageWidget.resize( self.ui.pager.size() )
-            self.ui.pageWidget.setDisplay(self.book_layout)
+            self.ui.showPager( UiMain.PAGER_PNG )
+            self.ui.pageWidget().setDisplay(book_layout)
+            self.ui.pageWidget().setSmartPageTurn( smart_page_turn )
+            self.ui.pageWidget().setKeepAspectRatio(aspect_ratio)
+            self.loadPages()
 
-            # if self.loadPages():
-            self.setTitle()
-            self._set_menu_book_options(True)
             self.bookmark.open(newBookName)
 
+            # Update page and menu displays
+            self.setTitle()
+            self._set_menu_book_options(True)
+            self._set_menu_page_options(book_layout )
             self.updateBookmarkMenuNav(self.bookmark.getBookmarkPage(page))
-            self.ui.actionAspectRatio.setChecked(self.book.getAspectRatio())
-            self.ui.actionSmartPages.setChecked(self._use_smart_page_turn)
-            self._set_display_page_layout(
-                self.book.getPropertyOrSystem(BOOKPROPERTY.layout))
+            self.ui.actionAspectRatio.setChecked(aspect_ratio)
+            self.ui.actionSmartPages.setChecked( smart_page_turn )
+
+            self.ui.pageWidget().show()
             self.update_status_bar()
         else:
             if rtn == QMessageBox.DestructiveRole:
@@ -231,7 +231,7 @@ class MainWindow(QMainWindow):
             self.pref.setValue(DbKeys.SETTING_LAST_BOOK_NAME,
                                self.book.getTitle())
             self.book.close()
-            self.ui.pageWidget.clear()
+            self.ui.pager.clear()
             cache = QPixmapCache()
             cache.clear()
         self._set_menu_book_options(False)
@@ -286,7 +286,7 @@ class MainWindow(QMainWindow):
         return False
 
     def resizeEvent(self, event):
-        self.ui.pageWidget.resize(self.ui.pager.size())
+        self.ui.pager.resize(self.ui.stacks.size())
         self.reloadPages()
 
     def keyPressEvent(self, ev) -> None:
@@ -308,18 +308,18 @@ class MainWindow(QMainWindow):
         DbConn.closeDB()
 
     def page_previous(self) -> None:
-        pg = self.ui.pageWidget.getLowestPageShown()-1
+        pg = self.ui.pager.getLowestPageShown()-1
         if self.book.isValidPage(pg):
-            self.ui.pageWidget.previousPage(
+            self.ui.pager.previousPage(
                 self.book.get_page_file(pg), pg, end=(pg == 1))
             self.book.setPageNumber(pg)
             self.update_status_bar()
 
     def page_forward(self) -> None:
-        pg = self.ui.pageWidget.getHighestPageShown()+1
+        pg = self.ui.pager.getHighestPageShown()+1
         if self.book.isValidPage(pg):
             self.book.setPageNumber(pg)
-            self.ui.pageWidget.nextPage(self.book.get_page_file(
+            self.ui.pager.nextPage(self.book.get_page_file(
                 pg), pg, end=(pg == self.book.count()))
             self.update_status_bar()
 
@@ -354,14 +354,19 @@ class MainWindow(QMainWindow):
         self.ui.action_file_close.triggered.connect(self._action_file_close)
         self.ui.action_file_delete.triggered.connect(self._action_file_delete)
         # --------------
+        self.ui.action_file_import_document.triggered.connect(
+            self._action_file_import_document )
+        self.ui.action_file_import_document_dir.triggered.connect(
+            self._action_file_import_document_dir )
+        # ---------------
         self.ui.action_file_select_import.triggered.connect(
             self._action_file_select_import)
         self.ui.action_file_import_PDF.triggered.connect(
             self._action_file_import_PDF)
         self.ui.action_file_import_dir.triggered.connect(
             self._action_file_import_dir)
-        self.ui.action_file_reimport_PDF.triggered.connect(
-            self._action_file_reimport_PDF)
+        self.ui.action_file_reimport.triggered.connect(
+            self._action_file_reimport)
         self.ui.action_file_import_images.triggered.connect(
             self._action_file_import_images)
         self.ui.action_file_import_images_dir.triggered.connect(
@@ -370,8 +375,9 @@ class MainWindow(QMainWindow):
         self.ui.action_file_library_consolidate.triggered.connect(
             self._action_file_library_consolidate )
         self.ui.action_file_library_check.triggered.connect(
-            self._action_file_library_check
-        )
+            self._action_file_library_check )
+        self.ui.action_file_library_stats.triggered.connect(
+            self._action_file_library_stats )
 
         # EDIT:
         self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
@@ -522,7 +528,7 @@ class MainWindow(QMainWindow):
         is_import_set = (ImportSettings.get_select() is not None)
         self.ui.action_file_import_PDF.setEnabled(is_import_set)
         self.ui.action_file_import_dir.setEnabled(is_import_set)
-        self.ui.action_file_reimport_PDF.setEnabled(is_import_set)
+        #self.ui.action_file_reimport.setEnabled(is_import_set)
 
     def _action_file_open(self) -> None:
         of = Openfile()
@@ -567,6 +573,15 @@ class MainWindow(QMainWindow):
         if rtn == QMessageBox.Accepted:
             DeletefileAction(df.bookName)
 
+    def _action_file_import_document(self)->None:
+        import ui.util
+        ui.util.not_yet_implemented()
+
+
+    def _action_file_import_document_dir(self)->None:
+        import ui.util
+        ui.util.not_yet_implemented()
+
     def _action_file_select_import(self) -> None:
         """ Select a PDF import script """
         from util.toolconvert import UiImportSetting
@@ -578,7 +593,7 @@ class MainWindow(QMainWindow):
         uiconvert = UiConvert()
         uiconvert.setBaseDirectory(self.import_dir)
         if uiconvert.process_files():
-            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+            self._importPDF(uiconvert.data, uiconvert.getduplicateList())
         self.import_dir = str(uiconvert.baseDirectory())
         del uiconvert
 
@@ -587,11 +602,11 @@ class MainWindow(QMainWindow):
         uiconvert = UiConvertDirectory()
         uiconvert.setBaseDirectory(self.import_dir)
         if uiconvert.exec_():
-            self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+            self._importPDF(uiconvert.data, uiconvert.getduplicateList())
         self.import_dir = uiconvert.baseDirectory()
         del uiconvert
 
-    def _action_file_reimport_PDF(self) -> None:
+    def _action_file_reimport(self) -> None:
         rif = Reimportfile()
         if rif.exec() == QMessageBox.Accepted:
             book = self.book.getBook(book=rif.bookName)
@@ -623,8 +638,12 @@ class MainWindow(QMainWindow):
 
     def _action_file_library_check( self )->None:
         from ui.library import UiLibraryCheck
-        UiLibraryCheck()
-        
+        UiLibraryCheck().exec()
+
+    def _action_file_library_stats(self)->None:
+        from ui.library import UiLibraryStats
+        UiLibraryStats().exec()
+
     # EDIT ACTIONS
     def _about_to_show_edit_menu(self) -> None:
         edit_label = self.ui.action_edit_page.text().split('#', 1)
@@ -689,7 +708,7 @@ class MainWindow(QMainWindow):
             self.ui.setNavigationShortcuts(settings)
             self.ui.setBookmarkShortcuts(settings)
             viewState = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
-            self.ui.pageWidget.setDisplay(viewState)
+            self.ui.pager.setDisplay(viewState)
             self._set_menu_page_options(viewState)
             self.loadPages()
         except Exception as err:
@@ -741,12 +760,12 @@ class MainWindow(QMainWindow):
 
     def _action_view_aspect_ratio(self, state) -> None:
         self.book.setAspectRatio(state)
+        self.ui.pager.setKeepAspectRatio( state )
         self.loadPages()
 
     def _action_view_smart_pages(self, state: bool) -> None:
         self.book.set_property(DbKeys.SETTING_SMART_PAGES, state)
-        self._use_smart_page_turn = state
-        self.ui.pageWidget.setSmartPageTurn(self._use_smart_page_turn)
+        self.ui.pager.setSmartPageTurn( state )
 
     # BOOKMARK ACTIONS
     def _action_bookmark_show(self) -> None:
@@ -937,13 +956,9 @@ class MainWindow(QMainWindow):
     def _set_display_page_layout(self, value):
         """ Set the display to either one page or two, depending on what value is in the book entry"""
         self.book.set_property(DbKeys.SETTING_PAGE_LAYOUT, value)
-        self.ui.pageWidget.setDisplay(value)
+        self.ui.pager.setDisplay(value)
         self._set_menu_page_options(value)
         self.loadPages()
-
-    def _set_smart_pages(self, value):
-        self.book.set_property(DbKeys.SETTING_SMART_PAGES, value)
-        self._use_smart_page_turn = value
 
     def _importPDF(self, insertData, duplicateData):
         dilb = DilBook()
@@ -957,8 +972,8 @@ class MainWindow(QMainWindow):
 
         if len(insertData) > 0:
             for bdat in insertData:
-                for key, item in bdat.items():
-                    print("{}={}".format(key, item))
+                # for key, item in bdat.items():
+                #     print("{}={}".format(key, item))
                 dilb.newBook(**bdat)
 
         if len(bookmarks) > 0:
@@ -1011,7 +1026,7 @@ class MainWindow(QMainWindow):
             __file__), "images", "sheetmusic.png")
         if os.path.isfile(imagePath):
             px = QPixmap(imagePath)
-            self.ui.pageWidget.staticPage(px)
+            self.ui.pager.staticPage(px)
             self.show()
 
 
@@ -1035,8 +1050,9 @@ if __name__ == "__main__":
     setup = Setup()
 
     setup.initData()
-    setup.updateSystem()
     setup.logging(mainDirectory)
+    setup.system_update()
+
     logger = logging.getLogger('main')
 
     del sy

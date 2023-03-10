@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QAbstractItemView, QTableWidgetItem, QHeaderView, QPushButton , QCheckBox)
 
 from qdb.keys         import BOOK, DbKeys
+from qdb.mixin.fieldcleanup import MixinFieldCleanup
 from ui.editItem      import UiGenericCombo
 from qdb.dbbook       import DbComposer, DbGenre
 from qdil.preferences import DilPreferences
@@ -38,10 +39,6 @@ class simpleValidator( QValidator ):
     def __init__(self):
         super().__init__();
 
-    def fixupt(self, needsCleanup ):        # No newline, returns or tabs
-        needsCleanup = re.sub( self.badChars , ' ' , needsCleanup)
-        return needsCleanup.strip()
-
     def validate(self, arg1:str, arg2 ):
         if len( arg1.strip() ) == 0 :
             return QValidator.Invalid
@@ -49,7 +46,7 @@ class simpleValidator( QValidator ):
             return QValidator.Invalid
         return QValidator.Acceptable
 
-class UiProperties(QDialog):
+class UiProperties(MixinFieldCleanup, QDialog):
     '''
     This creates a simple grid and populates it with info from the Book
     Changes can be made and data will be returned if a change is made.
@@ -57,9 +54,9 @@ class UiProperties(QDialog):
     bpData = 0
     bpLabel = 1
 
-    btnTxtIgnore = u'Continue'
+    btnTxtIgnore = u'Continue With No Changes'
     btnTxtCancel = u'Cancel'
-    btnTxtApply  = u'Apply'
+    btnTxtApply  = u'Apply Changes and Continue'
 
     staticBookInformation = [
         [ BOOK.location,     'Book location'],
@@ -71,7 +68,7 @@ class UiProperties(QDialog):
         [ BOOK.fileModified, 'File date modified'],
     ]
     def __init__(self, parent=None):
-        super(UiProperties, self).__init__(parent)
+        super().__init__(parent)
         self.createPropertiesTable()
         self.createButtons()
         mainLayout = QGridLayout()
@@ -167,7 +164,7 @@ class UiProperties(QDialog):
         self.btn_skip.setDefault( ( not apply ) )
 
     def changedName(self, value):
-        self.changes[ BOOK.name ] = self._cleanupName( value )
+        self.changes[ BOOK.name ] = self.clean_field_value( value )
         self.defaultButton()
 
     def validatePage( self, value )->bool:
@@ -204,22 +201,8 @@ class UiProperties(QDialog):
         self.changes[ BOOK.genre ] = value.strip()
         self.defaultButton()
 
-    def _cleanupName(self, bookName:str )->str:
-        ## first ALWAYS replace invalid characters
-        bookName = re.sub(r'[\n\t\r]+', '', bookName )          # No newline, returns or tabs
-        bookName = re.sub(r'[#%{}<>*?$!\'":@+\\|=/]+', ' ' , bookName)      ## bad characters
-        bookName = re.sub(r'\s+',       ' ' , bookName)         ## Only one space when multiples
-        bookName = re.sub(r'^[^a-zA-Z\d]+', '' , bookName)      ## Leading char must be Alphanumeric
-        
-        if self.cleanupLevel == DbKeys.VALUE_NAME_IMPORT_FILE_1:
-            bookName = re.sub( r'[_]*', ' ', bookName )
-        if self.cleanupLevel == DbKeys.VALUE_NAME_IMPORT_FILE_2:
-            bookName = re.sub( r'[_]*', ' ', bookName )
-            bookName = bookName.title()
 
-        return bookName.strip()
-
-    def _nameProperty( self , label:str, musicbook:dict , valueKey:str, onChange, isInt:bool=False , cleanup:bool=True):
+    def _nameProperty( self , label:str, musicbook:dict , valueKey:str, onChange, isInt:bool=False , cleanup:bool=True, readonly:bool=False):
         name = QLineEdit()
         if isInt:
             value = str(musicbook[valueKey] if valueKey in musicbook else 1)
@@ -229,14 +212,15 @@ class UiProperties(QDialog):
                 value = ''
             else:
                 if cleanup:
-                    value = self._cleanupName( str(musicbook[valueKey]) )
+                    value = self.clean_field_value( str(musicbook[valueKey]) )
                 else:
-                    value = str( musicbook[ valueKey ]).strip() 
+                    value = self.remove_ctrl_char( str( musicbook[ valueKey ]) )
         name.setText( value )
         if isInt:
             name.setValidator( QIntValidator( 0, 999, self ) )
         else:
             name.setValidator( simpleValidator() )
+        name.setReadOnly( readonly )
         name.setObjectName( valueKey )
         name.textEdited.connect( onChange )
         self._insertPropertyEntry( [QTableWidgetItem( label ) , name] )
@@ -281,8 +265,8 @@ class UiProperties(QDialog):
 
         self._nameProperty( 'Offset to page 1', musicbook, BOOK.numberStarts, self.changedStart , isInt = True)
         self._nameProperty( 'Last page number', musicbook, BOOK.numberEnds,   self.changedEnd  ,  isInt = True )
-        self._nameProperty( 'Web Link',         musicbook, BOOK.link,         self.changedLink ,  isInt = False, cleanup=False)
-        self._nameProperty( 'Author' ,          musicbook, BOOK.author,       self.changedAuthor, isInt = False )
+        self._nameProperty( 'Web Link',         musicbook, BOOK.link,         self.changedLink ,  isInt = False , cleanup=False)
+        self._nameProperty( 'Author' ,          musicbook, BOOK.author,       self.changedAuthor, isInt = False , cleanup=False)
         self.add_additional_properties()
 
         for prop in self.staticBookInformation:
@@ -305,10 +289,8 @@ class UiPropertiesImages( UiProperties ):
         return self._save_toml_file
     
     def add_additional_properties(self):
-        print("Add toml file flag")
         self._save_toml_file = True
         self._checkboxProperty( 'Save properties in file' , True, self.checkbox_changed)
 
     def checkbox_changed( self , state ):
         self._save_toml_file = state
-        print( 'State of toml_file is', self._save_toml_file )

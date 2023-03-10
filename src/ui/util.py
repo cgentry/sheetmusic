@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from PySide6.QtGui import QScreen
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication, QWidget, QMessageBox
 
 
 def centerWidgetOnScreen( widget:QWidget):
@@ -29,3 +29,11 @@ def centerWidgetOnScreen( widget:QWidget):
     widget.move(fg.topLeft())
     ##
     widget.show()
+
+def not_yet_implemented( **kwargs ):
+    QMessageBox.information(
+        None,
+        'Not implemented',
+        "Sorry, but that feature has not yet been implemented",
+        QMessageBox.Ok
+    )

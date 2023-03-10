@@ -69,6 +69,12 @@ class DilBook(DbBook):
         settings = {x: args[x] for x in args if x not in self.columnView}
         return settings, book
 
+    def isPDF( self )->bool:
+        return ( DbKeys.VALUE_PDF == self.book[ BOOK.source_type] )
+    
+    def isPNG(self )->bool:
+        return not self.isPDF()
+    
     def setPaths(self):
         """
         Split the directory path up into paths used by the Book class
@@ -89,13 +95,12 @@ class DilBook(DbBook):
     def getFileType(self) -> str:
         return self.page_suffix
 
-    def _load_book_setting( self, book , page=None):
+    def _load_book_setting(self, book, page=None):
         """ Internal: loads the self.book with all database values """
         self.setPageNumber(page)
-        self.book = super().getBook( book=book )
+        self.book = super().getBook(book=book)
         self.setPaths()
-        page = self.book[BOOK.lastRead] if page is None else page
-        
+        self.book[ BOOK.lastRead ] = self.book[BOOK.lastRead] if page is None else page
 
     def open(self, book: str, page=None, fileType="png", onError=None):
         """
@@ -105,38 +110,38 @@ class DilBook(DbBook):
         """
         self.newBook = super().getBook(book=book)
         dlg = QMessageBox()
-        dlg.setIcon( QMessageBox.Warning )
-        dlg.setInformativeText( book )
-        
-        btnCancel = dlg.addButton( QMessageBox.Cancel )
-        btnDelete = dlg.addButton( 'Delete', QMessageBox.DestructiveRole )
-        btnRetry  = dlg.addButton( QMessageBox.Retry)
-        
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setInformativeText(book)
+
+        btnCancel = dlg.addButton(QMessageBox.Cancel)
+        btnDelete = dlg.addButton('Delete', QMessageBox.DestructiveRole)
+        btnRetry = dlg.addButton(QMessageBox.Retry)
+
         if self.newBook == None:
             if onError is not None:
                 return onError
             dlg.setWindowTitle('Opening sheetmusic')
             dlg.setText("Book is not valid.")
             dlg.exec()
-            return dlg.buttonRole( dlg.clickedButton() )
+            return dlg.buttonRole(dlg.clickedButton())
 
         if not os.path.isdir(self.newBook[BOOK.location]):
-            dlg.setWindowTitle( 'Opening directory')
-            dlg.setText( "Book directory is not valid." )
+            dlg.setWindowTitle('Opening directory')
+            dlg.setText("Book directory is not valid.")
             dlg.exec()
-            return dlg.buttonRole( dlg.clickedButton() )
+            return dlg.buttonRole(dlg.clickedButton())
 
         if self.newBook[BOOK.totalPages] == 0:
             if onError is not None:
                 return onError
             dlg.setWindowTitle('Opening book')
-            dlg.setText("The book is empty." )
+            dlg.setText("The book is empty.")
             dlg.exec()
-            return dlg.buttonRole( dlg.clickedButton() )
+            return dlg.buttonRole(dlg.clickedButton())
 
         self.close()
-        self._load_book_setting( book , page )
-        
+        self._load_book_setting(book, page)
+
         return QMessageBox.Ok
 
     def close(self):
@@ -196,10 +201,10 @@ class DilBook(DbBook):
         ui.close()
         del ui
         return
-    
+
     def clear(self):
         """ Clear all the book data that is stored for a book
-        
+
             Use this after 'close' a book
         """
         self.book = None
@@ -227,10 +232,6 @@ class DilBook(DbBook):
             self.set_property(BOOK.name, newTitle)
             return True
         return False
-
-    def getBookPageName(self, pageNum: any = None) -> str:
-        pageNum = toInt(pageNum, self.thisPage)
-        return self.bookPageName.format(pageNum)
 
     def getAbsolutePage(self) -> int:
         """ Get the current, absolute page number we are on """
@@ -336,12 +337,9 @@ class DilBook(DbBook):
         else:
             return os.path.normpath(bookPath)
 
-    def getPageString(self, pageNum: int = None) -> str:
-        if pageNum == None:
-            pageNum = self.getAbsolutePage()
-        return self.pageFormat.format(toInt(pageNum))
-
     def getBookPagePath(self, pageNum=None) -> str:
+        if self.isPDF():
+            return self.book[BOOK.location]
         return self.bookPathFormat.format(toInt(pageNum))
 
     def get_page_file(self, page: str) -> str | None:
@@ -350,27 +348,10 @@ class DilBook(DbBook):
             if os.path.isfile(imagePath):
                 return imagePath
         return None
-    
+
     def clearCache(self):
         # self.tcache.cache_clear()
         pass
-
-
-    def getPixmap(self, pageNum: str) -> QPixmap:
-        """ read the file and convert it into a pixal map.
-            NOTE: Obsolete method. Function moved into PageWidget
-        """
-        px = None
-        file_path = self.get_page_file(pageNum)
-        if file_path is not None:
-            if self.tcache.is_set(file_path):
-                return self.tcache.get(file_path)
-            px = QPixmap(file_path)
-            px = QPixmap()
-            px.setDevicePixelRatio(2)
-            px.load(file_path)
-            self.tcache.set(file_path, px)
-        return px
 
     def getRecent(self):
         self.numberRecent = DbSystem().getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
@@ -394,20 +375,20 @@ class DilBook(DbBook):
             raise RuntimeError("No book found for ID: {}".format(id))
         return book[BOOK.name]
 
-    def update_properties( self, change_list:dict )->bool:
+    def update_properties(self, change_list: dict) -> bool:
         """ Update properties for a book based on dictionary 
-        
+
             Return True if any changes were made
         """
-        self.set_property( BOOK.id , self.book[ BOOK.id ])
+        self.set_property(BOOK.id, self.book[BOOK.id])
         for key, value in change_list.items():
-            self.set_property( key, value )
-        if len( self.changes ) > 0 :
+            self.set_property(key, value)
+        if len(self.changes) > 0:
             self.write_properties()
             return True
         return False
-    
-    def get_properties(self)->dict|None:
+
+    def get_properties(self) -> dict | None:
         """ Return all of the properties for the book """
         return self.book
 
@@ -445,56 +426,21 @@ class DilBook(DbBook):
         self.book[key] = value
         return len(self.changes) > 0
 
-    def _toml_path(self, dir=None )->str:
-        if dir is None:
-            return os.path.join(self.getBookPath(), DbBook.CONFIG_TOML_FILE)
-        return os.path.join(dir, DbBook.CONFIG_TOML_FILE)
-    
-    def save_toml_config( self ):
-        if self.isOpen():
-            with open( self._toml_path(),'w') as f:  
-                for key, value in self.get_properties().items():
-                    f.write("{}=\"{}\"\n".format( key, value ))
-        return
-
-    def delete_toml_config(self)->bool:
-        file_exists = os.path.isfile( self._toml_path() )
-        if file_exists :
-            os.remove( self._toml_path() )
-        return file_exists
-
-    def read_toml_properties( self, directory:str )->dict:
-        return self.read_toml_properties_file( self._toml_path(directory) )
-    
-    def read_toml_properties_file(self, filename: str) -> dict:
-        """ Load the TOML file into a dictionary """
-        import tomllib
-        rtn = {}
-        if os.path.isfile( filename ):
-            with open(filename, "rb") as f:
-                data = tomllib.load(f)
-        
-            for key, data in data.items():
-                if key in DbBook.VALID_TOML_KEYS :
-                    rtn[key] = data
-        return rtn
-
     def _book_default_values(self, bookDir: str) -> dict:
         rtn = {}
         image_extension = DbSystem().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
         rtn = {
             BOOK.book:  os.path.basename(bookDir),
-            BOOK.totalPages:  len(fnmatch.filter( os.listdir(bookDir), '*.' + image_extension)),
+            BOOK.totalPages:  len(fnmatch.filter(os.listdir(bookDir), '*.' + image_extension)),
             BOOK.source: bookDir,
             BOOK.location: bookDir,
             BOOK.numberStarts: 1,
             BOOK.publisher: '(import images)',
         }
-            
-        rtn[ BOOK.numberEnds] = rtn[BOOK.totalPages]
+
+        rtn[BOOK.numberEnds] = rtn[BOOK.totalPages]
         return rtn
 
-        
     def import_one_book(self, bookDir=dir):
         """ 
         This takes a directory of converted PNG images and adds to the database
@@ -515,22 +461,23 @@ class DilBook(DbBook):
         """
         book_info = {}
         error_msg = None
-        
+
         if not bookDir:
             return (book_info, "No directory passed.")
-        
-        basedir = os.path.basename( bookDir )
 
-        if self.isLocation( bookDir ) or self.isSource( bookDir ):
-            return( book_info, 'Book already in library: {}'.format( basedir ))
-        
+        basedir = os.path.basename(bookDir)
+
+        if self.isLocation(bookDir) or self.isSource(bookDir):
+            return (book_info, 'Book already in library: {}'.format(basedir))
+
         if not os.path.isdir(bookDir):
             return (book_info, "Location '{}' is not a directory".format(bookDir))
-        
+
         book_info = self._book_default_values(bookDir)
         if book_info[BOOK.totalPages] == 0:
             return (book_info, "No pages for book")
-        book_info.update(self.read_toml_properties(bookDir))
+        from qdb.mixin.tomlbook import MixinTomlBook
+        book_info.update(MixinTomlBook().read_toml_properties(bookDir))
 
         rec_id = self.add(**book_info)
         book_info[BOOK.id] = rec_id
@@ -552,9 +499,10 @@ class DilBook(DbBook):
             return (False, addedRecords, "Location '{}' is not a directory".format(location))
 
         for bookDir in [f.path for f in os.scandir(location) if f.is_dir()]:
-            ( book_info , error_msg ) = self.import_one_book( bookDir )
+            (book_info, error_msg) = self.import_one_book(bookDir)
             if error_msg is not None:
-                return ( False , addedRecords, error_msg )
-            addedRecords.append( book_info )
-        addedMessage = "Records added" if len(addedRecords)>0 else "No new records found"
+                return (False, addedRecords, error_msg)
+            addedRecords.append(book_info)
+        addedMessage = "Records added" if len(
+            addedRecords) > 0 else "No new records found"
         return (True, addedRecords, addedMessage)

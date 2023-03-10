@@ -27,8 +27,14 @@ class DbHelper:
 
     @staticmethod
     def bind( query:QSqlQuery , param , name:str=None )->QSqlQuery:
-        """ Bind will bind either a single value, a name and value pair,
-            a list (bindvalue), or a dictionary (key:value)
+        """ Bind will bind values to an SQL query
+            param: parameters to bind they can be:
+                list - simple list of values
+                dict - key, value pair(s)
+                single -
+                    this can be just the value (for a '?' in SQL)
+                    or you can bind with value and name.
+            name is only used when there is a single parameter passed.
         """
         if param:
             try:
@@ -50,9 +56,13 @@ class DbHelper:
 
     @staticmethod
     def fetchone( sql:str , param=None, name:str=None, default=None, index:int=0, debug=False, endquery=None)->str:
-        """ Fetch a single value of one row from the database. You can pass in a name and bind
-            the query with that name, or just pass in the value. It will return
-            the 0th value in the string (Override by setting index=)
+        """ Fetch a single value of one row from the database. 
+        
+            sql:    SQL statement
+            param:  Parameters to use for query. This can be a dictionary, list, or single value
+            name:   named parameter - only used when a single value is in param
+            index:  index of return values from SQL (e.g. select a, b FROM Table' pass 1 for 'b' )
+            endquery: Function to call when query is done, e.g.: def endquery( query:QSqlQuery )
         """
         logging.debug("\nfetchone: ")
         query = DbHelper.bind( DbHelper.prep( sql ), param, name )

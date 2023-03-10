@@ -13,7 +13,7 @@ do
     ARG=${args[@]:1:1}
     case ${OPT} in
     -X)
-        DEBUG='echo DEBUG: '
+        DEBUG=
         args=("${args[@]:1}")
         ;;
 

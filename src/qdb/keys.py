@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.18"
+    version      = "0.5.19"
     version_main = "0.5"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -76,6 +76,7 @@ class DbKeys():
     SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix
     SETTING_FILE_TYPE           = 'fileType'       ## File extension (type)
     SETTING_FILE_RES            = 'resolution'     ## Output resolution
+    SETTING_BOOK_DEFAULT_GENRE  = 'genre'          ## Default genre selection
     SETTING_PDF_SCRIPT          = 'pdfScript'      ## The PDF conversion script template
     SETTING_LAST_BACKUP         = 'last_backup'    ## Where we stored the last backup
     SETTING_LOGGING_ENABLED     = 'logging_enabled'
@@ -114,7 +115,11 @@ class DbKeys():
 
     SETTING_IMPORT_SCRIPT       = 'importScript'
     
-    
+    VALUE_DEFAULT_COMPOSER      = 'Unknown'
+    VALUE_DEFAULT_GENRE         = 'Unknown'
+
+    VALUE_PDF                   = 'pdf'
+    VALUE_PNG                   = 'png'
 
     ###
     #       Settings for DbSettings only
@@ -174,13 +179,15 @@ class BOOK :
     id              = 'id'
     name            = 'book'
     book            = 'book'
+    title           = 'book'
     composer        = 'composer'
     composer_id     = 'composer_id'
     genre           = 'genre'
     genre_id        = 'genre_id'
     source          = 'source'          # Location of original
-    location        = 'location'        # Location of images
-    link            = 'link'            # url link
+    source_type     = 'source_type'     # What type is it? png or pdf
+    location        = 'location'        # Location of display material
+    link            = 'link'            # optional: url link
     version         = 'version'
     author          = 'author'          # optional
     publisher       = 'publisher'       # optional
@@ -197,6 +204,7 @@ class BOOK :
     fileCreated     = 'date_file_created'
     pdfCreated      = 'date_pdf_created'
     pdfModified     = 'date_pdf_modified'
+
 
         
 class BOOKMARK:

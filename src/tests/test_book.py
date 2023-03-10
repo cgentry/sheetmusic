@@ -41,7 +41,7 @@ class TestBook(unittest.TestCase):
     #     self.assertEqual(self.book._toml_path(),end_path )
 
     #     # test writing toml out
-    #     self.book.save_toml_config()
+    #     self.book.save_toml_properties()
     #     self.assertTrue( os.path.isfile( end_path ), 'Confirm file was written')
 
     #     data_return = self.book.read_toml_properties('/tmp')
@@ -54,9 +54,9 @@ class TestBook(unittest.TestCase):
     #     self.assertEqual(data_return[BOOK.author], 'Author')
     #     self.assertEqual(data_return[BOOK.publisher], 'Pub')
 
-    #     self.assertTrue( self.book.delete_toml_config() )
+    #     self.assertTrue( self.book.delete_toml_properties() )
     #     self.assertFalse( os.path.isfile( end_path ), 'Confirm file was deleted')
-    #     self.assertFalse( self.book.delete_toml_config() )
+    #     self.assertFalse( self.book.delete_toml_properties() )
 
 
 

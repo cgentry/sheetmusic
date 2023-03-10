@@ -19,17 +19,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from re import M
+
 from qdb.keys import DbKeys
-from ui.pagewidget import (PageWidget, PageLabelWidget)
+from ui.pagewidget import (PageWidget)
 from PySide6.QtCore import (QCoreApplication, QRect, QSize)
 from PySide6.QtGui import (QAction, Qt, QKeySequence)
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QMenu, QPushButton,
+    QLabel, QMenu, QPushButton,
     QMenuBar, QSizePolicy, QStatusBar,
     QSlider, QWidget, QStackedWidget)
 
 
 class UiMain(object):
+
+    PAGER_PNG = 'png'
+    PAGER_PDF = 'pdf'
+
+    STACK_PAGER_CLASS = 'pager'
+    STACK_DISPLAY_WIDGET = 'display'
 
     def __init__(self):
         pass
@@ -100,25 +107,33 @@ class UiMain(object):
         self.action_file_library = action(u'Library')
 
         # file -> import actions
+        self.action_file_import_document = action(
+            u'ImportDocument', title=u'Import PDF Document...')
+        self.action_file_import_document_dir = action(
+            u'ImportDocumentDir', title=u'Import Directory of PDF Documents...')
+        # -----
         self.action_file_select_import = action(
-            u'SelectImport', title=u'Select Import Script ...')
+            u'SelectImport', title=u'Select PDF to PNG Conversion Script ...')
         self.action_file_import_PDF = action(
-            u'ImportPDF',    title=u'Import PDF ...')
+            u'ImportPDF',    title=u'Convert PDF to PNG and Import...')
         self.action_file_import_dir = action(
-            u'ImportDir',    title=u"Import Directory of PDFs...")
-        self.action_file_reimport_PDF = action(
-            u'ReimportPDF', title=u'Reimport PDF...')
+            u'ImportDir',    title=u"Convert Directory of PDFs to PNG and Import...")
+        self.action_file_reimport = action(
+            u'ReimportPDF', title=u'Reimport PDF (Document or PNG)...')
         
         self.action_file_import_images = action(
-            u'ImportImages', title=u'Import directory of images...' )
+            u'ImportImages', title=u'Import directory of PNG Images...' )
         self.action_file_import_images_dir = action(
-            u'ImportImagesDir', title=u'Import directory holding multiple directories of images...' )
+            u'ImportImagesDir', title=u'Import directory holding multiple directories of PNG images...' )
         
         # file -> Library actions
         self.action_file_library_consolidate = action(
             u'LibraryConsolidate', title=u'Consolidate library entries...' )
         self.action_file_library_check = action(
             u'LibraryCheck', title=u'Check library for consistency...' )
+        self.action_file_library_stats = action(
+            u'LibraryStats', title=u'Show stats for library' )
+        
 
         # EDIT actions
         self.action_edit_page = action(
@@ -271,7 +286,7 @@ class UiMain(object):
         self.setShowBookmarks = self.action_bookmark_show_all.triggered.connect
         self.setImportScript = self.action_file_select_import.triggered.connect
         self.setImportPDF = self.action_file_import_PDF.triggered.connect
-        self.setReimportPDF = self.action_file_reimport_PDF.triggered.connect
+        self.setReimportPDF = self.action_file_reimport.triggered.connect
 
     def createMenus(self, MainWindow) -> None:
         """
@@ -344,10 +359,14 @@ class UiMain(object):
         # import submenu...
         self.menuImport = self.menuFile.addMenu("Import")
         self.menuImport.setTitle('Import music')
+        self.menuImport.addAction( self.action_file_import_document )
+        self.menuImport.addAction( self.action_file_import_document_dir )
+        self.menuImport.addSeparator()   # -------------------
         self.menuImport.addAction(self.action_file_select_import)
         self.menuImport.addAction(self.action_file_import_PDF)
-        self.menuImport.addAction(self.action_file_reimport_PDF)
         self.menuImport.addAction(self.action_file_import_dir)
+        self.menuImport.addSeparator()   # -------------------
+        self.menuImport.addAction(self.action_file_reimport)
         self.menuImport.addSeparator()   # -------------------
         self.menuImport.addAction( self.action_file_import_images )
         self.menuImport.addAction( self.action_file_import_images_dir )
@@ -357,6 +376,7 @@ class UiMain(object):
         self.menuLibrary.setTitle(u'Library')
         self.menuLibrary.addAction( self.action_file_library_consolidate)
         self.menuLibrary.addAction( self.action_file_library_check )
+        self.menuLibrary.addAction( self.action_file_library_stats )
 
         self.menuFile.addSeparator()   # -------------------
         self.menuFile.addAction(self.action_edit_preferences)
@@ -462,9 +482,47 @@ class UiMain(object):
         shortcut('addBookmark',         self.action_bookmark_add)
 
     def addPageWidgets(self, MainWindow):
-        self.pageWidget = PageWidget(MainWindow)
-        self.pager = self.pageWidget.getMainPageWidget()
-        MainWindow.setCentralWidget(self.pager)
+        """ Add all of the pager widgets here. Call 'showPager(name) to pick"""
+        self._stacks_widget = {}
+        self.stacks = QStackedWidget( MainWindow )
+        self.stacks.setObjectName( u'pagerStacks')
+        self.stacks.setAutoFillBackground(True)
+
+        # pagerWidget is the intface from program to display
+        # displayWidget is the widget that holds all the pages.
+        pagerClass = PageWidget( MainWindow )
+        displayWidget = pagerClass.getPager()
+        self._stacks_widget[ DbKeys.VALUE_PNG] = {
+            UiMain.STACK_PAGER_CLASS: pagerClass,
+            UiMain.STACK_DISPLAY_WIDGET : displayWidget
+        }
+        self.stacks.addWidget( displayWidget  )
+
+        # self._stacks_widget[ DbKeys.VALUE_PDF ] = PdfWidget( MainWindow )
+        # self.stacks.addWidget( self._stacks_widget[ DbKeys.VALUE_PDF ])
+
+        MainWindow.setCentralWidget(self.stacks)
+        self.showPager( DbKeys.VALUE_PNG )
+
+    def showPager( self , name:str )->object:
+        if name in self._stacks_widget :
+            self.pager = self._stacks_widget[ name ][ UiMain.STACK_PAGER_CLASS]
+            self.stacks.setCurrentWidget( self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET] )
+            self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET ].show()
+        return self.pager
+    
+    def pageWidget(self)->object:
+        return self.pager
 
     def statusText(self, statusTxt=""):
         self.statusbar.showMessage(statusTxt)
+    
+    # def createPageSizePolicy(self, widget:QWidget ) -> QSizePolicy:
+    #     """ Create the page size policy used for the page display widget"""
+    #     sizePolicy = QSizePolicy(
+    #         QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+    #     sizePolicy.setHorizontalStretch(0)
+    #     sizePolicy.setVerticalStretch(0)
+    #     sizePolicy.setHeightForWidth(
+    #         widget.getPager().sizePolicy().hasHeightForWidth())
+    #     return sizePolicy

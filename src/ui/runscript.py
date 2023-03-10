@@ -479,14 +479,17 @@ class RunScriptBase():
             self._process.waitForFinished()
             self.btnList['Close'].show()
 
-    def add_to_environment(self , env_dict:dict):
+    def add_to_environment(self , env_dict:dict)->None:
         self._extra_env = env_dict
+    
+    def _add_to_environment( self , env: QProcessEnvironment , extra:dict)->None:
+        self._remove_from_environment( env , extra )
+        for key, value in extra.items():
+            env.insert( key , value )
 
-    def _clean_environment( self )->None:
-        env = QProcessEnvironment.systemEnvironment()
-        for key in self._extra_env.keys():
+    def _remove_from_environment( self ,env: QProcessEnvironment , extra:dict)->None:
+        for key in extra.keys():
             env.remove( key  )
-        self._process.setProcessEnvironment(env)
 
     def setup_environment(self):
         """ Add in environment variables that are standard for all runs """
@@ -496,9 +499,7 @@ class RunScriptBase():
         pref = DilPreferences()
 
         env = QProcessEnvironment.systemEnvironment()
-        for key, value in self._extra_env.items():
-            env.insert( key , value )
-
+        
         env.insert(ScriptKeys.ENV_INC_SYS, get_scriptinc())
         env.insert(ScriptKeys.ENV_DIR_SYS, get_scriptdir())
         env.insert(ScriptKeys.ENV_INC_USER, get_user_scriptinc())
@@ -516,14 +517,17 @@ class RunScriptBase():
         keys = [ScriptKeys.ENV_INC_SYS, ScriptKeys.ENV_DIR_SYS, ScriptKeys.ENV_INC_USER, ScriptKeys.ENV_DIR_USER,
                 ScriptKeys.ENV_MUSIC_DIR, ScriptKeys.ENV_DBFILE, ScriptKeys.ENV_SYSTEM_OS, ScriptKeys.ENV_QT_VERSION,
                 ScriptKeys.ENV_PYTHON_VERSION, ScriptKeys.ENV_PYTHON_RUN, ScriptKeys.ENV_SHEETMUSIC,
-                ScriptKeys.ENV_SYSTEM_CLASS]
+                ScriptKeys.ENV_SYSTEM_CLASS] + list( self._extra_env.keys() )
 
-        # Transfer settings from database
+        # Transfer default settings from database
         for env_key, db_key in RunScriptBase.transfer_from_db.items():
             env.insert(env_key, pref.getValue(db_key))
             keys.append(env_key)
 
+        # This overrides any defaults we have set in the DB
+        self._add_to_environment( env, self._extra_env )
         env.insert('SHEETMUSIC_ENV', ':'.join(keys))
+        
         self._process.setProcessEnvironment(env)
 
     def start_process(self):

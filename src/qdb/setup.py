@@ -26,6 +26,7 @@
 import logging
 import os.path
 import os
+from decimal import *
 
 from qdb.dbconn import DbConn
 from qdb.keys   import DbKeys, ProgramConstants
@@ -37,6 +38,7 @@ class Setup():
 
     def __init__(self, location:str=None):
         self.query = QSqlQuery( DbConn.db() )
+        self.logger = logging.getLogger( 'sheetmusic.Setup')
 
     def __del__(self):
         del self.query
@@ -48,12 +50,13 @@ class Setup():
                           id            INTEGER PRIMARY KEY ASC,
                           book          TEXT NOT NULL UNIQUE, 
                           composer_id   INTEGER DEFAULT NULL, 
-                          genre_id      INTEGER DEFAULT NULL, 
+                          genre_id      INTEGER DEFAULT NULL,
                           author        TEXT DEFAULT NULL,
                           publisher     TEXT DEFAULT NULL,
                           source        TEXT DEFAULT NULL, 
+                          source_type   TEXT NOT NULL CHECK( source_type in ('png','pdf')) DEFAULT 'png',
                           location      TEXT NOT NULL,
-                          version       TEXT DEFAULT "0.5.3", 
+                          version       TEXT DEFAULT "0.6",
                           layout        TEXT DEFAULT 'single',
                           link          TEXT,
                           aspectRatio      BOOLEAN NOT NULL CHECK (aspectRatio in (0,1)) DEFAULT 1,
@@ -183,7 +186,7 @@ class Setup():
             for viewCreate in views:
                 self.query.exec( "CREATE VIEW IF NOT EXISTS {};".format(viewCreate))
         except Exception as err:
-            self.logging.exception("Invalid view: '{}".format( viewCreate ) )
+            self.logger.exception("Invalid view: '{}".format( viewCreate ) )
             raise err
 
         self.query.exec( booktrigger )
@@ -206,23 +209,51 @@ class Setup():
             self.query.exec("DROP VIEW IF EXISTS {};".format( view ))
         DbConn.commit()
 
-    def updateSystem(self)->bool:
+    def _update_null(self, current:Decimal )->Decimal:
+        """ Used to increment by .1 when nothing is to be done"""
+        current += Decimal(0.1)
+        self.logger.info("Update database to {}: No action needed.".format( current))
+        return Decimal(current)
+    
+    def _update_0_5(self, current:Decimal)->Decimal:
+        """ Update from 0.5 to 0.6
+            Insert new value for source_type
+        """
+        sql = "ALTER TABLE Book ADD source_type TEXT NOT NULL CHECK( source_type in ('png','pdf')) DEFAULT 'png'"
+        if not DbHelper.prep( sql ).exec() :
+            raise RuntimeError('Version 0.6: Could not update Book table for source_type')
+        self.logger.info("Update database to 0.6 from 0.5: Book.status_type added.")
+        return Decimal('0.6')
+
+    def system_update(self)->bool:
         """ Check to see if we need to update the system. This could be when verions IDs change"""
-        replace_data = {
-            DbKeys.SETTING_VERSION:             ProgramConstants.version_main,
+        getcontext().prec = 1
+        update_functions = {
+            '0.1' : self._update_null,
+            '0.2' : self._update_null,
+            '0.3' : self._update_null,
+            '0.4' : self._update_null,
+            '0.5' : self._update_0_5,
         }
-        added = 0
 
-        sql         = '''SELECT value FROM System WHERE key=?'''
-        sql_replace = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''
-        sql_prepped = DbHelper.prep( sql_replace )
+        sql_version= "SELECT value FROM System WHERE key='{}'".format( DbKeys.SETTING_VERSION )
+        sql_update = "UPDATE System SET value=? WHERE key='{}'".format( DbKeys.SETTING_VERSION)
 
-        version = DbHelper.fetchone( sql , DbKeys.SETTING_VERSION, default="0.0" )
-        if version != ProgramConstants.version_main:
-            for key, value in replace_data.items():
-                query = DbHelper.bind( sql_prepped, [ key, value ] )
-                if query.exec():
-                    added += self.query.numRowsAffected() 
+        db_version  = Decimal( DbHelper.fetchone( sql_version , default="0.0" ) )
+        if db_version == Decimal(0.0):
+            raise ValueError('value wrong! '+sql_version )
+        
+        pgm_version = Decimal( ProgramConstants.version_main )
+        if db_version < pgm_version:
+            str_db_version = str( db_version )
+            self.logger.info("DB version {}, Software version {}".format( db_version , pgm_version ))
+            while str_db_version in update_functions:
+                db_version = update_functions[ str_db_version ]( db_version )
+                str_db_version = str( Decimal(db_version ) )
+                self.query.prepare( sql_update )
+                self.query.addBindValue( str_db_version )
+                if not self.query.exec():
+                    raise RuntimeError('Couldnt update System version number')
             return True
         return False
         
@@ -242,6 +273,7 @@ class Setup():
             DbKeys.SETTING_FILE_TYPE:           DbKeys.VALUE_FILE_TYPE,
             DbKeys.SETTING_DEFAULT_SCRIPT:      shell,
             DbKeys.SETTING_DEFAULT_SCRIPT_VAR:  DbKeys.VALUE_SCRIPT_VAR,
+            DbKeys.SETTING_BOOK_DEFAULT_GENRE:  DbKeys.VALUE_DEFAULT_GENRE,
             DbKeys.SETTING_FILE_PREFIX:         DbKeys.VALUE_FILE_PREFIX,
             DbKeys.SETTING_FILE_RES:            DbKeys.VALUE_FILE_RES,
             DbKeys.SETTING_LAST_IMPORT_DIR:     DbKeys.VALUE_LAST_IMPORT_DIR,
@@ -334,63 +366,16 @@ class Setup():
         self.initGenre()
         DbConn.commit()
 
-    def RestoreDefaultPdfScript(self):
-        sql = '''DELETE OR IGNORE FROM System WHERE key="{}"'''
-        self.query.exec( sql.format( DbKeys.SETTING_PDF_SCRIPT))
-        # self.insertPdfScript()
-
-    def insertPdfScript( self ):
-        sql = '''INSERT OR IGNORE INTO System( key, value ) VALUES(?,?)'''
-        _defaultPdfCmd='''#!/bin/bash
-#
-# Conversion script from PDF to pages
-# version 0.1
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
-
-EndScript()
-{
-    echo "Conversion ending."
-}
-
-########################################################
-# Command to run
-# This command uses GHOSTSCRIPT, which is a free utility
-########################################################
-echo \"Conversion starting {{debug-state}}\"
-echo \"Source file is {{source}}\"
-echo .
-{{debug}}cd       '{{target}}'  || exit 1
-{{debug}}mkdir -p '{{name}}'    || exit 2
-echo Input is \"{{source}}\"
-
-{{debug}}gs -dSAFER -dBATCH -dNOPAUSE -r300 -dDeskew -sDEVICE="{{device}}" -sOutputFile="{{name}}/page-%03d.{{type}}" "{{source}}"  || exit 3
-
-'''
-        self.query.prepare(sql)
-        self.query.addBindValue( DbKeys.SETTING_PDF_SCRIPT )
-        self.query.addBindValue( _defaultPdfCmd )
-        self.query.exec()
-        self.query.finish()
-
     def logging(self, directory_location )->bool:
         try:
-            self.query.prepare( "SELECT value FROM System WHERE key=?" )
-            self.query.addBindValue( DbKeys.SETTING_LOGGING_ENABLED )
-            if self.query.exec():
-                self.query.next()
-                shouldShowLogging = toBool( self.query.value(0))
-            else:
-                shouldShowLogging = False
+            sql = "SELECT value FROM System WHERE key='{}'".format( DbKeys.SETTING_LOGGING_ENABLED )
+            should_show_logging = toBool( DbHelper.fetchone( sql , default = 0 ) )
         except Exception as err:
             logging.exception("DB error getting key '{}': {}".format( DbKeys.SETTING_LOGGING_ENABLED, str(err)) )
-            shouldShowLogging = False 
+            should_show_logging = False 
 
         fileoutput = os.path.join( directory_location , 'sheetmusic.log')
-        level      = logging.INFO if shouldShowLogging else logging.ERROR 
+        level      = logging.INFO if should_show_logging else logging.ERROR 
         logging.basicConfig( 
             filename=fileoutput, 
             filemode='w', 
@@ -398,8 +383,7 @@ echo Input is \"{{source}}\"
             datefmt='%m-%d %H:%M', 
             level=level)
         
-        
-        return shouldShowLogging
+        return should_show_logging
 
 # if __name__ == "__main__":
 #     s = Setup(":memory:")

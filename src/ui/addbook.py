@@ -23,9 +23,10 @@ from PySide6.QtWidgets  import QFileDialog, QMessageBox
 from qdil.book          import DilBook
 from qdil.preferences   import DilPreferences
 from qdb.keys           import DbKeys, BOOK
+from qdb.mixin.tomlbook  import MixinTomlBook
 from ui.properties      import UiPropertiesImages
 
-class UiAddBook( ):
+class UiAddBook( MixinTomlBook ):
     def __init__(self):
         pass
 
@@ -49,7 +50,7 @@ class UiAddBook( ):
         if property_editor.exec():
             book.update_properties( property_editor.changes )
         if property_editor.save_toml_file():
-            book.write_toml_properties( book_dir , book.get_properties() )
+            self.write_toml_properties( book_dir , book.get_properties() )
 
     def import_directory(self, newdir ):
         """

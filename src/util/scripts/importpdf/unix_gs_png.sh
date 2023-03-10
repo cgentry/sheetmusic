@@ -21,7 +21,7 @@ trap EndScript SIGHUP SIGINT SIGQUIT SIGABRT SIGKILL
 # Dialog only runs during configuration. Key should be stored as 'unix_gs_png.sh'
 #:dialog "type='title'    label='Ghostscript settings'"
 #:dialog "type='drop'     label='Conversion type' tag='IMG_FORMAT'  option='include' dropdown='24bit RGB Color;Grayscale' data='png16m;pnggray' value='pnggray'"
-#:dialog "type='drop'     label='Resolution'      tag='IMG_RES'     option='include' dropdown='150;200;300' value='200'"
+#:dialog "type='drop'     label='Resolution'      tag='IMG_RES'     option='include' dropdown='150;200;300;600' value='200'"
 #:dialog "type='text'     label='Options for GS'  tag='IMG_OPTIONS' option='include' value='-dSAFER -dBATCH -dNOPAUSE -dDeskew -dShowAnnots=false -dGraphicsAlphaBits=4' width='1024'"
 #:dialog "type='text'     label='Image Type'      tag='IMG_TYPE'    option='include' value='png'  option='ro'"
 #:dialog "type='size'     width='1024'"

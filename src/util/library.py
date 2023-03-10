@@ -19,18 +19,68 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import fnmatch
 from qdb.dbbook import DbBook
-from qdb.keys   import BOOK
+from qdb.keys import BOOK, DbKeys
 from qdil.preferences import DilPreferences
 
-class LibraryConsolidate( ):
+
+class Library():
+
     @staticmethod
-    def books_not_in_library()->list:
+    def books() -> list:
+        """ Get all books from the library """
         library = DilPreferences().getDirectoryDB()
         dbbook = DbBook()
-        all_books = dbbook.getAll()
+        return dbbook.getAll(order=BOOK.location)
+
+    @staticmethod
+    def books_not_in_library() -> list:
+        """ Get all books where the the location is not in the sheetmusic folder """
+        return (Library.books_locations()[1])
+
+    @staticmethod
+    def books_in_library() -> list:
+        """ Get all the books where the location is in the sheetmusic folder"""
+        return (Library.books_locations[0])
+
+    @staticmethod
+    def books_locations():
+        all_books = Library.books()
+        library = DilPreferences().getDirectoryDB()
+        in_lib = []
         not_in_lib = []
         for book in all_books:
-            if not book[ BOOK.location ].startswith( library ):
-                not_in_lib.append( book )
-        return not_in_lib
+            if book[BOOK.location].startswith(library):
+                in_lib.append(book)
+            else:
+                not_in_lib.append(book)
+        return (in_lib, not_in_lib)
+
+    @staticmethod
+    def folders() -> list:
+        """ Generate a list of folders that contain PNG files """
+        library = DilPreferences().getDirectoryDB()
+        liblist = []
+        page_suffix = Library.page_suffix()
+        with os.scandir(library) as libdir:
+            for entry in libdir:
+                if (not entry.name.startswith('.') and
+                        Library.is_valid_book_directory(entry.path, page_suffix)):
+                    liblist.append(entry.path)
+        return liblist
+
+    @staticmethod
+    def is_valid_book_directory(bookDir: str, page_suffix: str = None) -> bool:
+        """
+            Check if a directory exists for a book, check for pages that exist in directory
+        """
+        if page_suffix is None:
+            page_suffix = Library.page_suffix()
+        return (os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + page_suffix)) > 0)
+
+    @staticmethod
+    def page_suffix() -> str:
+        return DilPreferences().getValue(
+            DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE)

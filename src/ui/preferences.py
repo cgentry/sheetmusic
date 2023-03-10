@@ -26,9 +26,9 @@
 # 22-Sep-2022: Convert to use database
 
 import sys
-import logging
 from os.path import expanduser
 from qdil.preferences import DilPreferences
+from qdb.dbbook import DbGenre
 from qdb.keys import DbKeys, ImportNameSetting
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImageReader, QFont, QIntValidator
@@ -37,7 +37,7 @@ from PySide6.QtWidgets import (
     QComboBox,    QDialog,       QDialogButtonBox,
     QFileDialog,  QGridLayout,   QHBoxLayout,
     QLabel,       QLineEdit,     QMessageBox,
-    QPlainTextEdit, QPushButton, QRadioButton,
+    QPushButton, QRadioButton,
     QTabWidget,   QTextEdit,     QVBoxLayout,
     QWidget
 )
@@ -68,6 +68,7 @@ class UiPreferences(QDialog):
         "png":  "Portable Network Graphic",
     }
     _resolution = {
+        "600":  "Very high resolution: This may be too large to load images",
         "300":  "High resolution; largest size and best resolution (may cause display errors)",
         "200":  "Medium resolution; good size and resolution",
         "150":  "Lowest resolution; smallest size and average resolution"
@@ -181,7 +182,7 @@ class UiPreferences(QDialog):
         return self.widgetFile
 
     def createBookSettings(self) -> QWidget:
-        labels = ["Book page formatted as",
+        labels = ["Book page formatted as", 'Default Genre',
                   "Page layout", None, None, None, None]
         self.widgetBook = QWidget()
         self.layoutBook = QGridLayout()
@@ -354,6 +355,20 @@ class UiPreferences(QDialog):
         self.cmbRes.currentIndexChanged.connect(self.action_res_changed)
         return row+1
 
+    def formatDefaultGenre( self, layout:QGridLayout, row: int )->int:
+        self.cmbGenre = QComboBox()
+        self.cmbGenre.setObjectName(DbKeys.SETTING_BOOK_DEFAULT_GENRE)
+        self.cmbGenre.addItems( DbGenre().getall() )
+        default = self.settings.getValue(  DbKeys.SETTING_BOOK_DEFAULT_GENRE, DbKeys.VALUE_DEFAULT_GENRE)
+        idx = self.cmbGenre.findText( default )
+        if idx > -1 :
+            self.cmbGenre.setCurrent( idx )
+        else:
+            self.cmbGenre.setCurrentIndex(0)
+        layout.addWidget(self.cmbGenre, row, 1)
+        self.cmbGenre.currentIndexChanged.connect(self.action_genre_changed)
+
+        return row+1
     def formatFileDevice(self, layout: QGridLayout, row: int) -> int:
         self.cmbDevice = QComboBox()
         self.cmbDevice.setObjectName(DbKeys.SETTING_DEFAULT_IMGFORMAT)
@@ -500,6 +515,7 @@ class UiPreferences(QDialog):
         row = self.formatEditor(self.layoutFile, row)
         #
         row = self.formatFiletype(self.layoutBook, 0)
+        row = self.formatDefaultGenre( self.layoutBook, row )
         row = self.formatLayout(self.layoutBook, row)
         row = self.formatReopenLastBook(self.layoutBook, row)
         row = self.formatAspectRatio(self.layoutBook, row)
@@ -682,7 +698,12 @@ class UiPreferences(QDialog):
         if newVal is not None:
             self.states[DbKeys.SETTING_FILE_RES] = self.cmbRes.currentData()
             self.flagChanged = True
-        # self.formatFileDevice( self.layoutShellScript, 3 )
+    
+    def action_genre_changed(self, value):
+        newVal = self.cmbGenre.currentData()
+        if newVal is not None:
+            self.states[DbKeys.SETTING_BOOK_DEFAULT_GENRE] = self.cmbRes.currentData()
+            self.flagChanged = True
 
     def action_device_changed(self, value):
         self.states[DbKeys.SETTING_DEFAULT_IMGFORMAT] = self.cmbDevice.currentData()
