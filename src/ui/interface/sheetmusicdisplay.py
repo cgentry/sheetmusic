@@ -4,6 +4,9 @@ import abc
 class ISheetMusicDisplayWidget( metaclass=abc.ABCMeta):
     """ Interface to define required methods for any low-level display widget 
     """
+    def __init__( self, *args, **kwargs ):
+        super().__init__( )
+
     @classmethod
     def __subclasshook__(cls, subclass):
         return (hasattr(subclass, 'clear') and callable(subclass.clear) and 

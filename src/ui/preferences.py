@@ -768,10 +768,10 @@ location
 """
 
 
-if __name__ == "__main__":
-    app = QApplication()
-    settings = MusicSettings()
-    window = UiPreferences()
-    window.formatData()
-    window.show()
-    sys.exit(app.exec())
+# if __name__ == "__main__":
+#     app = QApplication()
+#     settings = MusicSettings()
+#     window = UiPreferences()
+#     window.formatData()
+#     window.show()
+#     sys.exit(app.exec())

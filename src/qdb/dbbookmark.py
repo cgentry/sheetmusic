@@ -27,11 +27,12 @@ from qdb.dbconn import DbConn
 from qdb.keys import BOOKMARK
 from qdb.util import DbHelper
 from qdb.dbbook import DbBook
+from qdb.mixin.bookid import MixinBookID
 from qdb.base import DbBase
 from PySide6.QtSql import QSqlQuery
 
 
-class DbBookmark(DbBase):
+class DbBookmark(MixinBookID, DbBase):
     SQL_BOOKMARK_CHECK = """SELECT bookmark          FROM Bookmark WHERE book_id = ? AND page = ?"""
     SQL_BOOKMARK_DELETE_ALL = """DELETE                   FROM Bookmark WHERE book_id = ?"""
     SQL_BOOKMARK_DELETE_ID = """DELETE                   FROM Bookmark WHERE book_id = ? AND bookmark=?"""
@@ -63,19 +64,9 @@ class DbBookmark(DbBase):
         self._book_id_type = None
         self._last_book_value = None
 
-    def _getBookID(self, book: str | int) -> int:
-        if self._last_book_value != book:
-            self._last_book_value = book
-            if isinstance(book, str):
-                sql = "SELECT id FROM Book where book=?"
-                self.bookID = DbHelper.fetchone(sql, book)
-            else:
-                self.bookID = book
-        return self.bookID
-
     def _getBookmarkAtEnd(self, book: str | int, order='DESC') -> dict | None:
         sql = DbBookmark.SQL_BOOKMARK_FOR_ENDS.replace(':order', order)
-        id = self._getBookID(book)
+        id = self.lookup_book_id(book)
         if id is None:
             return None
         rtn = DbHelper.fetchrow(
@@ -93,7 +84,7 @@ class DbBookmark(DbBase):
     def getNameForPage(self, book: str | int, page) -> str:
         """ Get the name for a bookmark at 'page'. If none, return None """
         res = DbHelper.fetchone(self.SQL_BOOKMARK_CHECK, [
-                                self._getBookID(book), page], default=None)
+                                self.lookup_book_id(book), page], default=None)
         return res
 
     def isBookmark(self, book: str | int, page) -> bool:
@@ -101,7 +92,7 @@ class DbBookmark(DbBase):
         return (name is not None)
 
     def getBookmarkForPage(self, book: str | int, page: int) -> dict:
-        bookID = self._getBookID(book)
+        bookID = self.lookup_book_id(book)
         res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_FOR_PAGE, [
                                 bookID, page], DbBookmark.joinView)
         return res
@@ -117,13 +108,13 @@ class DbBookmark(DbBase):
 
     def getPreviousBookmarkForPage(self, book: str | int, page: int) -> dict:
         """ Pass it the book and page number and it will find the previous bookmark """
-        id = self._getBookID(book)
+        id = self.lookup_book_id(book)
         res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_PREVIOUS, [
                                 id, id, page], DbBookmark.joinView, debug=False)
         return res
 
     def getNextBookmarkForPage(self, book: str | int, page: int) -> dict:
-        id = self._getBookID(book)
+        id = self.lookup_book_id(book)
         res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_NEXT, [
                                 id, page], DbBookmark.joinView)
         return res
@@ -133,7 +124,7 @@ class DbBookmark(DbBase):
             Add a bookmark to the database. 
             This requires exact positional parms
         """
-        bookID = self._getBookID(book)
+        bookID = self.lookup_book_id(book)
 
         parms = {'book_id': bookID, 'bookmark': bookmark, 'page': page}
         sql = self._formatInsertVariable('Bookmark', parms, replace=True)
@@ -143,6 +134,7 @@ class DbBookmark(DbBase):
         query.exec()
         self._checkError(query)
         self.getReturnCode(query)
+        query.finish()
         del query
         return self.wasGood()
 
@@ -157,7 +149,7 @@ class DbBookmark(DbBase):
         """
 
         query = DbHelper.prep(DbBookmark.SQL_BOOKMARK_DELETE_ID)
-        query = DbHelper.bind(query, [self._getBookID(book), bookmark])
+        query = DbHelper.bind(query, [self.lookup_book_id(book), bookmark])
         query.exec()
         self._checkError(query)
         return self.getReturnCode(query)
@@ -170,7 +162,7 @@ class DbBookmark(DbBase):
 
     def delete_all(self, book: str | int) -> bool:
         query = DbHelper.bind(DbHelper.prep(
-            DbBookmark.SQL_BOOKMARK_DELETE_ALL), self._getBookID(book))
+            DbBookmark.SQL_BOOKMARK_DELETE_ALL), self.lookup_book_id(book))
         query.exec()
         rows = query.numRowsAffected()
         self._checkError(query)
@@ -178,23 +170,26 @@ class DbBookmark(DbBase):
         return self.wasGood() and rows > 0
 
     def getAll(self, book: str | int, order: str = 'page') -> list:
-        """ Retrieve a list of all bookmarks by book name """
-        return self.getAllId(book, order=order)
-
-    def getAllId(self, book: str | int, order: str = 'page') -> list:
-        """ Retrieve a list of all bookmarks by book ID """
+        """ Retrieve a list of all bookmarks by book name or ID """
+        if book is None:
+            return []
         order = (order if order in DbBookmark.joinView else 'page')
         sql = DbBookmark.SQL_SELECT_ALL_BY_ID.replace(':order', order)
         q = DbHelper.prep(sql)
-        q = DbHelper.bind(q, self._getBookID(book))
+        q = DbHelper.bind(q, self.lookup_book_id(book))
         q.exec()
         return DbHelper.all(q, DbBookmark.joinView)
+
+    def getAllId(self, book: str | int, order: str = 'page') -> list:
+        """ Retrieve a list of all bookmarks by book ID 
+            DEPRECATED: Call getAll"""
+        return self.getAll( book, order=order )
 
     def count(self, book: str | int) -> int:
         """
             Return how many bookmarks are in a book
         """
-        id = self._getBookID(book)
+        id = self.lookup_book_id(book)
         if id is None or id < 1:
             return 0
         return DbHelper.fetchone(DbBookmark.SQL_BOOKMARK_GET_COUNT, id, default=0)

@@ -8,7 +8,7 @@ class PageDisplayMixin:
     START_OF_BOOK = 0
 
     def __init__(self, *args, **kwargs):
-        self.setPageNumber()
+        self.setPageNumber( PageDisplayMixin.PAGE_NONE )
         self._is_clear = True
         super().__init__(*args, **kwargs)
 
@@ -19,11 +19,15 @@ class PageDisplayMixin:
         except:
             return '(no id)'
         
-    def setPageNumber(self, pgNumber: int = PAGE_NONE) -> None:
+    def setPageNumber(self, pgNumber: int = 0) -> None:
         self._pageNumber = pgNumber
 
     def pageNumber(self) -> int:
-        return self._pageNumber if self._pageNumber is not None else self.START_OF_BOOK
+        return self._pageNumber if self.isPage() else PageDisplayMixin.START_OF_BOOK
+    
+    def isPage(self)->bool:
+        """ Return True if page number has been set """
+        return ( self._pageNumber is not None and self._pageNumber != PageDisplayMixin.PAGE_NONE )
 
     def setKeepAspectRatio(self, keep_ratio: bool) -> None:
         self._keep_aspect_ratio = keep_ratio
@@ -33,8 +37,11 @@ class PageDisplayMixin:
             return self._keep_aspect_ratio
         return True
 
-    def setClear(self, is_clear: bool) -> None:
+    def setClear(self, is_clear: bool) -> bool:
+        """ Indicate no page or document is set """
         self._is_clear = is_clear
+        self._pageNumber = PageDisplayMixin.PAGE_NONE
+        return is_clear
 
     def isClear(self) -> bool:
         """ Return the status of the page """

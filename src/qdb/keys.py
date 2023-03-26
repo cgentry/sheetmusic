@@ -7,8 +7,8 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.5.19"
-    version_main = "0.5"
+    version      = "0.6.01"
+    version_main = "0.6"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
     system       = platform.system()
@@ -73,7 +73,7 @@ class DbKeys():
     SETTING_PAGE_EDITOR_SCRIPT  = 'pageEditorScript'  ## Script for page editor
     SETTING_DEFAULT_SCRIPT      = 'script'         ## What we will run for conversion
     SETTING_DEFAULT_SCRIPT_VAR  = 'scriptvar'      ## What 'extra' variables we will run
-    SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix
+    SETTING_FILE_PREFIX         = 'pagePrefix'     ## sheet music output prefix: e.g. "page" for "page-nnn."
     SETTING_FILE_TYPE           = 'fileType'       ## File extension (type)
     SETTING_FILE_RES            = 'resolution'     ## Output resolution
     SETTING_BOOK_DEFAULT_GENRE  = 'genre'          ## Default genre selection
@@ -85,7 +85,7 @@ class DbKeys():
     #       book settings
     SETTING_LAST_BOOK_NAME      = 'book'             ## Last book opened.
     SETTING_LAST_BOOK_REOPEN    = 'reopen'           ## Should we reopen? BOOL (text)
-    SETTING_MAX_RECENT_SIZE     = 'size_booklist'
+    SETTING_MAX_RECENT_SIZE     = 'size_booklist'    ## How many should show in 'Open Recent' file menu
     SETTING_SHOW_FILEPATH       = 'recentFilepath'
     
     #       window settings
@@ -170,7 +170,13 @@ class ImportNameSetting:
             self.useInfoPDF = None
             
             
+class LOG :
+    debug       = 1
+    info        = 2
+    warning     = 3
+    critical    = 4
 
+LOGSTR = { LOG.debug: 'debug', LOG.info: 'info', LOG.warning: 'warning', LOG.critical: 'critical' }
 
 class BOOK :
     """

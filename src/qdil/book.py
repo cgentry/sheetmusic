@@ -20,6 +20,7 @@
 
 from qdb.dbbook import DbBook
 from qdb.dbbooksettings import DbBookSettings
+from qdb.dbbookmark import DbBookmark
 from qdb.dbsystem import DbSystem
 from qdb.keys import DbKeys, BOOK, BOOKPROPERTY
 from util.convert import toInt
@@ -28,6 +29,7 @@ from PySide6.QtGui import QPixmap
 
 import fnmatch
 import os
+import shutil
 from typing import Tuple
 
 
@@ -35,6 +37,34 @@ class DilBook(DbBook):
     """
         DilBook is a data interface layer that will act as the general
         data interface between the program or UI and the database layer
+
+        DilBook handels all the interactions for a book and it's ancilliary tables
+        ( Bookmark and Notes )
+
+        Values setup:
+            GENERAL:
+                numberRecent    : Number of recent books for menu
+                
+            ALL DOCUMENTS:
+                locationpath        : Normalised directory location for book
+                                      get using filepath()
+                sourcepath          : Normalised directory for book source
+                                      get using source_filepath()
+
+            FOR CONVERT+IMPORTED DOCUMENTS:
+                page_prefix         : filename prefix, normally 'page'
+                page_suffix         : filename extension, normally 'png'
+                formatPagePrefix    : format string, page_prefix + '-nnn'
+                formatPage          : format name that consists of formatPagePrefix + . + page_suffix.
+                                      Used to get the full path of the book
+                formatBookPage      : Used to get a page location in the directory
+
+            FOR PDF IMPORTED DOCUMENTS:
+                page_prefix         : None
+                page_suffix         : suffix of PDF, normally 'pdf'
+                formatPagePrefix    : None
+                formatPage          : None
+                bookPageForamt      : same as locationpath
     """
 
     def __init__(self):
@@ -83,22 +113,30 @@ class DilBook(DbBook):
         The directory (/users/yourname/sheetmusic/mybook) is the book directory
         the first part (..../sheetmusic) is the home to all your books
         The second part (mybook) is the name of the book
-        We then get bookPageName (the page plus three digit extension)
+        We then get formatPagePrefix (the page plus three digit extension)
         and the complete path formatter string
         """
 
-        self.dirPath = os.path.normpath(self.book[BOOK.location])
-        self.bookPageName = "".join([self.page_prefix, "-{0:03d}"])
-        self.pageFormat = "".join([self.bookPageName, ".", self.page_suffix])
-        self.bookPathFormat = os.path.join(self.dirPath, self.pageFormat)
+        self.locationpath = os.path.normpath(self.book[BOOK.location])
+        self.sourcepath   = os.path.normpath( self.book[BOOK.source ])
+        self.formatPagePrefix = "".join([self.page_prefix, "-{0:03d}"])
+        self.formatPage = "".join([self.formatPagePrefix, ".", self.page_suffix])
+        self.bookPathFormat = os.path.join(self.locationpath, self.formatPage)
 
     def getFileType(self) -> str:
-        return self.page_suffix
+        """ Return the type of book to process (png or pdf)"""
+        return ( DbKeys.VALUE_PDF if self.ispdf() else self.page_suffix )
+    
+    def ispdf(self , book:dict=None )->bool:
+        if book is None:
+            book = self.book
+        return ( isinstance( book, dict) and BOOK.source_type in book and book[ BOOK.source_type ] == DbKeys.VALUE_PDF )
+        
 
     def _load_book_setting(self, book, page=None):
         """ Internal: loads the self.book with all database values """
         self.setPageNumber(page)
-        self.book = super().getBook(book=book)
+        self.book = self.getBook(book=book)
         self.setPaths()
         self.book[ BOOK.lastRead ] = self.book[BOOK.lastRead] if page is None else page
 
@@ -108,7 +146,7 @@ class DilBook(DbBook):
 
             Each book read will also include all the BookSettings
         """
-        self.newBook = super().getBook(book=book)
+        self.newBook = self.getBook(book=book)
         dlg = QMessageBox()
         dlg.setIcon(QMessageBox.Warning)
         dlg.setInformativeText(book)
@@ -124,12 +162,20 @@ class DilBook(DbBook):
             dlg.setText("Book is not valid.")
             dlg.exec()
             return dlg.buttonRole(dlg.clickedButton())
+        
 
-        if not os.path.isdir(self.newBook[BOOK.location]):
-            dlg.setWindowTitle('Opening directory')
-            dlg.setText("Book directory is not valid.")
-            dlg.exec()
-            return dlg.buttonRole(dlg.clickedButton())
+        if self.ispdf( self.newBook ) :
+            if not os.path.isfile( self.newBook[BOOK.location]):
+                dlg.setWindowTitle('Opening directory')
+                dlg.setText("Book is not valid. (No PDF)\n{}".format( self.newBook[BOOK.location]))
+                dlg.exec()
+                return dlg.buttonRole(dlg.clickedButton())
+        else:
+            if not os.path.isdir(self.newBook[BOOK.location]):
+                dlg.setWindowTitle('Opening directory')
+                dlg.setText("Book directory is not valid.")
+                dlg.exec()
+                return dlg.buttonRole(dlg.clickedButton())
 
         if self.newBook[BOOK.totalPages] == 0:
             if onError is not None:
@@ -150,7 +196,7 @@ class DilBook(DbBook):
         """
 
         if self.book is not None:
-            super().updateReadDate(self.book[BOOK.book])
+            self.updateReadDate(self.book[BOOK.book])
             self.changes[BOOK.lastRead] = self.getAbsolutePage()
             if DbKeys.SETTING_KEEP_ASPECT in self.changes:
                 self.changes[DbKeys.SETTING_KEEP_ASPECT] = (
@@ -171,12 +217,36 @@ class DilBook(DbBook):
         """
         bookname = kwargs[BOOK.name]
         settings, newBook = self._splitParms(kwargs)
-        recId = super().add(**newBook)
+        recId = self.add(**newBook)
 
         for key, value in settings.items():
             self.dbooksettings.upsertBookSetting(
                 id=recId, key=key, value=value)
-        return super().getBook(book=bookname)
+        return self.getBook(book=bookname)
+
+    def delete_pages( self, book_location )->bool:
+        """ delete the imported sheetmusic pages directory and contents"""
+        if not os.path.isdir( book_location ):
+            return False
+        
+        shutil.rmtree( book_location , ignore_errors=True)
+        return True
+        
+    def delete( self, key, value )->bool:
+        """ Delete a book based on a datbase search. 
+            Pass a "key, value" to find and delete the book. This will also delete all notes and bookmarks
+
+            If you match more than one book, it will not delete it
+        """
+        book = self.getBookByColumn(key, value)
+        id = None
+        if book is not None and BOOK.id in book:
+            id = book[ BOOK.id]
+            self.delbycolumn( BOOK.id , id )
+            self.delete_pages( book[ BOOK.location ])
+            DbBookSettings().deleteAllValues( id, ignore=True )
+            DbBookmark().delete_all( id )
+        return id is not None
 
     def updateIncompleteBooksUI(self):
         """
@@ -185,19 +255,19 @@ class DilBook(DbBook):
         """
         from ui.properties import UiProperties
         ui = UiProperties()
-        for bookName in super().getIncompleteBooks().keys():
-            book = super().getBook(book=bookName)
+        for bookName in self.getIncompleteBooks().keys():
+            book = self.getBook(book=bookName)
             ui.set_properties(book)
             ui.exec()
             if ui.isReject():
                 break
             if ui.isApply():
                 if BOOK.name in ui.changes and book[BOOK.name] != ui.changes[BOOK.name]:
-                    super().updateName(book[BOOK.name], ui.changes[BOOK.name])
+                    self.updateName(book[BOOK.name], ui.changes[BOOK.name])
                 else:
                     ui.changes[BOOK.name] = bookName
                 if len(ui.changes) > 1:
-                    super().update(**ui.changes)
+                    self.update(**ui.changes)
         ui.close()
         del ui
         return
@@ -211,10 +281,11 @@ class DilBook(DbBook):
         self.changes = {}
         # Set whenever the dirpath alters
         self.bookPathFormat = ""
-        self.bookPageName = ""
+        self.formatPagePrefix = ""
         # File information: pages, names
         self.dirName = ""
-        self.dirPath = ""
+        self.locationpath = ""
+        self.sourcepath = None
         self.thisPage = 0
         self.firstPage = 0
 
@@ -330,23 +401,22 @@ class DilBook(DbBook):
                                 self.get_property(BOOK.totalPages, 999))
         return self.thisPage
 
-    def getBookPath(self, bookPath: str = None) -> str:
+    def filepath(self, bookPath: str = None) -> str:
         """ Return the bookpath for this book or the normalised bookpath"""
         if bookPath is None:
-            return self.dirPath
-        else:
-            return os.path.normpath(bookPath)
+            return self.locationpath
+        return os.path.normpath(bookPath)
 
-    def getBookPagePath(self, pageNum=None) -> str:
-        if self.isPDF():
-            return self.book[BOOK.location]
-        return self.bookPathFormat.format(toInt(pageNum))
-
-    def get_page_file(self, page: str) -> str | None:
-        if self.isValidPage(page):
-            imagePath = self.getBookPagePath(page)
-            if os.path.isfile(imagePath):
-                return imagePath
+    def source_filepath( self )->str|None:
+        """ Return the source path for this book (normalised)"""
+        return self.sourcepath()
+    
+    def page_filepath(self, page: str|int , required=True) -> str | None:
+        """ Return the page's path. If the file doesn't exist, None is returned"""
+        imagePath =  ( self.book[BOOK.location] if self.isPDF() else  self.bookPathFormat.format(toInt(page) ) )
+        
+        if not required or os.path.isfile(imagePath):
+            return imagePath
         return None
 
     def clearCache(self):

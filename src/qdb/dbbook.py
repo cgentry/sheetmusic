@@ -29,6 +29,7 @@ from util.convert import toInt
 from qdb.dbconn import DbConn
 from qdb.dbsystem import DbSystem
 from qdb.keys import DbKeys, BOOK
+from qdb.mixin.bookid import MixinBookID
 from qdb.dbgeneric import DbGenericName
 from qdb.util import DbHelper
 from qdb.base import DbBase
@@ -56,7 +57,7 @@ class DbComposer(DbGenericName):
         SQL_GET_ACTIVE = 'SELECT name FROM Composer WHERE Composer.id IN ( SELECT composer_id FROM Book ) ORDER BY name'
         return self.getColumn(SQL_GET_ACTIVE)
 
-class DbBook(DbBase):
+class DbBook(MixinBookID, DbBase):
     
     SQL_DELETE = """
             DELETE FROM Book 
@@ -146,9 +147,11 @@ class DbBook(DbBase):
             raise ValueError(msg)
 
     def getId(self, book: str) -> int:
-        return DbHelper.fetchone("SELECT id FROM Book WHERE book=?", book)
+        """ Shim for backward compatibility """
+        return self.lookup_book_id( book )
 
     def getBookByColumn(self, column: str, value: str) -> dict:
+
         self._checkColumnView(column)
         sql = DbBook.SQL_GET_BOOKVIEW_BY.replace('::column', column)
         return DbHelper.fetchrow(sql,  value, self.columnView)
@@ -252,7 +255,7 @@ class DbBook(DbBase):
         if BOOK.id in kwargs:
             id = kwargs.pop(BOOK.id)
         else:
-            id = self.getId(kwargs.pop(BOOK.name))
+            id = self.lookup_book_id(kwargs.pop(BOOK.name))
 
         sql = self._formatUpdateVariable('Book', BOOK.id, kwargs)
 
@@ -291,11 +294,11 @@ class DbBook(DbBase):
             kwargs[BOOK.nameDefault] = 0
             
         kwargs.update(self.cleanupArguments(kwargs))
-        sql = self._formatInsertVariable('Book', kwargs)
-        query = DbHelper.prep(sql)
-        DbHelper.bind(query, list(kwargs.values()))
+        query = DbHelper.prep( self._formatInsertVariable('Book', kwargs) )
+        query = DbHelper.bind(query, list(kwargs.values()))
         id = (query.lastInsertId() if query.exec() else -1)
         self._checkError(query)
+        print( self.logmsg() )
         query.finish()
         return id
 

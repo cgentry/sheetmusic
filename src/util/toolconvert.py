@@ -32,9 +32,10 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
-from qdb.dbbook import DbBook
-from qdb.keys import BOOK, DbKeys
+from qdb.dbbookmark import DbBookmark
+from qdb.keys import BOOK, BOOKMARK, DbKeys
 from qdil.preferences import DilPreferences
+from qdil.book import DilBook
 from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
 from qdb.mixin.fieldcleanup import  MixinFieldCleanup
 from qdb.mixin.tomlbook     import MixinTomlBook
@@ -222,6 +223,7 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
     def __init__(self) -> None:
         super().__init__(ImportSettings.get_select())
         self.add_to_environment(ImportSettings.setting(self.script_file))
+        self.dilb = DilBook()
         self.pref = DilPreferences()
         self.status = self.RETURN_CANCEL
         self.set_output('text')
@@ -267,6 +269,38 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
         # Return datalist to user
         return self.data
     
+    def importFiles(self)->list[dict]:
+        return self.data
+    
+    def add_books_to_library(self)->bool:
+        """ Import PDF imports all the PDF content and re-imports previous bookmarks 
+            This will only add books if we have a good status and there is some data
+            to import
+        """
+        print( 'status is', self.status )
+        print( 'book list' , self.data )
+        if self.status:
+            bookmarks = {}
+            for loc in self.getduplicateList() :
+                bookmark = self.bookmark.getAll( self.dilb.lookup_book_by_column( BOOK.source, loc ))
+                if bookmark is not None:
+                    bookmarks[ loc ] = bookmark
+                self.dilb.delete( BOOK.source , loc )
+
+            if len(self.data) > 0:
+                for book_data in self.data :
+                    print( 'Add new book', book_data )
+                    self.dilb.delete( BOOK.source , book_data[BOOK.source])
+                    new_book = self.dilb.newBook(**book_data)
+                    if book_data[ BOOK.source ] in bookmarks:
+                        for marks in bookmarks[ book_data[ BOOK.source ]]:
+                            self.bookmark.add(
+                                new_book[ BOOK.id ], 
+                                marks[BOOKMARK.name ], 
+                                marks[BOOKMARK.page ]
+                            )
+        return ( self.status and len( self.data) > 0 and len( self.getduplicateList() ) > 0 )
+    
     def update_file_properties(self) -> bool:
         """
             This will go through all of the files and prompt the user
@@ -292,16 +326,6 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
                 self.data[index] = currentFile
 
         return status
-
-    def _delete_current_book( self, dbb:DbBook, book_entry:dict )->bool:
-        """ Remove old files/directory and database entry for this location """
-        db_book = dbb.getBookByColumn( BOOK.source , book_entry[ BOOK.source ])
-        if db_book is not None and len( db_book) > 0 :
-            # Don't delete entries that point to the source (probably a PDF)
-            if db_book[ BOOK.source ] != db_book[ BOOK.location ]:
-                shutil.rmtree(db_book[BOOK.location], ignore_errors=True)
-            dbb.delbycolumn( BOOK.source, db_book[BOOK.source])
-        return ( db_book is not None and len( db_book ) > 0 )
             
     def fixDuplicateNames(self):
         """
@@ -309,25 +333,29 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
             If the location doesn't exist but the name does then we need to
             fix the names.    
         """
-        dbb = DbBook()
-        musicPath = self.pref.getValue(DbKeys.SETTING_DEFAULT_PATH_MUSIC)
-        for index, entry in enumerate(self.data):
-            self._delete_current_book( dbb, entry )
-                
-            # see if the name is still there and get unique name for it
-            if dbb.isBook(entry[BOOK.name]):
-                self.data[index][BOOK.name] = dbb.getUniqueName(
-                    entry[BOOK.name])
+        for index, book_entry in enumerate(self.data):
+            self.data[index][BOOK.name] = self.dilb.getUniqueName(
+                book_entry[BOOK.name])
+
+    def filelist_to_dictionary( self, fileList: list )->bool:
+        """ Call functions that fill in all the data and cleanup for processing"""
+        if fileList is None or len(fileList) == 0:
+            self.status = self.RETURN_CANCEL
+        else:
+            self._fill_in_all_file_info( fileList )
+            self.status = self.update_file_properties()
+            if self.status == self.RETURN_CONTINUE:
+                self.fixDuplicateNames()
+        return self.status
 
     def processDirectoryList(self, fileList: list) -> bool:
-        if fileList is None or len(fileList) == 0:
-            return self.RETURN_CANCEL
-        self._fill_in_all_file_info( fileList )
-        self.status = self.update_file_properties()
-        if self.status == self.RETURN_CONTINUE:
-            self.fixDuplicateNames()
+        """ Process all of the files in the filelist and run the selected script 
+        This does not import into the database. for that, call add_books_to_library
+        
+        N.B. Override this function for PDFs.
+    """
+        if self.filelist_to_dictionary( self.fileList ) == self.RETURN_CONTINUE:
             for index, entry in enumerate(self.data):
-                baseName = os.path.basename(entry[BOOK.source])
                 self.add_variable('SOURCE_FILE', entry[BOOK.source])
                 self.add_variable('TARGET_DIR', entry[BOOK.name])
                 self.bookPath = path.join(self.music_path, entry[BOOK.name])
@@ -347,7 +375,6 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
     def add_final_vars(self):
         pass
 
-
 class UiConvertFilenames(UiBaseConvert):
     def __init__(self, location=None):
         super().__init__()
@@ -363,7 +390,7 @@ class UiConvertFilenames(UiBaseConvert):
 
 
 class UiConvert(UiBaseConvert):
-
+    """ Import and convert a single file """
     def __init__(self):
         super().__init__()
 
@@ -383,6 +410,7 @@ class UiConvert(UiBaseConvert):
 
 
 class UiConvertDirectory(UiBaseConvert):
+    """ Import and convert a directory of PDFs"""
     def __init__(self):
         super().__init__()
 
@@ -409,3 +437,30 @@ class UiConvertDirectory(UiBaseConvert):
                 if name.endswith('.pdf') or name.endswith('.PDF'):
                     self.fileName.append(os.path.join(path, name))
         return self.fileName
+  
+    
+class UiImportPDFDocument(UiBaseConvert):
+    """ Import a PDF Document without conversion """
+    def __init__(self):
+        super().__init__()
+
+    def getListOfPdfFiles(self) -> str:
+        (self.fileNames, _) = QFileDialog.getOpenFileNames(
+            None,
+            "Select PDF File",
+            dir=path.expanduser(self.baseDirectory()),
+            filter="(*.pdf *.PDF)"
+        )
+        if len(self.fileNames) > 0:
+            self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
+        return self.fileNames
+
+    def processDirectoryList( self, filelist:list ):
+        if self.filelist_to_dictionary( filelist  ) == self.RETURN_CONTINUE:
+            for index in range( len( self.data )):
+                self.data[index][BOOK.source_type] = 'pdf'
+                self.data[index][BOOK.location ] = self.data[index][BOOK.source]
+        return self.status
+    
+    def process_files(self) -> bool:
+        return self.processDirectoryList(self.getListOfPdfFiles())

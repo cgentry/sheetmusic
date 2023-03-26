@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QSizePolicy,QWidget, 
     QMainWindow, QVBoxLayout)
 from qdb.keys import DbKeys
+from qdb.log  import DbLog
 from ui.borderglow import BorderGlow
 from ui.interface.sheetmusicdisplay import ISheetMusicDisplayWidget
 
@@ -49,6 +50,7 @@ class BottomSheet():
         self.borderGlow = BorderGlow()
         self._setupVars(MainWindow)
         self._set_size(MainWindow)
+        self.logger = DbLog( 'BottomSheet')
 
         self.createMainPageWidget( name )
 
@@ -134,6 +136,7 @@ class BottomSheet():
     def setKeepAspectRatio(self, flag: bool) -> None:
         for page in self.pageRefs:
             page.setKeepAspectRatio(flag)
+            page.widget().setKeepAspectRatio(flag)
 
     def keepAspectRatio(self) -> bool:
         """ Only return the flag from page one
@@ -145,35 +148,40 @@ class BottomSheet():
             QMainWindow, QSize. Do not call this
             directly; resize will call it and it should be called first
         """
+        
         if windowSize is not None:
             if isinstance(windowSize, QMainWindow):
                 windowSize = windowSize.size()
             if isinstance(windowSize, QSize):
                 self.windowWidth = windowSize.width()
                 self.windowHeight = windowSize.height()
-                
+        print('** Set Size', windowSize)
         return self.windowWidth is not None and self.windowHeight is not None 
 
-    def resize(self, size=None) -> None:
+    def _size_pages( self ):
+        self.page_width = int(
+                self.windowWidth / self._getLayoutValue(self.LAYOUT_WIDTH))
+        self.page_height = int(
+                self.windowHeight / self._getLayoutValue(self.LAYOUT_HEIGHT))
+        print('** Size is', self.page_width , self.page_height)
+        if self.page_width and self.page_height:
+            for index in range( self.numberPages() ):
+                self.pageRefs[ index ].resize(self.page_width, self.page_height)
+
+    def resize(self, size:QSize|None = None) -> None:
         """ This must be called everytime the window is resized and on startup 
             You should pass the qsize or width in. It will be called on creation
             to set sizes correctly
         """
         if self._set_size( size ) and self._currentLayoutMode :
-            self.page_width = int(
-                self.windowWidth / self._getLayoutValue(self.LAYOUT_WIDTH))
-            self.page_height = int(
-                self.windowHeight / self._getLayoutValue(self.LAYOUT_HEIGHT))
-        if self.page_width and self.page_height:
-            for index in range( self.numberPages() ):
-                self.pageRefs[ index ].resize(self.page_width, self.page_height)
+            self._size_pages()
 
     def createPageSizePolicy(self, widget) -> QSizePolicy:
         """ Create the page size policy used for the display widget"""
         sizePolicy = QSizePolicy(
             QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(widget.sizePolicy().hasHeightForWidth())
         return sizePolicy
 
@@ -216,7 +224,6 @@ class BottomSheet():
             maxpages = self.numberPages()
         for index in range( maxpages ):
             self._add_page_widget( index )
-        self.resize()
 
     def _getLayoutValue(self, key):
         return self._layout[self._currentLayoutMode][key]
@@ -327,10 +334,12 @@ class BottomSheet():
         """ loadPages should be called whenever a book is opened. It setups for
             either 'smart' page turn or for simple page turning.
         """
+        self.logger.debug( 'Load {} {} {}'.format( page_number1, page_number2, page_number3))
         self.pageRefs[0].setContentPage(content_1, page_number1)
         self.pageRefs[1].setContentPage(content_2, page_number2)
         self.pageRefs[2].setContentPage(content_3, page_number3)
         self.direction = self.FORWARD
+        self._size_pages()
 
     def page_numbers(self):
         return [ page.pageNumber() for page in self.pageRefs ]

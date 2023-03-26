@@ -21,7 +21,9 @@
 from re import M
 
 from qdb.keys import DbKeys
-from ui.pagewidget import (PageWidget)
+from ui.pdfwidget import PdfWidget
+from ui.pxwidget import PxWidget
+
 from PySide6.QtCore import (QCoreApplication, QRect, QSize)
 from PySide6.QtGui import (QAction, Qt, QKeySequence)
 from PySide6.QtWidgets import (
@@ -484,13 +486,16 @@ class UiMain(object):
     def addPageWidgets(self, MainWindow):
         """ Add all of the pager widgets here. Call 'showPager(name) to pick"""
         self._stacks_widget = {}
+
         self.stacks = QStackedWidget( MainWindow )
         self.stacks.setObjectName( u'pagerStacks')
         self.stacks.setAutoFillBackground(True)
 
         # pagerWidget is the intface from program to display
         # displayWidget is the widget that holds all the pages.
-        pagerClass = PageWidget( MainWindow )
+
+        # PNG Pager
+        pagerClass = PxWidget( MainWindow )
         displayWidget = pagerClass.getPager()
         self._stacks_widget[ DbKeys.VALUE_PNG] = {
             UiMain.STACK_PAGER_CLASS: pagerClass,
@@ -498,20 +503,28 @@ class UiMain(object):
         }
         self.stacks.addWidget( displayWidget  )
 
-        # self._stacks_widget[ DbKeys.VALUE_PDF ] = PdfWidget( MainWindow )
-        # self.stacks.addWidget( self._stacks_widget[ DbKeys.VALUE_PDF ])
+        # PDF pager 
+        pagerClass = PdfWidget( MainWindow )
+        displayWidget = pagerClass.getPager()
+        self._stacks_widget[ DbKeys.VALUE_PDF] = {
+            UiMain.STACK_PAGER_CLASS: pagerClass,
+            UiMain.STACK_DISPLAY_WIDGET : displayWidget
+        }
+        self.stacks.addWidget( displayWidget  )
 
         MainWindow.setCentralWidget(self.stacks)
         self.showPager( DbKeys.VALUE_PNG )
 
     def showPager( self , name:str )->object:
         if name in self._stacks_widget :
+            self._current_stack = name
             self.pager = self._stacks_widget[ name ][ UiMain.STACK_PAGER_CLASS]
             self.stacks.setCurrentWidget( self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET] )
             self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET ].show()
+            
         return self.pager
     
-    def pageWidget(self)->object:
+    def pageWidget(self)->PdfWidget|PxWidget:
         return self.pager
 
     def statusText(self, statusTxt=""):

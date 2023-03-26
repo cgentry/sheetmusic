@@ -45,6 +45,13 @@ class Setup():
 
     def createTables(self):
         tables = [
+            """Log        ( 
+                            id            INTEGER PRIMARY KEY ASC,
+                            level         INTEGER NOT NULL,
+                            class         TEXT default '',
+                            method        TEXT default '',
+                            msg           TEXT NOT NULL,
+                            date_added    DATETIME DEFAULT current_timestamp )""",
             "System     ( key  TEXT PRIMARY KEY, value TEXT )",
             """Book     ( 
                           id            INTEGER PRIMARY KEY ASC,
@@ -99,7 +106,7 @@ class Setup():
             """Genre     ( id   INTEGER PRIMARY KEY ASC,
                            name TEXT    UNIQUE NOT NULL)
             """,
-            """Note     ( id        INTEGER PRIMARY KEY ASC,
+            """Note      ( id   INTEGER PRIMARY KEY ASC,
                           note      TEXT    DEFAULT '',
                           location  BLOB    DEFAULT NULL,
                           size      BLOB    DEFAULT NULL,
@@ -118,6 +125,8 @@ class Setup():
             "Book_Genre    ON Book     (genre_id)",
             "Bookmark_Book ON Bookmark (book_id)",
             "Book_Notes    ON Notes    (book_id, page,sequence)",
+            "Log_Level     ON Log      (level, date_added)",
+            "Log_Date      ON Log      (date_added, level)"
         ]
         unique_idx = [
             "Bookmark_PAGE    ON Bookmark    (book_id, page)",
@@ -224,6 +233,14 @@ class Setup():
             raise RuntimeError('Version 0.6: Could not update Book table for source_type')
         self.logger.info("Update database to 0.6 from 0.5: Book.status_type added.")
         return Decimal('0.6')
+    
+    def _update_0_6(self, current:Decimal)->Decimal:
+        """ Update from 0.5 to 0.6
+            Insert New Table
+        """
+        self.createTables()
+        self.logger.info("Update database to 0.6 from 0.5: Log file added.")
+        return Decimal('0.6')
 
     def system_update(self)->bool:
         """ Check to see if we need to update the system. This could be when verions IDs change"""
@@ -234,8 +251,9 @@ class Setup():
             '0.3' : self._update_null,
             '0.4' : self._update_null,
             '0.5' : self._update_0_5,
+            '0.6' : self._update_0_6,
         }
-
+        self._update_0_6( 0.6 )
         sql_version= "SELECT value FROM System WHERE key='{}'".format( DbKeys.SETTING_VERSION )
         sql_update = "UPDATE System SET value=? WHERE key='{}'".format( DbKeys.SETTING_VERSION)
 

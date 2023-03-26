@@ -38,13 +38,13 @@ from qdb.dbsystem import DbSystem
 from qdb.keys import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
 from qdb.setup import Setup
 from qdb.dbnote import DbNote
+from qdb.log import DbLog
 
 from qdil.preferences import DilPreferences, SystemPreferences
 from qdil.book import DilBook
 from qdil.bookmark import DilBookmark
 
 from ui.main import UiMain
-from ui.pagewidget import (PageLabelWidget)
 from ui.properties import UiProperties
 from ui.bookmark import UiBookmark
 from ui.file import Openfile, Deletefile, DeletefileAction, Reimportfile
@@ -63,12 +63,12 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.loadUi()
-
+        self.logger = DbLog( 'MainWindow')
+        self.logger.debug('Program starting')
         self.book = DilBook()
         self.system = DbSystem()
         self.bookmark = DilBookmark()
         self._notelist = None
-        self.logger = logging.getLogger('main')
         self.import_dir = self.pref.getValue(DbKeys.SETTING_LAST_IMPORT_DIR)
         tl = GenerateToolList()
         self.toollist = tl.list()
@@ -78,13 +78,6 @@ class MainWindow(QMainWindow):
         self.pref = DilPreferences()
         self.ui = UiMain()
         self.ui.setupUi(self)
-
-    def _pageLabel(self, label: PageLabelWidget, bookpage) -> bool:
-        label.clear()
-        if bookpage > self.book.count():
-            return True
-        px = self.book.get_page_file(bookpage)
-        return label.setImage(px, bookpage)
 
     def pageList(self, start_page, len_list) -> list:
         """ pageList creates a list, MAX_PAGES long, of the pages. The first entry will always be the one requests."""
@@ -127,10 +120,11 @@ class MainWindow(QMainWindow):
         return self._loadPageWidget(plist[0], plist[1], plist[2])
 
     def _loadPageWidget(self, pg1: int, pg2: int, pg3: int):
-        page1 = self.book.get_page_file(pg1)
-        page2 = self.book.get_page_file(pg2)
-        page3 = self.book.get_page_file(pg3)
+        page1 = self.book.page_filepath(pg1)
+        page2 = self.book.page_filepath(pg2)
+        page3 = self.book.page_filepath(pg3)
         self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
+        self.ui.pageWidget().resize(self.ui.stacks.size())
 
     def _update_pages_shown(self, absolute_page_number: int = None) -> None:
         """ Update status bar with page numbers """
@@ -188,6 +182,11 @@ class MainWindow(QMainWindow):
                 self._notelist[note[NOTE.page]] = note
         return self._notelist
 
+    def _show_png(self):
+        pass
+    def _show_pdf( self ):
+        pass
+
     def open_book(self, newBookName: str, page=None) -> None:
         """ """
         self.close_book()
@@ -200,28 +199,29 @@ class MainWindow(QMainWindow):
             smart_page_turn = toBool(self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
             aspect_ratio = self.book.getAspectRatio()
 
-            self.ui.showPager( UiMain.PAGER_PNG )
+            self.ui.showPager( self.book.getFileType() )
             self.ui.pageWidget().setDisplay(book_layout)
             self.ui.pageWidget().setSmartPageTurn( smart_page_turn )
             self.ui.pageWidget().setKeepAspectRatio(aspect_ratio)
             self.loadPages()
 
-            self.bookmark.open(newBookName)
-
             # Update page and menu displays
             self.setTitle()
             self._set_menu_book_options(True)
             self._set_menu_page_options(book_layout )
-            self.updateBookmarkMenuNav(self.bookmark.getBookmarkPage(page))
             self.ui.actionAspectRatio.setChecked(aspect_ratio)
             self.ui.actionSmartPages.setChecked( smart_page_turn )
+
+            self.bookmark.open(newBookName )
+            self.updateBookmarkMenuNav(self.bookmark.getBookmarkPage(page))
 
             self.ui.pageWidget().show()
             self.update_status_bar()
         else:
+            self.logger.warning('')
             if rtn == QMessageBox.DestructiveRole:
                 self.book.delBook(newBookName)
-            self.openLastBook()
+            self.openLastBook( noretry=newBookName)
         return
 
     def close_book(self) -> None:
@@ -285,8 +285,11 @@ class MainWindow(QMainWindow):
 
         return False
 
+    def _set_page_size( self ):
+        self.ui.pageWidget().resize(self.ui.stacks.size())
+
     def resizeEvent(self, event):
-        self.ui.pager.resize(self.ui.stacks.size())
+        self._set_page_size()
         self.reloadPages()
 
     def keyPressEvent(self, ev) -> None:
@@ -311,7 +314,7 @@ class MainWindow(QMainWindow):
         pg = self.ui.pager.getLowestPageShown()-1
         if self.book.isValidPage(pg):
             self.ui.pager.previousPage(
-                self.book.get_page_file(pg), pg, end=(pg == 1))
+                self.book.page_filepath(pg), pg, end=(pg == 1))
             self.book.setPageNumber(pg)
             self.update_status_bar()
 
@@ -319,7 +322,7 @@ class MainWindow(QMainWindow):
         pg = self.ui.pager.getHighestPageShown()+1
         if self.book.isValidPage(pg):
             self.book.setPageNumber(pg)
-            self.ui.pager.nextPage(self.book.get_page_file(
+            self.ui.pager.nextPage(self.book.page_filepath(
                 pg), pg, end=(pg == self.book.count()))
             self.update_status_bar()
 
@@ -456,11 +459,13 @@ class MainWindow(QMainWindow):
         # self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         # self.ui.twoPagesSide.installEventFilter( self)
 
-    def openLastBook(self) -> None:
+    def openLastBook(self, noretry:str = None) -> None:
         if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
-            if recent is not None and len(recent) > 0:
+            if recent is not None and len(recent) > 0 and noretry != recent[0][BOOK.name]:
                 self.open_book(recent[0][BOOK.name])
+            else:
+                self.logger.info('No last book to open')
 
     def setTitle(self, bookmark: str = None) -> None:
         """ Title is made of the title and bookmark if there is one """
@@ -571,12 +576,17 @@ class MainWindow(QMainWindow):
         df = Deletefile()
         rtn = df.exec()
         if rtn == QMessageBox.Accepted:
+            self.logger.info( 'Deleted book {}'.format( df.bookname ))
             DeletefileAction(df.bookName)
 
     def _action_file_import_document(self)->None:
-        import ui.util
-        ui.util.not_yet_implemented()
-
+        from util.toolconvert import UiImportPDFDocument
+        uiconvert = UiImportPDFDocument()
+        uiconvert.setBaseDirectory(self.import_dir)
+        uiconvert.process_files()
+        uiconvert.add_books_to_library()
+        self.import_dir = str(uiconvert.baseDirectory())
+        del uiconvert
 
     def _action_file_import_document_dir(self)->None:
         import ui.util
@@ -589,11 +599,11 @@ class MainWindow(QMainWindow):
         importset.pick_import()
 
     def _action_file_import_PDF(self) -> None:
-        from util.toolconvert import UiConvert
-        uiconvert = UiConvert()
+        from util.toolconvert import UiConvertPDF
+        uiconvert = UiConvertPDF()
         uiconvert.setBaseDirectory(self.import_dir)
-        if uiconvert.process_files():
-            self._importPDF(uiconvert.data, uiconvert.getduplicateList())
+        uiconvert.process_files()
+        uiconvert.add_books_to_library()
         self.import_dir = str(uiconvert.baseDirectory())
         del uiconvert
 
@@ -601,14 +611,15 @@ class MainWindow(QMainWindow):
         from util.toolconvert import UiConvertDirectory
         uiconvert = UiConvertDirectory()
         uiconvert.setBaseDirectory(self.import_dir)
-        if uiconvert.exec_():
-            self._importPDF(uiconvert.data, uiconvert.getduplicateList())
+        uiconvert.exec_()
+        self._importPDF(uiconvert.data, uiconvert.getduplicateList())
         self.import_dir = uiconvert.baseDirectory()
         del uiconvert
 
     def _action_file_reimport(self) -> None:
         rif = Reimportfile()
         if rif.exec() == QMessageBox.Accepted:
+            self.logger.info('Re-import book {}'.rif.bookName )
             book = self.book.getBook(book=rif.bookName)
             from util.toolconvert import UiConvertFilenames
             uiconvert = UiConvertFilenames()
@@ -676,9 +687,9 @@ class MainWindow(QMainWindow):
                     return
         # We have a script
         vars = [
-            "-BOOK",        self.book.getBookPath(),
-            "-PAGE",        self.book.getBookPagePath(
-                self.book.getAbsolutePage()),
+            "-BOOK",        self.book.filepath(),
+            "-PAGE",        self.book.page_filepath(
+                self.book.getAbsolutePage() , required=False),
             "-TITLE",        self.book.getTitle(),
             "-O",    platform.platform(terse=True),
         ]
@@ -712,6 +723,7 @@ class MainWindow(QMainWindow):
             self._set_menu_page_options(viewState)
             self.loadPages()
         except Exception as err:
+            self.logger.critical('Error opening preferences: {}'.format( str(err)))
             QMessageBox.critical(
                 None,
                 ProgramConstants.system_name,
@@ -845,6 +857,7 @@ class MainWindow(QMainWindow):
             QMessageBox.No | QMessageBox.Yes
         )
         if rtn == QMessageBox.Yes:
+            self.logger.info('Delete all bookmarks for {}'.self.book.getTitle() )
             self.bookmark.delete_all(book=self.book.getTitle())
             self.updateBookmarkMenuNav()
 
@@ -961,29 +974,29 @@ class MainWindow(QMainWindow):
         self.loadPages()
 
     def _importPDF(self, insertData, duplicateData):
+        """ Import PDF imports all the PDF content and re-imports previous bookmarks """
         dilb = DilBook()
         bookmarks = {}
         if len(duplicateData) > 0:
             for loc in duplicateData:
-                book = dilb.getBookByColumn(BOOK.source, loc)
-                if book is not None:
-                    bookmarks[loc] = self.bookmark.getAll(book[BOOK.book])
-                    dilb.delBook(book=book[BOOK.book])
+                bookmark = self.bookmark.getAll( dilb.lookup_book_by_column( BOOK.source, loc ))
+                if bookmark is not None:
+                    bookmarks[ loc ] = bookmark
+                dilb.delete( BOOK.source , loc )
 
         if len(insertData) > 0:
-            for bdat in insertData:
-                # for key, item in bdat.items():
-                #     print("{}={}".format(key, item))
-                dilb.newBook(**bdat)
-
-        if len(bookmarks) > 0:
-            for loc in bookmarks:
-                book = dilb.getBookByColumn(BOOK.source, loc)
-                for marks in bookmarks[loc]:
-                    self.bookmark.add(
-                        book[BOOK.name], marks[BOOKMARK.name], marks[BOOKMARK.page])
+            for book_data in insertData:
+                new_book = dilb.newBook(**book_data)
+                if book_data[ BOOK.source ] in bookmarks:
+                    for marks in bookmarks[ book_data[ BOOK.source ]]:
+                        self.bookmark.add(
+                            new_book[ BOOK.id ], 
+                            marks[BOOKMARK.name ], 
+                            marks[BOOKMARK.page ]
+                        )
 
     def _lost_and_found_book(self, book_name: str) -> str:
+        self.logger.warning(f'Could not locate book {book_name}')
         if QMessageBox.Yes != QMessageBox.critical(
             None,
             "",

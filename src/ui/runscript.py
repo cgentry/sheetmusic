@@ -438,7 +438,7 @@ class RunScriptBase():
             self.script_file, self._scriptText, isFile)
         return True
 
-    def set_script(self, script: str, vars: list = None, isFile: bool = True) -> bool:
+    def set_script(self, script: str, vars: list = None, env:dict=None, isFile: bool = True) -> bool:
         """ 
         Save the script and notify child we changes script status
 
@@ -447,6 +447,7 @@ class RunScriptBase():
         """
         self._close_temporary_file()
         self.vars = vars if vars is not None else []
+        self._extra_env = env if env is not None else {}
         if script is None or len(script) < 2:
             QMessageBox.critical(None,
                                  "",
@@ -730,7 +731,7 @@ class UiRunScript(RunScriptBase):
 
         """
 
-    def __init__(self, script: str, vars: list = None, isFile=True, outputDestination='plain') -> None:
+    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='plain') -> None:
         """
         Setup the runscript values
 
@@ -743,7 +744,7 @@ class UiRunScript(RunScriptBase):
         self.btnList = None
         self.debug_mode = False
         self.create_text_fields()
-        if self.set_script(script, vars, isFile=isFile):
+        if self.set_script(script, vars, env=env, isFile=isFile):
             width = min(2048, toInt(self.script_parms.setting_value(
                 ScriptKeys.WIDTH, '600'), 600))
             height = min(1024, toInt(self.script_parms.setting_value(
@@ -1124,7 +1125,7 @@ class UiRunSimpleNote(RunScriptBase):
 
     """
 
-    def __init__(self, script: str, vars: list = None, isFile=True, outputDestination='text') -> None:
+    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='text') -> None:
         """
         Setup the runscript values
 
@@ -1135,7 +1136,7 @@ class UiRunSimpleNote(RunScriptBase):
         """
         super().__init__()
 
-        if self.set_script(script, vars, isFile=isFile):
+        if self.set_script(script, vars, env=env, isFile=isFile):
             width = min(2048, toInt(self.script_parms.setting_value(
                 ScriptKeys.WIDTH, '600'), 600))
             height = min(1024, toInt(self.script_parms.setting_value(
@@ -1233,8 +1234,8 @@ class UiRunSimpleNote(RunScriptBase):
 class RunSilentRunDeep(UiRunSimpleNote):
     """ Run a script with no output box UNLESS we have an error occur """
 
-    def __init__(self, script: str, vars: list = None, isFile=True, outputDestination='text'):
-        super().__init__(script, vars, isFile, outputDestination)
+    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='text'):
+        super().__init__(script, vars, env=env, isFile=isFile, outputDestination=outputDestination)
         self.text.hide()
 
     def output_message(self, msgText: str, override=None, mode: str = 'stdout') -> None:

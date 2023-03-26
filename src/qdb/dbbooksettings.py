@@ -25,10 +25,11 @@
 from qdb.dbconn import DbConn
 from qdb.util   import DbHelper
 from qdb.base   import DbBase
+from qdb.mixin.bookid import MixinBookID
 from util.convert import    toBool, toInt
 import logging
 
-class DbBookSettings( DbBase ):
+class DbBookSettings( MixinBookID, DbBase ):
     SQL_BOOKSETTING_ALL="""SELECT * FROM BookSettingView WHERE book_id=? ORDER BY :order ASC"""
     SQL_BOOKSETTING_GET="""SELECT * FROM BookSettingView WHERE book_id=? AND key=?"""
 
@@ -65,32 +66,13 @@ class DbBookSettings( DbBase ):
         self.setupLogger()
         self.columnNames = DbConn.getColumnNames( 'BookSetting')
         self.columnView  = DbConn.getColumnNames( 'BookSettingView')
-        self.book = book
-        self._currentID = None
+        if book is not None:
+            self.lookup_book_id( book )
         if not DbBookSettings.SQL_IS_EXPANDED:
             DbBookSettings.SQL_BOOKSETTING_ALL   = DbHelper.addColumnNames( DbBookSettings.SQL_BOOKSETTING_ALL,self.columnView)
             DbBookSettings.SQL_BOOKSETTING_GET   = DbHelper.addColumnNames( DbBookSettings.SQL_BOOKSETTING_GET,self.columnView)
             DbBookSettings.SQL_IS_EXPANDED = True
 
-    def _bookID( self, book:str=None, ignore=False )->int:
-        if self._setBook( book , ignore=False ):
-            self._currentID = DbHelper.fetchone( DbBookSettings.SQL_GET_BOOK_ID , param=self.book )
-        return self._currentID
-
-    def _setBook(self, book:str, ignore=False )->bool:
-        """ Set the book name to the value passed. if it has changed, then
-            reset the current, stored book id
-        """
-        if book is None:
-            if self.book is None:
-                if ignore:
-                    return False
-                raise ValueError("No book name supplied")
-        elif book != self.book:
-            self.book = book
-            self.bookID = None
-            return True
-        return False
      
     def getAll(self, book:str=None , order:str='key', fetchall:bool=True)->list:
         """
@@ -100,7 +82,7 @@ class DbBookSettings( DbBase ):
         """
         sql = DbBookSettings.SQL_BOOKSETTING_ALL.replace(':order', order)
         if fetchall:
-            return DbHelper.fetchrows( sql , self._bookID( book ), self.columnView , endquery=self._checkError )
+            return DbHelper.fetchrows( sql , self.lookup_book_id( book ), self.columnView , endquery=self._checkError )
         query = DbHelper.prep( sql )
         query.exec()
         self._checkError( query )
@@ -109,7 +91,7 @@ class DbBookSettings( DbBase ):
     def getSetting( self, book:str=None, key:str=None, fallback=True ):
         if not key:
             raise ValueError( "No lookup key")
-        parms = [ self._bookID( book) , key, key]
+        parms = [ self.lookup_book_id( book) , key, key]
         rows= DbHelper.fetchrows( DbBookSettings.SQL_GET_VALUE, parms , ['setting','system'], endquery=self._checkError )
         if rows is not None and len(rows)>0:
             if len( rows ) == 1 :
@@ -139,7 +121,7 @@ class DbBookSettings( DbBase ):
         try:
             if key is None or value is None:
                 raise ValueError('Key and value are required')
-            id = (self._bookID() if id == None else id )
+            id = (self.lookup_book_id() if id == None else id )
 
             parms = [id, key, value ]
             sql = DbBookSettings.SQL_BOOKSETTING_ADD.format( ('OR IGNORE ' if ignore else ''))
@@ -158,7 +140,7 @@ class DbBookSettings( DbBase ):
 
     def setValue(self, book=None, key=None, value=None, ignore=False )->bool:
         try:
-            rtn = self.setValueById( self._bookID(book),  key, value, ignore=ignore )
+            rtn = self.setValueById( self.lookup_book_id(book),  key, value, ignore=ignore )
         except Exception as err:
             self.logger.exception("setValue. Book: '%s' Key: '%s' [%s]", book, key ,str(err), stacklevel=1)
             if ignore:
@@ -168,7 +150,7 @@ class DbBookSettings( DbBase ):
         
     def upsertBookSetting(self, book:str=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
         try:
-            sqlid = ( id if id is not None else self._bookID(book))
+            sqlid = ( id if id is not None else self.lookup_book_id(book))
         except Exception as err:
             self.logger.exception("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]", book, id, key, str(err) , stacklevel=1)
             if ignore:
@@ -190,7 +172,7 @@ class DbBookSettings( DbBase ):
             Return record number deleted. 
         """
         try:
-            parms = [ self._bookID(book=book ), key]
+            parms = [ self.lookup_book_id(book=book ), key]
             query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_DELETE, ), parms )
             query.exec()
             self._checkError( query )
@@ -205,12 +187,11 @@ class DbBookSettings( DbBase ):
 
     def deleteAllValues( self, book:str=None, ignore=False)->int:
         """
-            Delete one key for book. If no book or key are passed anexcepion will be raised.
+            Delete one key for book. If no book or key are passed an excepion will be raised.
             If the book isn't found, you may get an exception (ignore=false)
             Return record number deleted. """
         try:
-            parms = [ self._bookID(book=book )]
-            query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_DELETE_ALL, ), self._bookID(book) )
+            query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_DELETE_ALL, ), self.lookup_book_id(book) )
             query.exec()
             self._checkError( query )
             rowcount = query.numRowsAffected()

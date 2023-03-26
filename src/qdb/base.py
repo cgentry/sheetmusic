@@ -1,8 +1,10 @@
 from PySide6.QtSql import QSqlQuery, QSqlError
 from qdb.util import DbHelper
-import logging
+from qdb.log import DbLog
+from qdb.keys import LOG
 from inspect import stack
 from os import path
+from inspect import stack
 
 class DbBase():
     """
@@ -12,14 +14,13 @@ class DbBase():
     _lastError = None
     _show_stack = False
     _errorMessages = {}
-    logger = None
 
     def __init__(self):
         
         pass
     
     def setupLogger(self):
-        self.logger = logging.getLogger( self.__class__.__name__ )
+        self.logger = DbLog( self.__class__.__name__ )
 
     def getReturnCode( self, query:QSqlQuery ):
         rtn = self.wasGood() and query.numRowsAffected() > 0
@@ -57,7 +58,7 @@ class DbBase():
         self._show_stack = show
 
     def _checkError( self, query:QSqlQuery)->bool:
-        self._errorMessages = {'sql': query.lastQuery() ,'values':query.boundValues() }
+        self._errorMessages = {'sql': query.lastQuery() ,'values':query.boundValues() ,'error_type': '?: Unknown error'}
         self._lastError     = query.lastError()
         self._wasError      = query.lastError().isValid()
 
@@ -67,8 +68,7 @@ class DbBase():
             self._errorMessages['error_type'] = 'Program: SQL Error'
         elif self._lastError == QSqlError.TransactionError:
             self._errorMessages['error_type'] = 'Database: Transaction error'
-        elif self._lastError == QSqlError.UnknownError:
-            self.errorMessages['error_type'] = '?: Unknown error'
+        
         if self._wasError:
             self._errorMessages['error_db'] = self._lastError.databaseText()
             self._errorMessages['error_driver'] = self._lastError.driverText()
@@ -79,7 +79,10 @@ class DbBase():
                     tag = 'caller-' + str(len(stacklist) - i)
                     fname = "{}/{}".format( path.basename( path.dirname( stackinfo.filename)) , path.basename( stackinfo.filename ) )
                     self._errorMessages[tag] = "{}:{}@{}".format( fname , stackinfo.function, stackinfo.lineno ) 
-                self.logger.error( "DbBase:\n\t" + "\n\t".join( ["{:12}: '{}'".format(k, self._errorMessages[ k ]) for k in sorted(self._errorMessages ) ] ) )
+                caller = stack()[1].function 
+                self.loger.log( LOG.critical, caller, 'DbBase error')
+                for k in sorted( self._errorMessages ):
+                    self.logger.log( LOG.critical , caller, "{:12}: '{}'".format(k, self._errorMessages[ k ]) )
         return self._wasError
     
     def lastError(self)->QSqlError:
@@ -94,9 +97,9 @@ class DbBase():
         return not self._wasError
 
     def logmsg( self  )->str:
-        if self._lastError :
+        if self._lastError and self._wasError:
             return "Database error: '{}'  Database: '{}' SQL: '{}'".format( 
-                self._errorMessages['type'] , 
+                self._errorMessages['error_type'] , 
                 self._lastError.databaseText(), 
                 self._errorMessages['sql'] )
         return ''
