@@ -22,7 +22,6 @@ from os import path
 from pathlib import PurePath
 import fnmatch
 import os
-import shutil
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -32,13 +31,13 @@ from PySide6.QtWidgets import (
     QTextEdit,
 )
 
-from qdb.dbbookmark import DbBookmark
-from qdb.keys import BOOK, BOOKMARK, DbKeys
+from qdb.keys import BOOK, BOOKMARK, DbKeys, LOG
+from qdb.log import DbLog
 from qdil.preferences import DilPreferences
 from qdil.book import DilBook
 from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
-from qdb.mixin.fieldcleanup import  MixinFieldCleanup
-from qdb.mixin.tomlbook     import MixinTomlBook
+from qdb.mixin.fieldcleanup import MixinFieldCleanup
+from qdb.mixin.tomlbook import MixinTomlBook
 from ui.runscript import UiRunScript, UiScriptSetting, ScriptKeys
 from ui.simpledialog import SimpleDialog
 from ui.util import centerWidgetOnScreen
@@ -74,6 +73,7 @@ class UiImportSetting():
 
     def __init__(self):
         self._changed = False
+        self.logger = DbLog('UiImportSetting')
 
     def setting(self) -> dict | None:
         """ This returns the current selected import. If there is no selected, an error is displayed and None is returned
@@ -227,6 +227,7 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
         self.pref = DilPreferences()
         self.status = self.RETURN_CANCEL
         self.set_output('text')
+        self.logger = DbLog('UiBaseConvert')
 
         self.bookType = self.pref.getValue(
             DbKeys.SETTING_FILE_TYPE, DbKeys.VALUE_FILE_TYPE)
@@ -241,7 +242,7 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
             Check if a directory exists for a book, check for pages that exist in directory
         """
         return (os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix)) > 0)
-        
+
     def _fill_in_all_file_info(self, sourcelist: list[str]) -> list[dict]:
         """ From the filelist, fill in all the data from files, tomls, etc """
         self.data = []
@@ -268,107 +269,111 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
             self.data.append(currentFile)
         # Return datalist to user
         return self.data
-    
-    def importFiles(self)->list[dict]:
+
+    def importFiles(self) -> list[dict]:
         return self.data
-    
-    def add_books_to_library(self)->bool:
-        """ Import PDF imports all the PDF content and re-imports previous bookmarks 
+
+    def add_books_to_library(self) -> bool:
+        """ Import PDF imports all the PDF content and re-imports previous bookmarks
             This will only add books if we have a good status and there is some data
             to import
         """
-        print( 'status is', self.status )
-        print( 'book list' , self.data )
         if self.status:
+            self.logger.debug('Status: {} Add {} books'.format(
+                self.status, len(self.data)))
             bookmarks = {}
-            for loc in self.getduplicateList() :
-                bookmark = self.bookmark.getAll( self.dilb.lookup_book_by_column( BOOK.source, loc ))
+            for loc in self.getduplicateList():
+                bookmark = self.bookmark.getAll(
+                    self.dilb.lookup_book_by_column(BOOK.source, loc))
                 if bookmark is not None:
-                    bookmarks[ loc ] = bookmark
-                self.dilb.delete( BOOK.source , loc )
+                    bookmarks[loc] = bookmark
+                self.logger.debug('Delete current book entry {}'.format(loc))
+                self.dilb.delete(BOOK.source, loc)
 
             if len(self.data) > 0:
-                for book_data in self.data :
-                    print( 'Add new book', book_data )
-                    self.dilb.delete( BOOK.source , book_data[BOOK.source])
-                    new_book = self.dilb.newBook(**book_data)
-                    if book_data[ BOOK.source ] in bookmarks:
-                        for marks in bookmarks[ book_data[ BOOK.source ]]:
+                for book_data in self.data:
+                    self.logger.debug('Add new book {} Location {} Type {}'.format(
+                        book_data[BOOK.book], book_data[BOOK.location], book_data[BOOK.source_type]) )
+                    self.dilb.delete(BOOK.source, book_data[BOOK.source])
+                    new_book=self.dilb.newBook(**book_data)
+                    if book_data[BOOK.source] in bookmarks:
+                        for marks in bookmarks[book_data[BOOK.source]]:
                             self.bookmark.add(
-                                new_book[ BOOK.id ], 
-                                marks[BOOKMARK.name ], 
-                                marks[BOOKMARK.page ]
+                                new_book[BOOK.id],
+                                marks[BOOKMARK.name],
+                                marks[BOOKMARK.page]
                             )
-        return ( self.status and len( self.data) > 0 and len( self.getduplicateList() ) > 0 )
-    
+        return (self.status and len(self.data) > 0 and len(self.getduplicateList()) > 0)
+
     def update_file_properties(self) -> bool:
         """
             This will go through all of the files and prompt the user
             for properties. It then fills in the information in the data array
         """
 
-        status = self.RETURN_CONTINUE
+        status=self.RETURN_CONTINUE
 
         from ui.properties import UiProperties
-        uiproperties = UiProperties()
+        uiproperties=UiProperties()
         for index, currentFile in enumerate(self.data):
             uiproperties.set_properties(currentFile)
             if uiproperties.exec() != QDialog.Accepted:
                 # Cancel the conversion
-                status = self.RETURN_CANCEL
-                self.data = []
+                status=self.RETURN_CANCEL
+                self.data=[]
                 break
 
             if len(uiproperties.changes) > 0:
                 # UPDATE the data and TOML properties file
                 currentFile.update(uiproperties.changes)
-                self.write_toml_properties(currentFile, currentFile[BOOK.source])
-                self.data[index] = currentFile
+                self.write_toml_properties(
+                    currentFile, currentFile[BOOK.source])
+                self.data[index]=currentFile
 
         return status
-            
+
     def fixDuplicateNames(self):
         """
             Each entry in the list contains a book name and a location.
             If the location doesn't exist but the name does then we need to
-            fix the names.    
+            fix the names.
         """
         for index, book_entry in enumerate(self.data):
-            self.data[index][BOOK.name] = self.dilb.getUniqueName(
+            self.data[index][BOOK.name]=self.dilb.getUniqueName(
                 book_entry[BOOK.name])
 
-    def filelist_to_dictionary( self, fileList: list )->bool:
+    def filelist_to_dictionary(self, fileList: list) -> bool:
         """ Call functions that fill in all the data and cleanup for processing"""
         if fileList is None or len(fileList) == 0:
-            self.status = self.RETURN_CANCEL
+            self.status=self.RETURN_CANCEL
         else:
-            self._fill_in_all_file_info( fileList )
-            self.status = self.update_file_properties()
+            self._fill_in_all_file_info(fileList)
+            self.status=self.update_file_properties()
             if self.status == self.RETURN_CONTINUE:
                 self.fixDuplicateNames()
         return self.status
 
     def processDirectoryList(self, fileList: list) -> bool:
-        """ Process all of the files in the filelist and run the selected script 
+        """ Process all of the files in the filelist and run the selected script
         This does not import into the database. for that, call add_books_to_library
-        
+
         N.B. Override this function for PDFs.
     """
-        if self.filelist_to_dictionary( self.fileList ) == self.RETURN_CONTINUE:
+        if self.filelist_to_dictionary(self.fileList) == self.RETURN_CONTINUE:
             for index, entry in enumerate(self.data):
                 self.add_variable('SOURCE_FILE', entry[BOOK.source])
                 self.add_variable('TARGET_DIR', entry[BOOK.name])
-                self.bookPath = path.join(self.music_path, entry[BOOK.name])
+                self.bookPath=path.join(self.music_path, entry[BOOK.name])
                 if self.run(no_dialog=True) == self.RETURN_CANCEL:
                     break
                 if self.is_debug():
                     return self.RETURN_CANCEL
                 self.data[index].update({BOOK.location: self.bookPath})
                 if self._is_valid_book_directory(self.bookPath):
-                    self.data[index][BOOK.totalPages] = len(fnmatch.filter(
+                    self.data[index][BOOK.totalPages]=len(fnmatch.filter(
                         os.listdir(self.bookPath), '*.' + self.bookType))
                 else:
-                    self.data[index][BOOK.totalPages] = 0
+                    self.data[index][BOOK.totalPages]=0
                 self.reset()
         return self.status
 
@@ -395,7 +400,7 @@ class UiConvert(UiBaseConvert):
         super().__init__()
 
     def getListOfPdfFiles(self) -> str:
-        (self.fileNames, _) = QFileDialog.getOpenFileNames(
+        (self.fileNames, _)=QFileDialog.getOpenFileNames(
             None,
             "Select PDF File",
             dir=path.expanduser(self.baseDirectory()),
@@ -415,12 +420,12 @@ class UiConvertDirectory(UiBaseConvert):
         super().__init__()
 
     def getDirectory(self) -> str:
-        self.dirname = QFileDialog.getExistingDirectory(
+        self.dirname=QFileDialog.getExistingDirectory(
             None,
             "Select PDF Directory",
             dir=path.expanduser(self.baseDir)
         )
-        self.baseDir = self.dirname
+        self.baseDir=self.dirname
         return self.dirname
 
     def exec_(self) -> bool:
@@ -431,21 +436,21 @@ class UiConvertDirectory(UiBaseConvert):
             get a list of all files within the directories passed
 
         """
-        self.fileName = []
+        self.fileName=[]
         for path, _, files in os.walk(self.getDirectory()):
             for name in files:
                 if name.endswith('.pdf') or name.endswith('.PDF'):
                     self.fileName.append(os.path.join(path, name))
         return self.fileName
-  
-    
+
+
 class UiImportPDFDocument(UiBaseConvert):
     """ Import a PDF Document without conversion """
     def __init__(self):
         super().__init__()
 
     def getListOfPdfFiles(self) -> str:
-        (self.fileNames, _) = QFileDialog.getOpenFileNames(
+        (self.fileNames, _)=QFileDialog.getOpenFileNames(
             None,
             "Select PDF File",
             dir=path.expanduser(self.baseDirectory()),
@@ -455,12 +460,12 @@ class UiImportPDFDocument(UiBaseConvert):
             self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
         return self.fileNames
 
-    def processDirectoryList( self, filelist:list ):
-        if self.filelist_to_dictionary( filelist  ) == self.RETURN_CONTINUE:
-            for index in range( len( self.data )):
-                self.data[index][BOOK.source_type] = 'pdf'
-                self.data[index][BOOK.location ] = self.data[index][BOOK.source]
+    def processDirectoryList(self, filelist: list):
+        if self.filelist_to_dictionary(filelist) == self.RETURN_CONTINUE:
+            for index in range(len(self.data)):
+                self.data[index][BOOK.source_type]='pdf'
+                self.data[index][BOOK.location]=self.data[index][BOOK.source]
         return self.status
-    
+
     def process_files(self) -> bool:
         return self.processDirectoryList(self.getListOfPdfFiles())

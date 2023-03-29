@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.6.01"
+    version      = "0.6.02"
     version_main = "0.6"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -79,7 +79,7 @@ class DbKeys():
     SETTING_BOOK_DEFAULT_GENRE  = 'genre'          ## Default genre selection
     SETTING_PDF_SCRIPT          = 'pdfScript'      ## The PDF conversion script template
     SETTING_LAST_BACKUP         = 'last_backup'    ## Where we stored the last backup
-    SETTING_LOGGING_ENABLED     = 'logging_enabled'
+    SETTING_LOGGING_ENABLED     = 'logging_enabled'## Logging enabled 1-9 are levels 0 is None.
     SETTING_VERSION             = 'version'        ## Database Version (current)
 
     #       book settings
@@ -171,6 +171,7 @@ class ImportNameSetting:
             
             
 class LOG :
+    disabled    = 0
     debug       = 1
     info        = 2
     warning     = 3

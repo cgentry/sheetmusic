@@ -7,18 +7,17 @@ class PageDisplayMixin:
     PAGE_NONE = 0
     START_OF_BOOK = 0
 
-    def __init__(self, *args, **kwargs):
-        self.setPageNumber( PageDisplayMixin.PAGE_NONE )
+    def __init__(self, name:str ):
+        self._identity = name
+        self._pageNumber =  PageDisplayMixin.PAGE_NONE 
         self._is_clear = True
-        super().__init__(*args, **kwargs)
 
-    def pageid(self)->str:
-        """ Try and get the object name from the main class"""
-        try:
-            return self.identity()
-        except:
-            return '(no id)'
-        
+    def identity(self)->str:
+        return self._identity 
+    
+    def set_identity(self, id:str)->str:
+        self._identity = id
+
     def setPageNumber(self, pgNumber: int = 0) -> None:
         self._pageNumber = pgNumber
 

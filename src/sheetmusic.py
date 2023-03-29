@@ -38,7 +38,7 @@ from qdb.dbsystem import DbSystem
 from qdb.keys import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
 from qdb.setup import Setup
 from qdb.dbnote import DbNote
-from qdb.log import DbLog
+from qdb.log import DbLog, Trace
 
 from qdil.preferences import DilPreferences, SystemPreferences
 from qdil.book import DilBook
@@ -58,6 +58,7 @@ from util.toolconvert import ImportSettings
 
 class MainWindow(QMainWindow):
     MAX_PAGES = 3
+    RESIZE_TIMER = 100
 
     def __init__(self):
         super().__init__()
@@ -72,7 +73,13 @@ class MainWindow(QMainWindow):
         self.import_dir = self.pref.getValue(DbKeys.SETTING_LAST_IMPORT_DIR)
         tl = GenerateToolList()
         self.toollist = tl.list()
+        
         del tl
+
+        self._perform_resize = False
+        self._timer = QTimer()
+        self._timer.timeout.connect( self._set_page_size )
+        self._timer.setSingleShot( True )
 
     def loadUi(self) -> None:
         self.pref = DilPreferences()
@@ -120,11 +127,13 @@ class MainWindow(QMainWindow):
         return self._loadPageWidget(plist[0], plist[1], plist[2])
 
     def _loadPageWidget(self, pg1: int, pg2: int, pg3: int):
+        self.logger.debug( Trace.callstr())
         page1 = self.book.page_filepath(pg1)
         page2 = self.book.page_filepath(pg2)
         page3 = self.book.page_filepath(pg3)
-        self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
+        self.logger.debug( 'Pages: {}, {}, {}'.format( pg1, pg2, pg3))
         self.ui.pageWidget().resize(self.ui.stacks.size())
+        self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
 
     def _update_pages_shown(self, absolute_page_number: int = None) -> None:
         """ Update status bar with page numbers """
@@ -190,6 +199,8 @@ class MainWindow(QMainWindow):
     def open_book(self, newBookName: str, page=None) -> None:
         """ """
         self.close_book()
+        self.logger.debug( f"BEGIN '{newBookName}'" )
+        self.logger.debug( Trace.callstr() )
         rtn = QMessageBox.Retry
         while rtn == QMessageBox.Retry:
             rtn = self.book.open(newBookName, page)
@@ -218,10 +229,11 @@ class MainWindow(QMainWindow):
             self.ui.pageWidget().show()
             self.update_status_bar()
         else:
-            self.logger.warning('')
+            self.logger.warning( f"Couldn't open {newBookName}")
             if rtn == QMessageBox.DestructiveRole:
                 self.book.delBook(newBookName)
             self.openLastBook( noretry=newBookName)
+        self.logger.debug(f'END "{newBookName}"')
         return
 
     def close_book(self) -> None:
@@ -287,10 +299,14 @@ class MainWindow(QMainWindow):
 
     def _set_page_size( self ):
         self.ui.pageWidget().resize(self.ui.stacks.size())
+        self.reloadPages()
+
 
     def resizeEvent(self, event):
-        self._set_page_size()
-        self.reloadPages()
+        if self._timer.isActive():
+            self._timer.stop()
+        self._timer.start( MainWindow.RESIZE_TIMER )
+            
 
     def keyPressEvent(self, ev) -> None:
         # if False and (ev.type() == QEvent.KeyPress):
@@ -462,7 +478,9 @@ class MainWindow(QMainWindow):
     def openLastBook(self, noretry:str = None) -> None:
         if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
-            if recent is not None and len(recent) > 0 and noretry != recent[0][BOOK.name]:
+            last_book_name = recent[0][BOOK.name]
+            self.logger.debug(f'Recent book "{last_book_name}" noretry: "{noretry}"')
+            if recent is not None and len(recent) > 0 and noretry != last_book_name:
                 self.open_book(recent[0][BOOK.name])
             else:
                 self.logger.info('No last book to open')
@@ -576,7 +594,7 @@ class MainWindow(QMainWindow):
         df = Deletefile()
         rtn = df.exec()
         if rtn == QMessageBox.Accepted:
-            self.logger.info( 'Deleted book {}'.format( df.bookname ))
+            self.logger.info( 'Deleted book {}'.format( df.bookName ))
             DeletefileAction(df.bookName)
 
     def _action_file_import_document(self)->None:

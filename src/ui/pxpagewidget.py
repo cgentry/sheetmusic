@@ -39,19 +39,19 @@ class PxPageWidget( PageDisplayMixin , ISheetMusicDisplayWidget):
     """
 
     def __init__( self, name:str ):
-        super( PageDisplayMixin, self).__init__( )
-        super( ISheetMusicDisplayWidget, self).__init__()
+        PageDisplayMixin.__init__( self, name )
+        ISheetMusicDisplayWidget.__init__(self)
         self.logging = DbLog( 'PxPageWidget')
         self._widget =  LabelWidget( name )
-        
+        self.set_identity( name )
         self.clear()
-
-    def identity(self)->str:
-        name = self._widget.objectName()
-        if name == '':
-            return '(page-label-widget)'
-        return name
     
+    def identity(self)->str:
+        return self._identity 
+    
+    def set_identity(self, id:str)->str:
+        self._identity = id
+
     def widget(self)->QLabel:
         return self._widget
     
@@ -66,12 +66,8 @@ class PxPageWidget( PageDisplayMixin , ISheetMusicDisplayWidget):
     def isVisible(self)->bool:
         return self.widget().isVisible()
 
-    def resize( self, width:int|QSize, height:int=0)->None:
-        if isinstance( width, QSize ):
-            self.widget().resize( width )
-        else:
-            if height > 0 :
-                self.widget().resize( width , height )
+    def resize( self, *args )->None:
+        self.widget().resize( *args )
   
     def show(self)->None:
         return self.widget().show()
@@ -93,6 +89,7 @@ class PxPageWidget( PageDisplayMixin , ISheetMusicDisplayWidget):
             self.setPageNumber(page)
         else:
             self.logging.debug( f'Page {page}')
+        self.widget().resize()
         return rtn
  
     def content(self)->QPixmap:

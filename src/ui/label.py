@@ -23,10 +23,12 @@ from PySide6.QtGui import QImage, QPixmap, Qt
 from PySide6.QtWidgets import QApplication, QLabel, QSizePolicy
 
 from ui.mixin.pagedisplay import PageDisplayMixin
+from qdb.log import Trace
 
 class LabelWidget( PageDisplayMixin, QLabel ):
     def __init__(self, name:str=None):
-        super().__init__()
+        PageDisplayMixin.__init__( self, name )
+        QLabel.__init__(self )
         self._setup_widget(name)
 
     def _size_policy(self)->QSizePolicy:
@@ -45,11 +47,12 @@ class LabelWidget( PageDisplayMixin, QLabel ):
         #self.setStyleSheet("background: #236dc9;" )
         self.setSizePolicy( self._size_policy())
         self._ratio = QApplication.primaryScreen().devicePixelRatio()
+        self._sizeParms = None
 
     def _set_from_pixmap(self, px: QPixmap) -> bool:
         if px is None or px is False or px.isNull() or not isinstance(px, QPixmap):
             return False
-        self.setPixmap( px ) 
+        self.setPixmap( px )
         return True
     
     def _set_from_file( self, file_name:str  )->bool:
@@ -67,6 +70,7 @@ class LabelWidget( PageDisplayMixin, QLabel ):
         self.clear()
         if qimage is None or qimage is False or qimage.isNull() or not isinstance(qimage, QImage):
             return False
+        self.resize()
         qimage.setDevicePixelRatio( self._ratio )
         size  = self.size().__mul__( self._ratio )
         if self.keepAspectRatio():
@@ -87,6 +91,15 @@ class LabelWidget( PageDisplayMixin, QLabel ):
         if isinstance(newimage, str):
             return self._set_from_file( newimage  )
         return False
+    
+    def resize( self, *args )->None:
+        if len( args ) == 0 :
+            if self._sizeParms is None:
+                return
+            args = self._sizeParms
+        else:
+            self._size_parms = args
+        super().resize( *args )
     
     def setDocument( self, *args ):
         """ Dummy function to handle PDF Interface """

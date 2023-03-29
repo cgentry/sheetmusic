@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QSizePolicy,QWidget, 
     QMainWindow, QVBoxLayout)
 from qdb.keys import DbKeys
-from qdb.log  import DbLog
+from qdb.log  import DbLog, Trace
 from ui.borderglow import BorderGlow
 from ui.interface.sheetmusicdisplay import ISheetMusicDisplayWidget
 
@@ -125,6 +125,7 @@ class BottomSheet():
             return a display widget that conforms to the
             interface 'ISheetMusicDisplay'
         """
+        
         self.pageRefs = [ self.content_generator( f"page-{ index+1 }" ) for index in  range( BottomSheet.ALL_PAGES ) ]
         for page in self.pageRefs:
             page.hide()
@@ -148,14 +149,12 @@ class BottomSheet():
             QMainWindow, QSize. Do not call this
             directly; resize will call it and it should be called first
         """
-        
         if windowSize is not None:
             if isinstance(windowSize, QMainWindow):
                 windowSize = windowSize.size()
             if isinstance(windowSize, QSize):
                 self.windowWidth = windowSize.width()
                 self.windowHeight = windowSize.height()
-        print('** Set Size', windowSize)
         return self.windowWidth is not None and self.windowHeight is not None 
 
     def _size_pages( self ):
@@ -163,7 +162,6 @@ class BottomSheet():
                 self.windowWidth / self._getLayoutValue(self.LAYOUT_WIDTH))
         self.page_height = int(
                 self.windowHeight / self._getLayoutValue(self.LAYOUT_HEIGHT))
-        print('** Size is', self.page_width , self.page_height)
         if self.page_width and self.page_height:
             for index in range( self.numberPages() ):
                 self.pageRefs[ index ].resize(self.page_width, self.page_height)
@@ -265,6 +263,7 @@ class BottomSheet():
                 self._currentLayout.insertWidget( index, self.pageRefs[ index ].widget() )
             self.showPages( numpages )
             self.mainPageWidget.setLayout(self._currentLayout)
+            self._size_pages()
 
     def setSmartPageTurn(self, state: bool) -> bool:
         """ Set the smart turn feature and return the previous state """
@@ -396,7 +395,6 @@ class BottomSheet():
         Created to handle any number of pages. Bit over the top but didn't
         want to rewrite it again.
         """
-
         pnum = self.numberPages()
         if pnum == 1:
             return [self.pageRefs[ 0 ]]
