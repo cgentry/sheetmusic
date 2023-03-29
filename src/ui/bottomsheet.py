@@ -47,7 +47,7 @@ class BottomSheet():
     ALL_PAGES = 3
 
     def __init__(self, MainWindow: QMainWindow, name:str ):
-        self.borderGlow = BorderGlow()
+        self.border_glow = BorderGlow()
         self._setupVars(MainWindow)
         self._set_size(MainWindow)
         self.logger = DbLog( 'BottomSheet')
@@ -273,7 +273,7 @@ class BottomSheet():
 
     def clear(self):
         """ Clear both left and right pages but do not remove them from layout"""
-        self.borderGlow.stopBorderGlow()
+        self.border_glow.stopBorderGlow()
         for page in self.pageRefs:
             page.clear()
 
@@ -322,9 +322,9 @@ class BottomSheet():
         self.pageRefs[ 0 ].setContentPage(content, page_number)
 
     def _smartPage(self, plw: ISheetMusicDisplayWidget, content: object, page_number: int) -> None:
-        self.borderGlow.stopBorderGlow()
+        self.border_glow.stopBorderGlow()
         plw.setContentPage(content, page_number)
-        self.borderGlow.startBorderGlow(plw)
+        self.border_glow.startBorderGlow(plw.widget())
 
     def loadPages(self, 
                   content_1: object, page_number1: int, 
@@ -402,7 +402,7 @@ class BottomSheet():
         key_pages = {}
         ordered = []
 
-        for page in [self.pageRefs[ 0 ], self.pageRefs[ 1 ], self.pageRefs[ 3 ]][0: pnum]:
+        for page in [self.pageRefs[ 0 ], self.pageRefs[ 1 ], self.pageRefs[ 2 ]][0: pnum]:
             key_pages[page.pageNumber()] = page
 
         for key in sorted(key_pages):
