@@ -1,3 +1,4 @@
+from util.pdfclass import PdfDimensions
 
 class PageDisplayMixin:
     """
@@ -7,10 +8,11 @@ class PageDisplayMixin:
     PAGE_NONE = 0
     START_OF_BOOK = 0
 
-    def __init__(self, name:str ):
+    def __init__(self, name:str , dimension:PdfDimensions = None):
         self._identity = name
         self._pageNumber =  PageDisplayMixin.PAGE_NONE 
         self._is_clear = True
+        self.dimensions = dimension
 
     def identity(self)->str:
         return self._identity 
@@ -45,3 +47,15 @@ class PageDisplayMixin:
     def isClear(self) -> bool:
         """ Return the status of the page """
         return self._is_clear
+    
+    @property
+    def dimensions( self )->PdfDimensions:
+        """ Return the PdfDimension class """
+        if self._dimensions is None:
+            self._dimensions = PdfDimensions()
+        return self._dimensions 
+    
+    @dimensions.setter
+    def dimensions( self, dimensions:PdfDimensions):
+        self._dimensions = dimensions
+    

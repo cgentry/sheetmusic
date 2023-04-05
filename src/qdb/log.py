@@ -9,9 +9,11 @@ class Trace():
     def calls( depth:int=4 , start:int=0)->list:
         slen = min( len( stack() ), depth+start) 
         scalls = []
+        counter = 1
         for index in range( start, slen ):
             sdict = stack()[index]
-            scalls.append( "{}: {:>20s}@{:4d} File:{}".format( index, sdict[3] , sdict[2] , sdict[1]))
+            scalls.append( "{}: {:>20s}@{:4d} File:{}".format( counter, sdict[3] , sdict[2] , sdict[1]))
+            counter += 1
         return scalls
     
     def callstr( header:str="", depth:int=4, start:int=2 )->str:
@@ -25,6 +27,7 @@ class DbLog:
 
     INSERT = "INSERT INTO Log ( level, class, method , msg  ) VALUES (?, ?, ? ,? )"
     SQL_LEVEL  = 'SELECT value FROM System WHERE key="logging_enabled"'
+    SQL_CLEAR  = 'DELETE FROM Log WHERE level <= ?'
     _loglevel = None
 
     def __init__(self, classname:str='', level:int=None):
@@ -39,26 +42,36 @@ class DbLog:
     def setclass( self, proc:str ):
         self._classname = proc
 
-    def log( self, level:int , method:str, msg:str ):
-        print("{}: {} {}".format( self._classname, method, msg ))
-        if level >= self._loglevel:
+    def log( self, level:int , method:str, msg:str , trace=False):
+        if level >= self._loglevel and self._loglevel > 0 :
             query = DbHelper.prep( DbLog.INSERT )
+            if trace:
+                msg = Trace.callstr( msg , start=2)
             query = DbHelper.bind( query, [ level, self._classname,  method, msg ] )
             query.exec()
             query.finish()
             del query
 
-    def debug( self, msg:str ):
-        return self.log( LOG.debug , stack()[1].function , msg )
+    def debug( self, msg:str , trace=False):
+        return self.log( LOG.debug , stack()[1].function , msg , trace )
     
-    def info( self, msg:str ):
-        return self.log( LOG.info , stack()[1].function , msg )
+    def info( self, msg:str , trace=False ):
+        return self.log( LOG.info , stack()[1].function , msg , trace)
     
-    def warning(self, msg:str ):
-        return self.log( LOG.warning , stack()[1].function , msg )
+    def warning(self, msg:str ,trace=True ):
+        return self.log( LOG.warning , stack()[1].function , msg , trace)
     
-    def critical(self, msg:str ):
-        return self.log( LOG.critical , stack()[1].function , msg )
+    def critical(self, msg:str , trace=True):
+        return self.log( LOG.critical, stack()[1].function, msg , trace )
     
-    def error( self,  msg:str ):
-        return self.log( LOG.critical, stack()[1].function , msg )
+    def error( self,  msg:str , trace=True ):
+        return self.log( LOG.critical, stack()[1].function , msg , trace)
+    
+    def clear(self, level:int):
+        query = DbHelper.prep( DbLog.SQL_CLEAR )
+        query = DbHelper.bind( query , [ level ])
+        query.exec()
+        query.finish()
+        del query
+        DbHelper.prep( 'VACUUM;').exec()
+        

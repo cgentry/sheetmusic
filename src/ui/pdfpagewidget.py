@@ -27,6 +27,7 @@ from qdb.log import DbLog, Trace
 from ui.mixin.pagedisplay import PageDisplayMixin
 from ui.interface.sheetmusicdisplay import ISheetMusicDisplayWidget
 from ui.label import LabelWidget
+from util.pdfclass import PdfDimensions
 
 
 class PdfView(PageDisplayMixin,QPdfView):
@@ -45,7 +46,7 @@ class PdfView(PageDisplayMixin,QPdfView):
         if self.document() is not None:
             self.setPageNumber( page )
             nav = self.pageNavigator()
-            nav.jump(page, QPoint(), nav.currentZoom())
+            nav.jump(page-1, QPoint(), nav.currentZoom())
             self.show()
             return True
         return False
@@ -57,34 +58,24 @@ class PdfLabel(LabelWidget):
         super().__init__(name)
         self.pdfDocument = None
         self.ratio = QApplication.primaryScreen().devicePixelRatio()
-        self._render_size = None
 
-    def _calculate_pdf_largest_size( self ):
-        self._width = 0
-        self._height = 0
-
-        for page in range( self.pdfDocument.pageCount() ):
-            pdf_point_size = self.pdfDocument.pagePointSize( page )
-            if pdf_point_size is not None:
-                self._width = max( pdf_point_size.width() , self._width )
-                self._height = max( pdf_point_size.height() , self._height )
-                self._render_size = QSize(int(self._width * self.ratio), int(self._height*self.ratio))
 
     def setDocument(self, pdfdocument: QPdfDocument):
         if pdfdocument != self.pdfDocument:
             self.pdfDocument = pdfdocument
             self.documentChanged.emit(pdfdocument)
-            self._calculate_pdf_largest_size()
 
     def navigate(self, page: int)->bool:
         if self.pdfDocument is not None:
-            if self._render_size is None:
-                self._calculate_pdf_largest_size()
             if page == 0 or page is None:
-                print( Trace.printout( 'NO PAGE NUMBER?', depth=20) )
-            print('Object: "{}": PDF Page: {} W:{} H{}'.format( self.objectName() , page , self._render_size.width(), self._render_size.height()))
+                return False
+            if not self.dimensions.isSet :
+                print('DIMENSIONS NOT SET')
+                self.dimensions.checkSizeDocument( self.pdfDocument )
+            render_size = self.dimensions.equalisePage( self.pdfDocument, page ).__mul__( self.ratio )
             self.setPageNumber( page )
-            return self.setContent( self.pdfDocument.render(page, self._render_size) )
+            img = self.pdfDocument.render(page-1, render_size)
+            return self.setContent( img )
         return False
 
     def close(self):
@@ -102,7 +93,8 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
     def __init__(self, name: str):
         PageDisplayMixin.__init__( self, name )
         ISheetMusicDisplayWidget.__init__(self)
-        self._use_pdf_viewer = False
+        self._use_pdf_viewer = True
+
         self.logger = DbLog('PdfPageWidget')
         self._current_pdf = QPdfDocument()
         self._create_viewer(name)
@@ -112,7 +104,7 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
         self._widget = (PdfView(name) 
                         if self._use_pdf_viewer else 
                         PdfLabel(name))
-        self._widget.setStyleSheet( "border-color: blue; border-width: 7px;background: white;")
+        #self._widget.setStyleSheet( "border-color: blue; border-width: 7px;background: white;")
         # self._widget.documentChanged.connect(self._document_changed)
 
     def _document_changed(self, document: QPdfDocument):
@@ -134,6 +126,8 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
                 pass
         
     def widget(self) -> PdfLabel|PdfView:
+        if self.widget is None:
+            raise ValueError('Widget is none')
         return self._widget
 
     def iscontent(self)->bool:
@@ -168,7 +162,8 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
             self.logger.debug('pdf doc title is {}'.format(
                 pdfdoc.metaData(QPdfDocument.MetaDataField.Title)))
             self._current_pdf = pdfdoc
-        self.widget().setDocument(self._current_pdf)
+        self.widget().dimensions = self.dimensions
+        self.widget().setDocument(self._current_pdf )
         return self.setClear(True)
 
     def setContentPage(self, pdfdoc: QPdfDocument | str, page: int = 1) -> bool:
@@ -179,7 +174,6 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
         """
         self.setContent(pdfdoc)
         return self.widget().navigate( page )
-
 
     def _pdfview_page(self, page: int) -> bool:
         return self.widget().navigate(page)
@@ -210,7 +204,6 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
     def copy(self, otherPage )->bool:
         """ Copy moves the page number from one PDF view to this one """
         widget = otherPage.widget()
-        print("COPY: {} Clear? {} Document? {} From page: ".format( widget.identity() , widget.isClear(), otherPage.iscontent(), widget.pageNumber() ))
         if otherPage.iscontent():
             page = otherPage.pageNumber()
             self.setContentPage(otherPage.content(), page )

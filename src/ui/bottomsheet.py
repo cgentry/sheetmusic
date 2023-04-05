@@ -29,9 +29,10 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QSizePolicy,QWidget, 
     QMainWindow, QVBoxLayout)
 from qdb.keys import DbKeys
-from qdb.log  import DbLog, Trace
+from qdb.log  import DbLog
 from ui.borderglow import BorderGlow
 from ui.interface.sheetmusicdisplay import ISheetMusicDisplayWidget
+from util.pdfclass import PdfDimensions
 
 class BottomSheet():
     """ Base functions for sheetmusic. 
@@ -42,7 +43,7 @@ class BottomSheet():
     LAYOUT_WIDTH = 'width'
     LAYOUT_HEIGHT = 'height'
     LAYOUT_PAGES = 'count'
-    LAYOUT_SETUP = 'setup'
+    LAYOUT_SETUP = '©up'
     LAYOUT_CREATE = 'layout'
     ALL_PAGES = 3
 
@@ -53,6 +54,7 @@ class BottomSheet():
         self.logger = DbLog( 'BottomSheet')
 
         self.createMainPageWidget( name )
+        self._dimensions = None
 
     def _setupVars(self, MainWindow: QMainWindow):
         """ Set any variables that should be set before we startup
@@ -95,6 +97,14 @@ class BottomSheet():
         self.page_height = None
         self.smartTurn = False
 
+    def setDimensions( self, dimensions:PdfDimensions):
+        self._dimensions = dimensions
+
+    def dimensions( self )->PdfDimensions:
+        if self._dimensions is None:
+            self.setDimensions( PdfDimensions() )
+        return self._dimensions 
+
     def createMainPageWidget(self, name:str) -> QWidget:
         """ This will create the main widget used to hold the pages"""
         self.mainPageWidget = QWidget()
@@ -128,7 +138,8 @@ class BottomSheet():
         
         self.pageRefs = [ self.content_generator( f"page-{ index+1 }" ) for index in  range( BottomSheet.ALL_PAGES ) ]
         for page in self.pageRefs:
-            page.hide()
+            page.widget().setStyleSheet("background: black")
+            page.widget().hide()
 
     def getPager(self):
         """ Get the main pager widget"""

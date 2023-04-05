@@ -1,13 +1,14 @@
-from os import path
 from datetime import datetime
+from os import path
 from pathlib import PurePath
 from typing import Callable
 import os
+import pathlib
 
 from PySide6.QtWidgets import (QMessageBox)
 
 from qdb.dbbook import DbBook
-from qdb.keys import BOOK, BOOKPROPERTY, DbKeys
+from qdb.keys import BOOK, BOOKPROPERTY, BOOKSETTING, DbKeys
 from ui.selectitems import SelectItems
 
 try:
@@ -108,29 +109,44 @@ class MixinPDFInfo:
         self.pdfDocument = QPdfDocument()
         self.pdfDocument.load(pdf_document)
 
+    def _calculate_pdf_largest_size(self):
+        _width = 0
+        _height = 0
+
+        for page in range(self.pdfDocument.pageCount()):
+            pdf_point_size = self.pdfDocument.pagePointSize(page)
+            if pdf_point_size is not None:
+                _width = max(pdf_point_size.width(), _width)
+                _height = max(pdf_point_size.height(), _height)
+        return _width, _height
+    
     def get_info_from_pdf(self, sourcefile)->dict:
         if self.pdfDocument is None:
             self.open_pdf(sourcefile)
 
-        def setBookValue(key, value):
+        def setBookValue(key:str, value):
             if value:
-                pdf_info[key] = value
+                pdf_info[key] = str( value ).strip()
 
-        def setBookMeta(key, meta_key):
-            setBookValue(key, self.pdfDocument.metaData(meta_key))
+        def setBookMeta(key:str, meta_key):
+            setBookValue(key, str( self.pdfDocument.metaData(meta_key)).strip() )
 
         pdf_info = {
             BOOK.totalPages: self.pdfDocument.pageCount(),
             BOOK.numberEnds: self.pdfDocument.pageCount(),
         }
-        setBookMeta(BOOK.name, QPdfDocument.MetaDataField.Title)
         setBookMeta(BOOK.author, QPdfDocument.MetaDataField.Author)
+        setBookMeta(BOOK.name, QPdfDocument.MetaDataField.Title)
         setBookMeta(BOOK.publisher, QPdfDocument.MetaDataField.Producer)
 
         setBookValue(BOOK.pdfCreated, self.pdfDocument.metaData(
             QPdfDocument.MetaDataField.CreationDate).toString('yyyy-MM-dd HH:mm:ss'))
         setBookValue(BOOK.pdfModified, self.pdfDocument.metaData(
             QPdfDocument.MetaDataField.ModificationDate).toString('yyyy-MM-dd HH:mm:ss'))
+        
+        if BOOK.name not in pdf_info or pdf_info[BOOK.name] == '':
+            pdf_info[BOOK.name] = str( pathlib.Path(sourcefile).stem ).strip()
+        pdf_info[BOOKSETTING.maxWidth ], pdf_info[BOOKSETTING.maxHeight] = self._calculate_pdf_largest_size( )
 
         self.pdfDocument.close()
         self.pdfDocument = None

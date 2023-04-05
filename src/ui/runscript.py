@@ -78,6 +78,7 @@ from ui.file import Openfile
 from util.convert import toInt
 from util.simpleparse import SDEntry
 from util.utildir import get_scriptinc, get_user_scriptinc, get_scriptdir, get_user_scriptdir, get_os_class
+from qdb.log import DbLog
 
 
 class ScriptKeys:
@@ -216,8 +217,7 @@ class UiScriptSetting():
                     self.parse_option_line(line)
             if deep:
                 lines = self.setting(ScriptKeys.INCLUDE, [])
-                for line in lines:
-                    print("Include file", line)
+
 
     def flag(self, key: str, default=None) -> str:
 
@@ -312,6 +312,7 @@ class RunScriptBase():
         self._temp_file = None
         self.macro_replace = {}
         self._extra_env = {}
+        self._logger = DbLog('RunScript')
 
     def __del__(self):
         self._close_temporary_file()
@@ -557,7 +558,7 @@ class RunScriptBase():
                 self._process.setArguments(self.vars)
                 self._process.start()
                 if not self._process.waitForStarted():
-                    print("Process did not start")
+                    self._logger.critical('Process did not start')
             except Exception as err:
                 self._close_temporary_file()
                 raise err

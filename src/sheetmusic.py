@@ -35,7 +35,7 @@ from PySide6.QtGui import QPixmap, QAction, QPixmapCache
 
 from qdb.dbconn import DbConn
 from qdb.dbsystem import DbSystem
-from qdb.keys import BOOK, BOOKPROPERTY, BOOKMARK, DbKeys, NOTE, ProgramConstants
+from qdb.keys import BOOK, BOOKPROPERTY, BOOKSETTING, BOOKMARK, DbKeys, NOTE, ProgramConstants
 from qdb.setup import Setup
 from qdb.dbnote import DbNote
 from qdb.log import DbLog, Trace
@@ -134,6 +134,8 @@ class MainWindow(QMainWindow):
         self.logger.debug( 'Pages: {}, {}, {}'.format( pg1, pg2, pg3))
         self.ui.pageWidget().resize(self.ui.stacks.size())
         self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
+        self.book.setPageNumber(pg1)
+        self.update_status_bar()
 
     def _update_pages_shown(self, absolute_page_number: int = None) -> None:
         """ Update status bar with page numbers """
@@ -205,15 +207,17 @@ class MainWindow(QMainWindow):
         while rtn == QMessageBox.Retry:
             rtn = self.book.open(newBookName, page)
 
-        if rtn == QMessageBox.Ok:
+        if rtn == QMessageBox.AcceptRole:
             book_layout = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
             smart_page_turn = toBool(self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
             aspect_ratio = self.book.getAspectRatio()
+            self.book.setPageNumber( self.book.lastPageRead )
 
             self.ui.showPager( self.book.getFileType() )
             self.ui.pageWidget().setDisplay(book_layout)
             self.ui.pageWidget().setSmartPageTurn( smart_page_turn )
             self.ui.pageWidget().setKeepAspectRatio(aspect_ratio)
+            self.ui.pageWidget().dimensions = self.book.get_property( BOOKSETTING.dimensions )
             self.loadPages()
 
             # Update page and menu displays
@@ -234,6 +238,7 @@ class MainWindow(QMainWindow):
                 self.book.delBook(newBookName)
             self.openLastBook( noretry=newBookName)
         self.logger.debug(f'END "{newBookName}"')
+
         return
 
     def close_book(self) -> None:
@@ -478,12 +483,14 @@ class MainWindow(QMainWindow):
     def openLastBook(self, noretry:str = None) -> None:
         if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
-            last_book_name = recent[0][BOOK.name]
-            self.logger.debug(f'Recent book "{last_book_name}" noretry: "{noretry}"')
-            if recent is not None and len(recent) > 0 and noretry != last_book_name:
-                self.open_book(recent[0][BOOK.name])
-            else:
+            if recent is None or len(recent) == 0:
                 self.logger.info('No last book to open')
+            else:
+                last_book_name = recent[0][BOOK.name]
+                self.logger.debug(f'Recent book "{last_book_name}" noretry: "{noretry}"')
+                if noretry != last_book_name:
+                    self.open_book(recent[0][BOOK.name])
+            
 
     def setTitle(self, bookmark: str = None) -> None:
         """ Title is made of the title and bookmark if there is one """
@@ -593,7 +600,7 @@ class MainWindow(QMainWindow):
     def _action_file_delete(self) -> None:
         df = Deletefile()
         rtn = df.exec()
-        if rtn == QMessageBox.Accepted:
+        if rtn == QMessageBox.Accepted and df.bookName is not None:
             self.logger.info( 'Deleted book {}'.format( df.bookName ))
             DeletefileAction(df.bookName)
 
@@ -796,6 +803,7 @@ class MainWindow(QMainWindow):
     def _action_view_smart_pages(self, state: bool) -> None:
         self.book.set_property(DbKeys.SETTING_SMART_PAGES, state)
         self.ui.pager.setSmartPageTurn( state )
+        self.book.set_property( DbKeys.SETTING_SMART_PAGES, state) 
 
     # BOOKMARK ACTIONS
     def _action_bookmark_show(self) -> None:
@@ -887,7 +895,6 @@ class MainWindow(QMainWindow):
 
     def _action_tool_check(self) -> None:
         from qdil.book import DilBook
-        print("Update incomplete books")
         DilBook().updateIncompleteBooksUI()
         pass
 

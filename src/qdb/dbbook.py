@@ -298,7 +298,6 @@ class DbBook(MixinBookID, DbBase):
         query = DbHelper.bind(query, list(kwargs.values()))
         id = (query.lastInsertId() if query.exec() else -1)
         self._checkError(query)
-        print( self.logmsg() )
         query.finish()
         return id
 

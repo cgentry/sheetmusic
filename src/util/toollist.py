@@ -197,7 +197,7 @@ class GenerateEditList(GenerateListMixin):
         self.scanDirectory()
         return self._editor_list
 
-    
+  
 class GenerateImportList( GenerateListMixin ):
     def __init__(self):
         self.os = get_os_class()

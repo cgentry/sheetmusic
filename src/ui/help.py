@@ -28,7 +28,6 @@ class UiHelp( QDialog ):
         self.mainExepath =  mainExePath
 
     def setupHelp( self):
-        #print( os.path.join(self.mainExepath, "docs", "sheetmusic.qhc") )
         try:
             self.helpEngine = QHelpEngine(
                 os.path.join(self.mainExepath, "docs", "sheetmusic.qhc")

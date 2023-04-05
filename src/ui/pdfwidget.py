@@ -37,4 +37,5 @@ class PdfWidget( BottomSheet):
         super().__init__( MainWindow , u'PdfWidget')
  
     def content_generator( self , obj_name:str )->PdfPageWidget:
-        return PdfPageWidget( obj_name)
+        obj = PdfPageWidget( obj_name)
+        return obj

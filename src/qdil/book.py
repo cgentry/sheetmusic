@@ -25,7 +25,6 @@ from qdb.dbsystem import DbSystem
 from qdb.keys import DbKeys, BOOK, BOOKPROPERTY
 from util.convert import toInt
 from PySide6.QtWidgets import QMessageBox
-from PySide6.QtGui import QPixmap
 
 import fnmatch
 import os
@@ -44,7 +43,7 @@ class DilBook(DbBook):
         Values setup:
             GENERAL:
                 numberRecent    : Number of recent books for menu
-                
+
             ALL DOCUMENTS:
                 locationpath        : Normalised directory location for book
                                       get using filepath()
@@ -76,6 +75,7 @@ class DilBook(DbBook):
         self.page_suffix = s.getValue(
             DbKeys.SETTING_FILE_TYPE,   DbKeys.VALUE_FILE_TYPE)
         self.numberRecent = s.getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
+        self._use_toml_file = s.getValue( DbKeys.SETTING_USE_TOML_FILE, True )
         del s
 
         self.clear()
@@ -99,12 +99,12 @@ class DilBook(DbBook):
         settings = {x: args[x] for x in args if x not in self.columnView}
         return settings, book
 
-    def isPDF( self )->bool:
-        return ( DbKeys.VALUE_PDF == self.book[ BOOK.source_type] )
-    
-    def isPNG(self )->bool:
+    def isPDF(self) -> bool:
+        return (DbKeys.VALUE_PDF == self.book[BOOK.source_type])
+
+    def isPNG(self) -> bool:
         return not self.isPDF()
-    
+
     def setPaths(self):
         """
         Split the directory path up into paths used by the Book class
@@ -118,66 +118,36 @@ class DilBook(DbBook):
         """
 
         self.locationpath = os.path.normpath(self.book[BOOK.location])
-        self.sourcepath   = os.path.normpath( self.book[BOOK.source ])
+        self.sourcepath = os.path.normpath(self.book[BOOK.source])
         self.formatPagePrefix = "".join([self.page_prefix, "-{0:03d}"])
-        self.formatPage = "".join([self.formatPagePrefix, ".", self.page_suffix])
+        self.formatPage = "".join(
+            [self.formatPagePrefix, ".", self.page_suffix])
         self.bookPathFormat = os.path.join(self.locationpath, self.formatPage)
 
     def getFileType(self) -> str:
         """ Return the type of book to process (png or pdf)"""
-        return ( DbKeys.VALUE_PDF if self.ispdf() else self.page_suffix )
-    
-    def ispdf(self , book:dict=None )->bool:
+        return (DbKeys.VALUE_PDF if self.ispdf() else self.page_suffix)
+
+    def ispdf(self, book: dict = None) -> bool:
         if book is None:
             book = self.book
-        return ( isinstance( book, dict) and BOOK.source_type in book and book[ BOOK.source_type ] == DbKeys.VALUE_PDF )
-        
+        return (isinstance(book, dict) and BOOK.source_type in book and book[BOOK.source_type] == DbKeys.VALUE_PDF)
 
-    def _load_book_setting(self, book, page=None):
-        """ Internal: loads the self.book with all database values """
-        self.setPageNumber(page)
-        self.book = self.getBook(book=book)
-        self.setPaths()
-        self.book[ BOOK.lastRead ] = self.book[BOOK.lastRead] if page is None else page
-
-    def open(self, book: str, page=None, fileType="png", onError=None):
-        """
-            Close current book and open new one. Use BookView for data
-
-            Each book read will also include all the BookSettings
-        """
-        self.newBook = self.getBook(book=book)
+    def _check_book(self, book_name: str, open_book: dict | None, onError=QMessageBox.ButtonRole | None) -> QMessageBox.ButtonRole:
         dlg = QMessageBox()
         dlg.setIcon(QMessageBox.Warning)
-        dlg.setInformativeText(book)
+        dlg.setInformativeText(book_name)
 
-        btnCancel = dlg.addButton(QMessageBox.Cancel)
-        btnDelete = dlg.addButton('Delete', QMessageBox.DestructiveRole)
-        btnRetry = dlg.addButton(QMessageBox.Retry)
-
-        if self.newBook == None:
+        if open_book == None:
             if onError is not None:
                 return onError
+
             dlg.setWindowTitle('Opening sheetmusic')
             dlg.setText("Book is not valid.")
             dlg.exec()
             return dlg.buttonRole(dlg.clickedButton())
-        
 
-        if self.ispdf( self.newBook ) :
-            if not os.path.isfile( self.newBook[BOOK.location]):
-                dlg.setWindowTitle('Opening directory')
-                dlg.setText("Book is not valid. (No PDF)\n{}".format( self.newBook[BOOK.location]))
-                dlg.exec()
-                return dlg.buttonRole(dlg.clickedButton())
-        else:
-            if not os.path.isdir(self.newBook[BOOK.location]):
-                dlg.setWindowTitle('Opening directory')
-                dlg.setText("Book directory is not valid.")
-                dlg.exec()
-                return dlg.buttonRole(dlg.clickedButton())
-
-        if self.newBook[BOOK.totalPages] == 0:
+        if open_book[BOOK.totalPages] == 0:
             if onError is not None:
                 return onError
             dlg.setWindowTitle('Opening book')
@@ -185,10 +155,43 @@ class DilBook(DbBook):
             dlg.exec()
             return dlg.buttonRole(dlg.clickedButton())
 
-        self.close()
-        self._load_book_setting(book, page)
+        if self.ispdf(open_book):
+            if not os.path.isfile(open_book[BOOK.location]):
+                dlg.setWindowTitle('Opening directory')
+                dlg.setText("Book is not valid. (No PDF)\n{}".format(
+                    open_book[BOOK.location]))
+                dlg.exec()
+                return dlg.buttonRole(dlg.clickedButton())
+        else:
+            if not os.path.isdir(open_book[BOOK.location]):
+                dlg.setWindowTitle('Opening directory')
+                dlg.setText("Book directory is not valid.")
+                dlg.exec()
+                return dlg.buttonRole(dlg.clickedButton())
 
-        return QMessageBox.Ok
+        return QMessageBox.AcceptRole
+
+    def open(self, book: str, page=None, fileType="png", onError=None) -> QMessageBox.ButtonRole:
+        """
+            Close current book and open new one. Use BookView for data
+
+            Each book read will also include all the BookSettings
+        """
+        self.close()
+        open_book = self.getBook(book=book)
+
+        rtn = self._check_book(book, open_book, onError)
+        if rtn == QMessageBox.AcceptRole:
+            self.book = open_book
+            data = self.dbooksettings.getAll( self.book[ BOOK.id ])
+            for entry in data:
+                self.book[ entry[ 'key'] ] = entry['value']
+            self.setPaths()
+            self.updateReadDate(self.book[BOOK.book])
+            if page is not None:
+                self.book[BOOK.lastRead] = page
+
+        return rtn
 
     def close(self):
         """ closeBook will clear caches, values, and name paths. 
@@ -224,15 +227,15 @@ class DilBook(DbBook):
                 id=recId, key=key, value=value)
         return self.getBook(book=bookname)
 
-    def delete_pages( self, book_location )->bool:
+    def delete_pages(self, book_location) -> bool:
         """ delete the imported sheetmusic pages directory and contents"""
-        if not os.path.isdir( book_location ):
+        if not os.path.isdir(book_location):
             return False
-        
-        shutil.rmtree( book_location , ignore_errors=True)
+
+        shutil.rmtree(book_location, ignore_errors=True)
         return True
-        
-    def delete( self, key, value )->bool:
+
+    def delete(self, key, value) -> bool:
         """ Delete a book based on a datbase search. 
             Pass a "key, value" to find and delete the book. This will also delete all notes and bookmarks
 
@@ -241,11 +244,11 @@ class DilBook(DbBook):
         book = self.getBookByColumn(key, value)
         id = None
         if book is not None and BOOK.id in book:
-            id = book[ BOOK.id]
-            self.delbycolumn( BOOK.id , id )
-            self.delete_pages( book[ BOOK.location ])
-            DbBookSettings().deleteAllValues( id, ignore=True )
-            DbBookmark().delete_all( id )
+            id = book[BOOK.id]
+            self.delbycolumn(BOOK.id, id)
+            self.delete_pages(book[BOOK.location])
+            DbBookSettings().deleteAllValues(id, ignore=True)
+            DbBookmark().delete_all(id)
         return id is not None
 
     def updateIncompleteBooksUI(self):
@@ -286,8 +289,8 @@ class DilBook(DbBook):
         self.dirName = ""
         self.locationpath = ""
         self.sourcepath = None
-        self.thisPage = 0
-        self.firstPage = 0
+        self._thisPage = 0
+        self._page_content_start = 0
 
     def isValidPage(self, page: int) -> bool:
         return (page > 0 and page <= self.get_property(BOOK.totalPages, 999))
@@ -306,7 +309,7 @@ class DilBook(DbBook):
 
     def getAbsolutePage(self) -> int:
         """ Get the current, absolute page number we are on """
-        return self.thisPage
+        return self._thisPage
 
     def getRelativePage(self, fromPage=None) -> int:
         '''
@@ -352,7 +355,7 @@ class DilBook(DbBook):
     def convertRelativeToAbsolute(self, fromPage: int = None) -> int:
         '''Convert a relative page number to an absolute page number'''
         if fromPage is None:
-            fromPage = self.thisPage
+            fromPage = self._thisPage
         if not self.isRelativePageSet():
             return fromPage
         return fromPage+self.getRelativePageOffset()-1
@@ -368,7 +371,7 @@ class DilBook(DbBook):
 
     def incPageNumber(self, inc: int) -> int:
         """ Increment the page number by the passed integer. Number can be positive or negative. """
-        return self.setPageNumber(self.thisPage+inc)
+        return self.setPageNumber(self._thisPage+inc)
 
     def getContentStartingPage(self) -> int:
         ''' Return the page that content starts on (book)
@@ -379,8 +382,8 @@ class DilBook(DbBook):
 
     def setContentStartingPage(self, pageNumber) -> bool:
         pageNumber = toInt(pageNumber)
-        if self.firstPage != pageNumber:
-            self.firstPage = max(1, pageNumber)
+        if self._page_content_start != pageNumber:
+            self._page_content_start = max(1, pageNumber)
             return True
         return False
 
@@ -393,28 +396,37 @@ class DilBook(DbBook):
         It will accept a number or a string and force the page number to 
         a valid range (1 -> end of book)
         '''
-        pnum = toInt(pnum, self.thisPage)
+        pnum = toInt(pnum, self._thisPage)
         if self.isValidPage(pnum):
-            self.thisPage = pnum
+            self._thisPage = pnum
         else:
-            self.thisPage = min(max(1, self.thisPage),
+            self._thisPage = min(max(1, self._thisPage),
                                 self.get_property(BOOK.totalPages, 999))
-        return self.thisPage
-
+        self.book[BOOK.lastRead] = self._thisPage
+        return self._thisPage
+    
+    @property
+    def lastPageRead(self)->int:
+        """ Return the last page read or 1 if not set"""
+        if BOOK.lastRead in self.book:
+            return toInt( self.book[BOOK.lastRead], 1 )
+        return 1
+    
     def filepath(self, bookPath: str = None) -> str:
         """ Return the bookpath for this book or the normalised bookpath"""
         if bookPath is None:
             return self.locationpath
         return os.path.normpath(bookPath)
 
-    def source_filepath( self )->str|None:
+    def source_filepath(self) -> str | None:
         """ Return the source path for this book (normalised)"""
         return self.sourcepath()
-    
-    def page_filepath(self, page: str|int , required=True) -> str | None:
+
+    def page_filepath(self, page: str | int, required=True) -> str | None:
         """ Return the page's path. If the file doesn't exist, None is returned"""
-        imagePath =  ( self.book[BOOK.location] if self.isPDF() else  self.bookPathFormat.format(toInt(page) ) )
-        
+        imagePath = (self.book[BOOK.location] if self.isPDF(
+        ) else self.bookPathFormat.format(toInt(page)))
+
         if not required or os.path.isfile(imagePath):
             return imagePath
         return None
@@ -538,16 +550,17 @@ class DilBook(DbBook):
         basedir = os.path.basename(bookDir)
 
         if self.isLocation(bookDir) or self.isSource(bookDir):
-            return (book_info, 'Book already in library: {}'.format(basedir))
+            return (book_info, f'Book already in library: {basedir}')
 
         if not os.path.isdir(bookDir):
-            return (book_info, "Location '{}' is not a directory".format(bookDir))
+            return (book_info, f"Location '{bookDir}' is not a directory")
 
         book_info = self._book_default_values(bookDir)
         if book_info[BOOK.totalPages] == 0:
             return (book_info, "No pages for book")
-        from qdb.mixin.tomlbook import MixinTomlBook
-        book_info.update(MixinTomlBook().read_toml_properties(bookDir))
+        if self._use_toml_file :
+            from qdb.mixin.tomlbook import MixinTomlBook
+            book_info.update(MixinTomlBook().read_toml_properties(bookDir))
 
         rec_id = self.add(**book_info)
         book_info[BOOK.id] = rec_id

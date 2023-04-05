@@ -24,6 +24,7 @@ from qdb.dbbook import DbGenre, DbComposer, DbBook
 from qdb.keys   import BOOK
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QPushButton,
     QComboBox,    QDialog,       QDialogButtonBox,
     QGridLayout,  QHBoxLayout,   QVBoxLayout,
     QWidget,      QSplitter,     QTreeWidget, 
@@ -155,6 +156,7 @@ class FileBase(QDialog):
         pass
 
     def fileSelected(self , item:QTableWidgetItem ):
+        self._btnSelect.setDisabled( False )
         self.bookSelected = self.fileList.item( item.row(), 3 ).text()
         self.bookName     = self.fileList.item( item.row(), 0 ).text()
     
@@ -227,6 +229,7 @@ class FileBase(QDialog):
 		
         windowLayout.addWidget(top_bottom)
         windowLayout.addWidget( self.createButtons() )
+        self._btnSelect.setDisabled( True )
         
         self.setMinimumSize(900, 600)
         self.setLayout( windowLayout )
@@ -293,6 +296,7 @@ class Openfile( FileBase ):
         self.buttons = QDialogButtonBox()
         self.buttons.addButton(QDialogButtonBox.Open   )
         self.buttons.addButton( QDialogButtonBox.Cancel )
+        self._btnSelect = self.buttons.button( QDialogButtonBox.Open )
         
         self.buttons.accepted.connect( self.buttonAccepted )
         self.buttons.rejected.connect( self.buttonRejected )
@@ -308,7 +312,9 @@ class Deletefile( FileBase ):
 
     def createButtons(self):
         self.buttons = QDialogButtonBox()
-        self.buttons.addButton('Delete', QDialogButtonBox.AcceptRole  )
+        self._btnSelect = QPushButton()
+        self._btnSelect.setText('Delete')
+        self.buttons.addButton( self._btnSelect, QDialogButtonBox.AcceptRole  )
         self.buttons.addButton( QDialogButtonBox.Cancel )
         
         self.buttons.accepted.connect( self.buttonAccepted )
@@ -322,7 +328,11 @@ class Reimportfile( FileBase ):
 
     def createButtons(self):
         self.buttons = QDialogButtonBox()
-        self.buttons.addButton('Reimport', QDialogButtonBox.AcceptRole  )
+        self._btnSelect = QPushButton()
+        self._btnSelect.setText('Reimport')
+        self.buttons.addButton( self._btnSelect, QDialogButtonBox.AcceptRole  )
+        self.buttons = QDialogButtonBox()
+        self.buttons.addButton(self._btnSelect, QDialogButtonBox.AcceptRole  )
         self.buttons.addButton( QDialogButtonBox.Cancel )
         
         self.buttons.accepted.connect( self.buttonAccepted )
@@ -333,24 +343,31 @@ class DeletefileAction( ):
     def __init__( self , name:str ):
         dbb = DbBook()
         book = dbb.getBook( book=name)
-        if self._delete_db_entry( dbb , book ):
+        if book is None or BOOK.name not in book:
+            QMessageBox.critical(
+                None,
+                'Sheetmusic Delete',
+                f'Could not find {name}',
+                QMessageBox.Cancel )
+        elif self._delete_db_entry( dbb , book ):
             self._delete_all_files( dbb , book )
 
     
     def _delete_db_entry( self , dbb:DbBook, book:dict )->bool:
-
-        if book is not None and QMessageBox.Yes == QMessageBox.question(
-            None,
-            "Sheetmusic Delete",
-            "Delete library entry '{}'?".format( book[BOOK.book] ),
-            QMessageBox.Yes | QMessageBox.No 
-        ):
+        if book is not None and BOOK.book in book:
             book_name = book[BOOK.book]
-            try:
-                if dbb.delBook( book_name):
-                    return True
-            except Exception as err:
-                self.showError( None, book_name, err )
+            if QMessageBox.Yes == QMessageBox.question(
+                None,
+                "Sheetmusic Delete",
+                "Delete library entry '{}'?".format( book[BOOK.book] ),
+                QMessageBox.Yes | QMessageBox.No 
+            ):
+            
+                try:
+                    if dbb.delBook( book_name):
+                        return True
+                except Exception as err:
+                    self.showError( None, book_name, err )
         return False
 
     def _delete_all_files(self , dbb:DbBook, book:dict )->bool:

@@ -1,4 +1,4 @@
-# sheetmusic version 0.6.02
+# sheetmusic version 0.6.03
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.6.x may be unstable. 
@@ -14,6 +14,22 @@ Features:
 * Always remember the last book and page and can re-open when you restart the program.
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes.
+
+# 0.6.03 [unstable]
+More stable than last version. Fixed large number of bugs:
+* Fixed last-page problem (wasn't opening last page)
+* Fixed PDF import bug - import failed
+* Fixed PDF display bug - pages weren't displayed properly
+* Fixed log to database problems
+* Added log trace - this isn't quite right
+* Added log filtering in preferences
+
+TODO: More testing, add log display and clearing interface
+      Test on Windows and Linux systems
+      Go through unit tests and fix broken ones
+      Finalise build process. Builds to support will be Win10 and Linux
+
+MAYBE: Add in copy PDF to Sheetmusic directory
 
 # 0.6.02 [unstable]
 Yet more bug fixes in PDF display and tighten up some of the sloppy code. This commit

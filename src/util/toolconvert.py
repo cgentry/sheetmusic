@@ -33,11 +33,13 @@ from PySide6.QtWidgets import (
 
 from qdb.keys import BOOK, BOOKMARK, DbKeys, LOG
 from qdb.log import DbLog
-from qdil.preferences import DilPreferences
-from qdil.book import DilBook
-from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
 from qdb.mixin.fieldcleanup import MixinFieldCleanup
 from qdb.mixin.tomlbook import MixinTomlBook
+
+from qdil.preferences import DilPreferences
+from qdil.book import DilBook
+
+from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
 from ui.runscript import UiRunScript, UiScriptSetting, ScriptKeys
 from ui.simpledialog import SimpleDialog
 from ui.util import centerWidgetOnScreen

@@ -7,7 +7,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.6.02"
+    version      = "0.6.03"
     version_main = "0.6"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -83,10 +83,11 @@ class DbKeys():
     SETTING_VERSION             = 'version'        ## Database Version (current)
 
     #       book settings
-    SETTING_LAST_BOOK_NAME      = 'book'             ## Last book opened.
-    SETTING_LAST_BOOK_REOPEN    = 'reopen'           ## Should we reopen? BOOL (text)
-    SETTING_MAX_RECENT_SIZE     = 'size_booklist'    ## How many should show in 'Open Recent' file menu
+    SETTING_LAST_BOOK_NAME      = 'book'            ## Last book opened.
+    SETTING_LAST_BOOK_REOPEN    = 'reopen'          ## Should we reopen? BOOL (text)
+    SETTING_MAX_RECENT_SIZE     = 'size_booklist'   ## How many should show in 'Open Recent' file menu
     SETTING_SHOW_FILEPATH       = 'recentFilepath'
+    SETTING_USE_TOML_FILE       = 'use_toml_file'   ## Read/Write toml file for configuration
     
     #       window settings
     SETTING_WIN_GEOMETRY        = 'geometry'
@@ -235,6 +236,9 @@ class BOOKSETTING:
     dateUpdated     = 'date_updated'
     localAdded      = 'local_added'
     localUpdated    = 'local_updated'
+    dimensions      = 'dimensions'  ## Class pdfclass
+    maxWidth        = 'max_width'   ## Unscaled size values
+    maxHeight       = 'max_height'
 
 class BOOKPROPERTY:
     """

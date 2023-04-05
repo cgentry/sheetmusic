@@ -56,9 +56,6 @@ class DbConn():
     @staticmethod
     def openDB( databasePath:str=None, connectionName:str=DbKeys.VALUE_DEFAULT_DB_FILENAME, trace:bool=False )->QSqlDatabase:
         global _qdb_conn, _qdb_name, _qdb_path
-        #print("\nOPEN DB")
-        #print("\topen database path  :{:15s}, global:{:15s}".format( str(databasePath), str(_qdb_path) ) )
-        #print("\topen database named :{:15s}, global:{:15s}".format( str(connectionName), str(_qdb_name) ) )
         if _qdb_conn is None or not _qdb_conn.isValid():
             if databasePath is None:
                 if _qdb_path is None:
@@ -66,7 +63,6 @@ class DbConn():
                 else:
                     return DbConn.reopenDB( )
         else: # _qdb_conn is not none
-            #print("\tRe-establish open")
             _qdb_conn.open()
             return _qdb_conn
 
@@ -75,11 +71,7 @@ class DbConn():
         _qdb_conn.setDatabaseName( databasePath )
 
         _qdb_name = QSqlDatabase.connectionName(_qdb_conn )
-        #print("\t_qdb_name is now", _qdb_name)
-        
         _qdb_conn.open()
-        #print("\tEND OPENDB")
-        #print("- "*50)
         return _qdb_conn
 
     @staticmethod

@@ -29,7 +29,7 @@ import sys
 from os.path import expanduser
 from qdil.preferences import DilPreferences
 from qdb.dbbook import DbGenre
-from qdb.keys import DbKeys, ImportNameSetting
+from qdb.keys import DbKeys, ImportNameSetting, LOG
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImageReader, QFont, QIntValidator
 from PySide6.QtWidgets import (
@@ -174,7 +174,7 @@ class UiPreferences(QDialog):
 
     def createFileLayout(self) -> QWidget:
         labels = ['Sheetmusic directory', 'Library Directory (database)', 'User Script Directory',
-                  "Number of recent files", "", "Editor", None, None]
+                  "Number of recent files", "", "Editor", "Log Level", None]
         self.widgetFile = QWidget()
         self.layoutFile = QGridLayout()
         self.labelGrid(self.layoutFile, labels)
@@ -324,6 +324,18 @@ class UiPreferences(QDialog):
 
         row += 1
         return row
+    
+    def formatLogLevel( self, layout: QGridLayout, row: int ) ->int:
+        fill_list = { 'Disabled': LOG.disabled, 'Debug': LOG.debug , 'Information': LOG.info , 'Warnings': LOG.warning, 'Critical': LOG.critical }
+
+        current = self.settings.getValueInt( DbKeys.SETTING_LOGGING_ENABLED, 0 )
+        self.cmbLogging = UiGenericCombo(
+            isEditable=False, fill=fill_list, currentValue=current, name=DbKeys.SETTING_LOGGING_ENABLED)
+        self.cmbLogging.currentIndexChanged.connect(self.action_log_changed)
+        layout.addWidget(self.cmbLogging, row, 1)
+
+        row += 1
+        return row
 
     def formatFiletype(self, layout: QGridLayout, row: int) -> int:
         self.cmbType = QComboBox()
@@ -362,7 +374,7 @@ class UiPreferences(QDialog):
         default = self.settings.getValue(  DbKeys.SETTING_BOOK_DEFAULT_GENRE, DbKeys.VALUE_DEFAULT_GENRE)
         idx = self.cmbGenre.findText( default )
         if idx > -1 :
-            self.cmbGenre.setCurrent( idx )
+            self.cmbGenre.setCurrentIndex( idx )
         else:
             self.cmbGenre.setCurrentIndex(0)
         layout.addWidget(self.cmbGenre, row, 1)
@@ -513,6 +525,7 @@ class UiPreferences(QDialog):
         row = self.formatRecentFiles(self.layoutFile, row)
         row = self.formatShowFilepath( self.layoutFile, row )
         row = self.formatEditor(self.layoutFile, row)
+        row = self.formatLogLevel(self.layoutFile, row )
         #
         row = self.formatFiletype(self.layoutBook, 0)
         row = self.formatDefaultGenre( self.layoutBook, row )
@@ -685,7 +698,10 @@ class UiPreferences(QDialog):
     def action_editor_changed(self, value):
         self.states[DbKeys.SETTING_PAGE_EDITOR] = self.cmbEditor.currentText()
         self.states[DbKeys.SETTING_PAGE_EDITOR_SCRIPT] = self.cmbEditor.currentData()
-        print("Changed!")
+        self.flagChanged = True
+
+    def action_log_changed( self, value ):
+        self.states[DbKeys.SETTING_LOGGING_ENABLED] = self.cmbLogging.currentData()
         self.flagChanged = True
 
     def action_type_changed(self, value):

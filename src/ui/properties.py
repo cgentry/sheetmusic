@@ -59,6 +59,7 @@ class UiProperties(MixinFieldCleanup, QDialog):
     btnTxtApply  = u'Apply Changes and Continue'
 
     staticBookInformation = [
+        [ BOOK.source_type,  'Format'],
         [ BOOK.location,     'Book location'],
         [ BOOK.totalPages,   'Total pages'],
         [ BOOK.source,       'Original book source'],

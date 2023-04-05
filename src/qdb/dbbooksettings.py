@@ -25,8 +25,10 @@
 from qdb.dbconn import DbConn
 from qdb.util   import DbHelper
 from qdb.base   import DbBase
+from qdb.keys   import BOOKSETTING
 from qdb.mixin.bookid import MixinBookID
 from util.convert import    toBool, toInt
+from typing import Any
 import logging
 
 class DbBookSettings( MixinBookID, DbBase ):
@@ -57,6 +59,8 @@ class DbBookSettings( MixinBookID, DbBase ):
 
     SQL_IS_EXPANDED=False
 
+    encoded_keys = [ BOOKSETTING.dimensions ]
+
     def __init__(self, book:str=None):
         """
             Initialise the class. If you pass a book, it will be used
@@ -74,7 +78,7 @@ class DbBookSettings( MixinBookID, DbBase ):
             DbBookSettings.SQL_IS_EXPANDED = True
 
      
-    def getAll(self, book:str=None , order:str='key', fetchall:bool=True)->list:
+    def getAll(self, book:str|int=None , order:str='key', fetchall:bool=True)->list:
         """
             Retrieve all the booksettings, ordered by 'order' (key).
             You can ask for all entries and get a list of dictionaries
@@ -101,11 +105,13 @@ class DbBookSettings( MixinBookID, DbBase ):
                 return rows[0]['setting']
         return None
 
-    def getValue( self, book:str=None, key:str=None, fallback=True, default=None)->str:
+    def getValue( self, book:str=None, key:str=None, fallback=True, default=None)->Any:
         """ Fetch value for Book key or fallback to the system setting 
             If no value exists, you get 'None'
         """
         value = self.getSetting(book=book, key=key, fallback=fallback)
+        if key in DbBookSettings.encoded_keys :
+            value = DbHelper.decode( value )
         return value if value is not None else default
 
     def getBool( self, book=None, key=None, fallback=True, default=False)->bool:
@@ -116,14 +122,16 @@ class DbBookSettings( MixinBookID, DbBase ):
         value = self.getValue( book=book, key=key, fallback=fallback, default=default)
         return toInt( value )
 
-    def setValueById( self, id:int=None, key=None, value=None, ignore=False)->bool:
+    def setValueById( self, book: str | int=None, key=None, value=None, ignore=False)->bool:
         rtn = True
         try:
             if key is None or value is None:
                 raise ValueError('Key and value are required')
-            id = (self.lookup_book_id() if id == None else id )
+            
+            if key in DbBookSettings.encoded_keys :
+                value = DbHelper.encode( value )
 
-            parms = [id, key, value ]
+            parms = [self.lookup_book_id(id ), key, value ]
             sql = DbBookSettings.SQL_BOOKSETTING_ADD.format( ('OR IGNORE ' if ignore else ''))
             query = DbHelper.bind( DbHelper.prep( sql ), parms )
             query.exec()
@@ -138,17 +146,10 @@ class DbBookSettings( MixinBookID, DbBase ):
             raise err
         return rtn
 
-    def setValue(self, book=None, key=None, value=None, ignore=False )->bool:
-        try:
-            rtn = self.setValueById( self.lookup_book_id(book),  key, value, ignore=ignore )
-        except Exception as err:
-            self.logger.exception("setValue. Book: '%s' Key: '%s' [%s]", book, key ,str(err), stacklevel=1)
-            if ignore:
-                return False
-            raise err
-        return rtn
+    def setValue(self, book: str | int=None, key=None, value=None, ignore=False )->bool:
+        return self.setValueById( book, key, value, ignore )
         
-    def upsertBookSetting(self, book:str=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
+    def upsertBookSetting(self, book: str | int=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
         try:
             sqlid = ( id if id is not None else self.lookup_book_id(book))
         except Exception as err:
@@ -165,7 +166,7 @@ class DbBookSettings( MixinBookID, DbBase ):
         query.finish()
         return rtn
 
-    def deleteValue( self, book=None, key=None, ignore=False)->int:
+    def deleteValue( self, book: str | int=None, key=None, ignore=False)->int:
         """
             Delete one key for book. If no book or key are passed anexcepion will be raised.
             If the book isn't found, you may get an exception (ignore=false)
@@ -185,7 +186,7 @@ class DbBookSettings( MixinBookID, DbBase ):
             raise err
         return rowcount
 
-    def deleteAllValues( self, book:str=None, ignore=False)->int:
+    def deleteAllValues( self, book: str | int=None, ignore=False)->int:
         """
             Delete one key for book. If no book or key are passed an excepion will be raised.
             If the book isn't found, you may get an exception (ignore=false)
