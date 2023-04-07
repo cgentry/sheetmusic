@@ -105,7 +105,7 @@ class MainWindow(QMainWindow):
             pages we load.
         """
         if self.book.isOpen():
-            page = self.book.getAbsolutePage()
+            page = self.book.pagenumber
             # work some 'magic' Show page-n...page IF page is last page.
             totalPages = self.book.count()
             showingPages = self.ui.pager.numberPages()
@@ -134,17 +134,17 @@ class MainWindow(QMainWindow):
         self.logger.debug( 'Pages: {}, {}, {}'.format( pg1, pg2, pg3))
         self.ui.pageWidget().resize(self.ui.stacks.size())
         self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
-        self.book.setPageNumber(pg1)
+        self.book.pagenumber = (pg1)
         self.update_status_bar()
 
     def _update_pages_shown(self, absolute_page_number: int = None) -> None:
         """ Update status bar with page numbers """
         self.ui.set_absolute_page(
-            absolute_page_number, self.book.count(), self.book.getRelativePageOffset())
+            absolute_page_number, self.book.count(), self.book.relative_offset)
         lbl = 'Page' if self.book.isPageRelative(
             absolute_page_number) else "Book"
         self.ui.label_page_relative.setText("{}:{:4d}".format(
-            lbl, self.book.getRelativePage(absolute_page_number)))
+            lbl, self.book.page_to_relative(absolute_page_number)))
 
     def updateBookmarkMenuNav(self, bookmark=None):
         has_bookmarks = (self.bookmark.count() > 0)
@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
 
     def update_status_bar(self) -> None:
         """ Update status with page numbers, slider position and note indicators """
-        absolute_page_number = self.book.getAbsolutePage()
+        absolute_page_number = self.book.pagenumber
 
         self.ui.slider_page_position.setMaximum(self.book.count())
         self.ui.slider_page_position.setValue(absolute_page_number)
@@ -208,10 +208,10 @@ class MainWindow(QMainWindow):
             rtn = self.book.open(newBookName, page)
 
         if rtn == QMessageBox.AcceptRole:
-            book_layout = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
-            smart_page_turn = toBool(self.book.getPropertyOrSystem(DbKeys.SETTING_SMART_PAGES))
-            aspect_ratio = self.book.getAspectRatio()
-            self.book.setPageNumber( self.book.lastPageRead )
+            book_layout = self.book.get_property(BOOKPROPERTY.layout, system=True)
+            smart_page_turn = toBool(self.book.get_property(DbKeys.SETTING_SMART_PAGES, system=True))
+            aspect_ratio = self.book.keep_aspect_ratio
+            self.book.pagenumber = self.book.lastPageRead 
 
             self.ui.showPager( self.book.getFileType() )
             self.ui.pageWidget().setDisplay(book_layout)
@@ -246,7 +246,7 @@ class MainWindow(QMainWindow):
         self._notelist = None
         if self.book.isOpen():
             self.pref.setValue(DbKeys.SETTING_LAST_BOOK_NAME,
-                               self.book.getTitle())
+                               self.book.title)
             self.book.close()
             self.ui.pager.clear()
             cache = QPixmapCache()
@@ -336,13 +336,13 @@ class MainWindow(QMainWindow):
         if self.book.isValidPage(pg):
             self.ui.pager.previousPage(
                 self.book.page_filepath(pg), pg, end=(pg == 1))
-            self.book.setPageNumber(pg)
+            self.book.pagenumber = (pg)
             self.update_status_bar()
 
     def page_forward(self) -> None:
         pg = self.ui.pager.getHighestPageShown()+1
         if self.book.isValidPage(pg):
-            self.book.setPageNumber(pg)
+            self.book.pagenumber = (pg)
             self.ui.pager.nextPage(self.book.page_filepath(
                 pg), pg, end=(pg == self.book.count()))
             self.update_status_bar()
@@ -352,18 +352,18 @@ class MainWindow(QMainWindow):
             page number must be absolute, not relative.
         '''
         if page:
-            self.book.setPageNumber(page)
+            self.book.pagenumber = (page)
             self.loadPages()
             self.update_status_bar()
 
     def goFirstBookmark(self) -> None:
         bmk = self.bookmark.first()
-        self.book.setPageNumber(bmk[BOOKMARK.page])
+        self.book.pagenumber = (bmk[BOOKMARK.page])
         self.loadPages()
 
     def goLastBookmark(self) -> None:
         bmk = self.bookmark.getLast()
-        self.book.setPageNumber(bmk[BOOKMARK.page])
+        self.book.pagenumber = (bmk[BOOKMARK.page])
         self.loadPages()
 
     def connectMenus(self) -> None:
@@ -496,10 +496,10 @@ class MainWindow(QMainWindow):
         """ Title is made of the title and bookmark if there is one """
         if bookmark:
             title = "{}: {} - {}".format(ProgramConstants.system_name,
-                                         self.book.getTitle(), bookmark)
+                                         self.book.title, bookmark)
         else:
             title = "{}: {}".format(
-                ProgramConstants.system_name, self.book.getTitle())
+                ProgramConstants.system_name, self.book.title)
         self.ui.mainWindow.setWindowTitle(title)
         self.ui.mainWindow.show()
 
@@ -528,7 +528,7 @@ class MainWindow(QMainWindow):
         uinote.setText(note[NOTE.note])
         uinote.setLocation(note[NOTE.location])
         uinote.setWindowTitle(
-            "{} - {}".format(self.book.getTitle(), titleSuffix))
+            "{} - {}".format(self.book.title, titleSuffix))
         uinote.setID(
             (note[NOTE.id] if NOTE.id in note and note[NOTE.id] > 0 else None))
         rtn = uinote.exec()
@@ -685,9 +685,9 @@ class MainWindow(QMainWindow):
         edit_label = self.ui.action_edit_page.text().split('#', 1)
         self.ui.action_edit_page.setEnabled(self.book.isOpen())
         if self.book.isOpen():
-            page = self.book.getRelativePage()
+            page = self.book.page_to_relative()
             if self.book.isPageRelative(page):
-                tag = "{} / Book: {}".format(page, self.book.getAbsolutePage())
+                tag = "{} / Book: {}".format(page, self.book.pagenumber)
             else:
                 tag = "{}".format(page)
             self.ui.action_edit_page.setText(
@@ -714,8 +714,8 @@ class MainWindow(QMainWindow):
         vars = [
             "-BOOK",        self.book.filepath(),
             "-PAGE",        self.book.page_filepath(
-                self.book.getAbsolutePage() , required=False),
-            "-TITLE",        self.book.getTitle(),
+                self.book.pagenumber , required=False),
+            "-TITLE",        self.book.title,
             "-O",    platform.platform(terse=True),
         ]
         runner = RunSilentRunDeep(script, vars)
@@ -743,7 +743,7 @@ class MainWindow(QMainWindow):
             settings = self.pref.getAll()
             self.ui.setNavigationShortcuts(settings)
             self.ui.setBookmarkShortcuts(settings)
-            viewState = self.book.getPropertyOrSystem(BOOKPROPERTY.layout)
+            viewState = self.book.get_property(BOOKPROPERTY.layout, system=True)
             self.ui.pager.setDisplay(viewState)
             self._set_menu_page_options(viewState)
             self.loadPages()
@@ -760,10 +760,10 @@ class MainWindow(QMainWindow):
         self._actionNote(page=0, seq=0, titleSuffix='(Book Note)')
 
     def _action_edit_note_page(self, id):
-        absolute_page = self.book.getAbsolutePage()
+        absolute_page = self.book.pagenumber
         if self.book.isPageRelative(absolute_page):
             title = "Page: {} (Book: {})".format(
-                self.book.getRelativePage(), absolute_page)
+                self.book.page_to_relative(), absolute_page)
         else:
             title = "Book: {}".format(absolute_page)
         self._actionNote(page=absolute_page, seq=0, titleSuffix=title)
@@ -796,7 +796,7 @@ class MainWindow(QMainWindow):
         self.ui.statusbar.setVisible(state)
 
     def _action_view_aspect_ratio(self, state) -> None:
-        self.book.setAspectRatio(state)
+        self.book.keep_aspect_ratio = (state)
         self.ui.pager.setKeepAspectRatio( state )
         self.loadPages()
 
@@ -815,16 +815,16 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(
                     None, "Bookmarks", "There are no bookmarks", QMessageBox.Cancel)
                 break
-            if bmk.setupData(bookmarkList, relativeOffset=self.book.getRelativePageOffset()):
+            if bmk.setupData(bookmarkList, relativeOffset=self.book.relative_offset()):
                 bmk.exec()
                 if not bmk.selected[BOOKMARK.page]:
                     break
                 markName = bmk.selected[BOOKMARK.name]
                 if bmk.action == bmk.actionEdit:
                     bmkEdit = UiBookmarkEdit(totalPages=self.book.count(
-                    ), numberingOffset=self.book.getRelativePageOffset())
+                    ), numberingOffset=self.book.relative_offset())
                     bmkEdit.setWindowTitle(
-                        "Edit bookmark for '{}'".format(self.book.getTitle()))
+                        "Edit bookmark for '{}'".format(self.book.title))
                     bmkEdit.setupData(bmk.selected)
                     if bmkEdit.exec() == QDialog.Accepted:
                         changes = bmkEdit.getChanges()
@@ -845,18 +845,18 @@ class MainWindow(QMainWindow):
 
     def _action_bookmark_current(self) -> None:
         self.bookmark.thisBook(
-            self.book.getTitle(),
-            self.book.getRelativePage(),
-            self.book.getAbsolutePage())
+            self.book.title,
+            self.book.page_to_relative(),
+            self.book.pagenumber)
         self.updateBookmarkMenuNav()
 
     def _action_bookmark_add(self) -> None:
         from ui.bookmark import UiBookmarkAdd
         dlg = UiBookmarkAdd(
             totalPages=self.book.count(),
-            numberingOffset=self.book.getRelativePageOffset())
+            numberingOffset=self.book.relative_offset())
         dlg.setWindowTitle(
-            "Add Bookmark for '{}'".format(self.book.getTitle()))
+            "Add Bookmark for '{}'".format(self.book.title))
         while dlg.exec() == QDialog.Accepted:
             changes = dlg.getChanges()
             self.bookmark.saveBookmark(
@@ -868,23 +868,23 @@ class MainWindow(QMainWindow):
         self.updateBookmarkMenuNav()
 
     def _action_bookmark_go_previous(self) -> None:
-        bmk = self.bookmark.getPrevious(self.book.getAbsolutePage())
+        bmk = self.bookmark.getPrevious(self.book.pagenumber)
         self._finishBookmarkNavigation(bmk)
 
     def _action_bookmark_go_next(self) -> None:
-        bmk = self.bookmark.getNext(self.book.getAbsolutePage())
+        bmk = self.bookmark.getNext(self.book.pagenumber)
         self._finishBookmarkNavigation(bmk)
 
     def _action_bookmark_delete_all(self) -> None:
         rtn = QMessageBox.warning(
             None,
-            "{}".format(self.book.getTitle()),
+            "{}".format(self.book.title),
             "Delete all booksmarks for book?\nThis cannot be undone.",
             QMessageBox.No | QMessageBox.Yes
         )
         if rtn == QMessageBox.Yes:
-            self.logger.info('Delete all bookmarks for {}'.self.book.getTitle() )
-            self.bookmark.delete_all(book=self.book.getTitle())
+            self.logger.info('Delete all bookmarks for {}'.self.book.title )
+            self.bookmark.delete_all(book=self.book.title)
             self.updateBookmarkMenuNav()
 
     # TOOL ACTIONS
@@ -910,8 +910,7 @@ class MainWindow(QMainWindow):
                 runner.run()
 
     def actionGoBookmark(self) -> None:
-        uiBookmark = UiBookmark(self.book.getTitle(
-        ), self.bookmark.getAll(), self.book.getContentStartingPage())
+        uiBookmark = UiBookmark(self.book.title, self.bookmark.getAll(), self.book.relative_offset )
         uiBookmark.exec()
         newPage = uiBookmark.selectedPage
         if newPage:
@@ -1041,20 +1040,20 @@ class MainWindow(QMainWindow):
     def _action_go_page(self) -> None:
         from ui.page import PageNumber
         getPageNumber = PageNumber(
-            self.book.getRelativePage(), self.book.isPageRelative())
+            self.book.page_to_relative(), self.book.isPageRelative())
         if getPageNumber.exec() == 1:
             pn = getPageNumber.page
             if getPageNumber.relative:
-                pn = self.book.convertRelativeToAbsolute(pn)
+                pn = self.book.page_to_absolute(pn)
             self.go_to_page(pn)
 
     def _action_go_page_first(self) -> None:
-        self.book.setPageNumber(self.book.getFirstPageShown())
+        self.book.pagenumber = (self.book.getFirstPageShown())
         self.loadPages()
         self.update_status_bar()
 
     def _action_go_page_last(self) -> None:
-        self.book.setPageNumber(self.book.getLastPageShown())
+        self.book.pagenumber = (self.book.getLastPageShown())
         self.loadPages()
         self.update_status_bar()
 

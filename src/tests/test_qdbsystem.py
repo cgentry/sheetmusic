@@ -37,7 +37,7 @@ class TestSystem( unittest.TestCase):
         self.setup.createTables()
         self.obj = DbSystem()
         self.obj.showStack(False)
-        self.obj.logger.setLevel( logging.CRITICAL )
+        self.obj.logger.setlevel( logging.CRITICAL )
         
 
     def tearDown(self):
@@ -58,8 +58,8 @@ class TestSystem( unittest.TestCase):
 
     def test_setValue_set(self):
         key = 'mykey'
-        self.assertTrue( self.obj.setValue( key, 'myvalue') )
-        self.assertEqual( 'myvalue', self.obj.getValue(key) )
+        self.assertTrue( self.obj.setValue( key, 'myvalue') , 'setValue')
+        self.assertEqual( 'myvalue', self.obj.getValue(key), 'getValue' )
 
     def test_setValue_conflict(self):
         key = 'mykey'

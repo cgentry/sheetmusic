@@ -75,7 +75,7 @@ class DilBook(DbBook):
         self.page_suffix = s.getValue(
             DbKeys.SETTING_FILE_TYPE,   DbKeys.VALUE_FILE_TYPE)
         self.numberRecent = s.getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
-        self._use_toml_file = s.getValue( DbKeys.SETTING_USE_TOML_FILE, True )
+        self._use_toml_file = s.getValue(DbKeys.SETTING_USE_TOML_FILE, True)
         del s
 
         self.clear()
@@ -134,6 +134,10 @@ class DilBook(DbBook):
         return (isinstance(book, dict) and BOOK.source_type in book and book[BOOK.source_type] == DbKeys.VALUE_PDF)
 
     def _check_book(self, book_name: str, open_book: dict | None, onError=QMessageBox.ButtonRole | None) -> QMessageBox.ButtonRole:
+        """
+        Check to see if the book_name is valid and contains data. If not, it will present a user with a message. 
+        Return will be a ButtonRole (accept / cancel )
+        """
         dlg = QMessageBox()
         dlg.setIcon(QMessageBox.Warning)
         dlg.setInformativeText(book_name)
@@ -183,9 +187,9 @@ class DilBook(DbBook):
         rtn = self._check_book(book, open_book, onError)
         if rtn == QMessageBox.AcceptRole:
             self.book = open_book
-            data = self.dbooksettings.getAll( self.book[ BOOK.id ])
+            data = self.dbooksettings.getAll(self.book[BOOK.id])
             for entry in data:
-                self.book[ entry[ 'key'] ] = entry['value']
+                self.book[entry['key']] = entry['value']
             self.setPaths()
             self.updateReadDate(self.book[BOOK.book])
             if page is not None:
@@ -200,7 +204,7 @@ class DilBook(DbBook):
 
         if self.book is not None:
             self.updateReadDate(self.book[BOOK.book])
-            self.changes[BOOK.lastRead] = self.getAbsolutePage()
+            self.changes[BOOK.lastRead] = self._thisPage
             if DbKeys.SETTING_KEEP_ASPECT in self.changes:
                 self.changes[DbKeys.SETTING_KEEP_ASPECT] = (
                     1 if self.book[DbKeys.SETTING_KEEP_ASPECT] else 0)
@@ -291,106 +295,17 @@ class DilBook(DbBook):
         self.sourcepath = None
         self._thisPage = 0
         self._page_content_start = 0
-
-    def isValidPage(self, page: int) -> bool:
-        return (page > 0 and page <= self.get_property(BOOK.totalPages, 999))
-
-    def getNote(self) -> str:
-        return self.get_property(BOOK.note)
-
-    def getTitle(self) -> str:
-        return self.get_property(BOOK.name)
-
-    def setTitle(self, newTitle: str) -> bool:
-        if newTitle != self.getTitle():
-            self.set_property(BOOK.name, newTitle)
-            return True
-        return False
-
-    def getAbsolutePage(self) -> int:
+    
+    """
+            PAGE NUMBER ROUTINES
+    """
+    @property
+    def pagenumber(self) -> int:
         """ Get the current, absolute page number we are on """
         return self._thisPage
 
-    def getRelativePage(self, fromPage=None) -> int:
-        '''
-            Return the relative page number or the absolute page number
-            if the page isn't relative, then it will always return the absolute page
-            You can check which is which by using isPageRelative()
-        '''
-        relPage = None
-        fromPage = toInt(fromPage, self.getAbsolutePage())
-        if self.isPageRelative(fromPage):
-            offset = self.getRelativePageOffset() - 1
-            relPage = max(0, (fromPage - offset))
-        return relPage if relPage and relPage > 0 else fromPage
-
-    def getRelativePageOffset(self) -> int:
-        ''' getRelativePageOffset returns the int value of the offset, from 1. If 1, there is no offset'''
-        return self.get_property(BOOK.numberStarts, 1)
-
-    def setRelativePageOffset(self, offset: any) -> bool:
-        if self.getRelativePageOffset() != int(offset):
-            self.set_property(BOOK.numberStarts, offset)
-            return True
-        return False
-
-    def setAspectRatio(self, aspect: bool) -> bool:
-        if aspect is not None and self.getAspectRatio() != aspect:
-            newAspect = 1 if aspect else 0
-            self.book[BOOK.aspectRatio] = newAspect
-            self.set_property(BOOK.aspectRatio, newAspect)
-            return True
-        return False
-
-    def isRelativePageSet(self) -> bool:
-        ''' isRelativePageSet just checks to see if they have set a relative page '''
-        return (self.getRelativePageOffset() > 1)
-
-    def isPageRelative(self, fromPage=None) -> bool:
-        ''' isThisPageRelatve calculates if this page number is within the relative settings'''
-        if not self.isRelativePageSet():
-            return False
-        return (toInt(fromPage, self.getAbsolutePage()) >= self.getRelativePageOffset())
-
-    def convertRelativeToAbsolute(self, fromPage: int = None) -> int:
-        '''Convert a relative page number to an absolute page number'''
-        if fromPage is None:
-            fromPage = self._thisPage
-        if not self.isRelativePageSet():
-            return fromPage
-        return fromPage+self.getRelativePageOffset()-1
-
-    def count(self) -> int:
-        """ Return the total number of pages in a book """
-        return self.get_property(BOOK.totalPages, 0)
-
-    def getLastPageShown(self) -> int:
-        if self.getPropertyOrSystem(BOOKPROPERTY.layout) == DbKeys.VALUE_PAGES_SIDE_2:
-            return max(self.get_property(BOOK.totalPages)-1, 1)
-        return self.get_property(BOOK.totalPages)
-
-    def incPageNumber(self, inc: int) -> int:
-        """ Increment the page number by the passed integer. Number can be positive or negative. """
-        return self.setPageNumber(self._thisPage+inc)
-
-    def getContentStartingPage(self) -> int:
-        ''' Return the page that content starts on (book)
-
-            This is from the config setting KEY_PAGE_CONTENT
-        '''
-        return self.get_property(BOOK.numberStarts, 1)
-
-    def setContentStartingPage(self, pageNumber) -> bool:
-        pageNumber = toInt(pageNumber)
-        if self._page_content_start != pageNumber:
-            self._page_content_start = max(1, pageNumber)
-            return True
-        return False
-
-    def getFirstPageShown(self) -> int:
-        return self.getRelativePageOffset()
-
-    def setPageNumber(self, pnum) -> int:
+    @pagenumber.setter
+    def pagenumber(self, pnum) -> int:
         '''
         This is the only place you should change the current page number.
         It will accept a number or a string and force the page number to 
@@ -401,17 +316,85 @@ class DilBook(DbBook):
             self._thisPage = pnum
         else:
             self._thisPage = min(max(1, self._thisPage),
-                                self.get_property(BOOK.totalPages, 999))
+                                 self.get_property(BOOK.totalPages, 999))
         self.book[BOOK.lastRead] = self._thisPage
         return self._thisPage
-    
+
     @property
-    def lastPageRead(self)->int:
+    def lastPageRead(self) -> int:
         """ Return the last page read or 1 if not set"""
         if BOOK.lastRead in self.book:
-            return toInt( self.book[BOOK.lastRead], 1 )
+            return toInt(self.book[BOOK.lastRead], 1)
         return 1
+
+    @lastPageRead.setter
+    def lastPageRead(self, page: int):
+        self.book[BOOK.lastRead] = page
+
+    def isValidPage(self, page: int) -> bool:
+        return (page > 0 and page <= self.get_property(BOOK.totalPages, 999))
     
+    def isRelativeSet(self) -> bool:
+        """ Returns if a relagive page offset has been set.
+            Used by internal book routines
+        """
+        return (self.relative_offset > 1)
+
+    @property
+    def relative_offset(self) -> int:
+        ''' Return the page that content starts on (book)
+
+            This is from the config setting KEY_PAGE_CONTENT
+        '''
+        return self.get_property(BOOK.numberStarts, 1)
+
+    @relative_offset.setter
+    def relative_offset(self, offset: any) -> bool:
+        return self.set_property(BOOK.numberStarts, max(1, toInt(offset, 1)))
+
+    def isPageRelative(self, fromPage=None) -> bool:
+        ''' isThisPageRelatve calculates if this page number is within the relative settings'''
+        if not self.isRelativeSet():
+            return False
+        return (toInt(fromPage, self._thisPage) >= self.relative_offset)
+
+    def page_to_absolute(self, relative_pagenumber: int = None) -> int:
+        '''Convert a relative page number to an absolute page number'''
+        if relative_pagenumber is None:
+            relative_pagenumber = self._thisPage
+        if not self.isRelativeSet():
+            return relative_pagenumber
+        return relative_pagenumber+self.relative_offset-1
+
+    def page_to_relative(self, fromPage=None) -> int:
+        '''
+            Return the relative page number or the absolute page number
+
+            If the page isn't relative, then it will always return the absolute page
+            You can check which is which by using isPageRelative()
+        '''
+        relPage = None
+        fromPage = toInt(fromPage, self._thisPage)
+        if self.isPageRelative(fromPage):
+            offset = self.relative_offset - 1
+            relPage = max(0, (fromPage - offset))
+        return relPage if relPage and relPage > 0 else fromPage
+
+    def count(self) -> int:
+        """ Return the total number of pages in a book """
+        return self.get_property(BOOK.totalPages, 0)
+
+    def getLastPageShown(self) -> int:
+        if self.get_property(BOOKPROPERTY.layout, system=True) == DbKeys.VALUE_PAGES_SIDE_2:
+            return max(self.get_property(BOOK.totalPages)-1, 1)
+        return self.get_property(BOOK.totalPages)
+
+    def getFirstPageShown(self) -> int:
+        """ Alias function: returns the relative offset for the book"""
+        return self.relative_offset
+
+    """ END OF PAGE ROUTINES"""
+
     def filepath(self, bookPath: str = None) -> str:
         """ Return the bookpath for this book or the normalised bookpath"""
         if bookPath is None:
@@ -439,12 +422,6 @@ class DilBook(DbBook):
         self.numberRecent = DbSystem().getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
         return super().getRecent(limit=self.numberRecent)
 
-    def getAspectRatio(self) -> bool:
-        return (BOOK.aspectRatio not in self.book or self.book[BOOK.aspectRatio] == 1)
-
-    def getID(self) -> int:
-        return self.get_property(BOOK.id)
-
     def getBooknameByID(self, id: int = None) -> str:
         """
             This will get the book name form the database rather than
@@ -456,6 +433,65 @@ class DilBook(DbBook):
         if book is None:
             raise RuntimeError("No book found for ID: {}".format(id))
         return book[BOOK.name]
+
+
+    def getNote(self) -> str:
+        return self.get_property(BOOK.note)
+
+
+    """
+        PROPERTY FUNCTIONS
+    """
+    
+    def get_properties(self) -> dict | None:
+        """ Return all of the properties for the book """
+        return self.book
+    
+    def get_property(self, key: str, default=None, system=False) -> str:
+        """ Get one property from the book if set
+            If system is True, it will get the system value if the book value isn't set
+            default will be returned if there is no value to return
+        """
+        if self.book is None or key not in self.book:
+            if system:
+                return DbSystem().getValue(key, default)
+            return default
+        return self.book[ key ]
+
+    def set_property(self, key: str, value=None) -> bool:
+        """
+            Set property for both the change list and the book
+            If anything (other than name) is changed, return True
+        """
+        if key not in self.book or self.book[key] != value:
+            self.changes[key] = value
+            self.book[key] = value
+            return True
+        return False
+
+    def getID(self) -> int:
+        """ Convenience function. Return the BOOK id """
+        return self.get_property(BOOK.id)
+    
+    @property
+    def title(self) -> str:
+        """ Convenience function. Return book name"""
+        return self.get_property(BOOK.name)
+
+    @title.setter
+    def setTitle(self, newTitle: str) -> bool:
+        return self.set_property(BOOK.name, newTitle)
+
+    @property
+    def keep_aspect_ratio(self) -> bool:
+        """ Return the book aspect ratio stored or True if not set """
+        return (self.get_property(BOOK.aspectRatio, 1) == 1)
+
+    @keep_aspect_ratio.setter
+    def keep_aspect_ratio(self, aspect: bool) -> bool:
+        newAspect = 1 if aspect else 0
+        return self.set_property(BOOK.aspectRatio, newAspect)
+
 
     def update_properties(self, change_list: dict) -> bool:
         """ Update properties for a book based on dictionary 
@@ -470,17 +506,6 @@ class DilBook(DbBook):
             return True
         return False
 
-    def get_properties(self) -> dict | None:
-        """ Return all of the properties for the book """
-        return self.book
-
-    def get_property(self, key: str, default=None) -> str:
-        """ Get one property and, if doesn't exist, return default value"""
-        return (self.book[key] if self.book is not None and key in self.book else default)
-
-    def getPropertyOrSystem(self, key: str) -> str:
-        return ((self.book[key] if self.book is not None and key in self.book else DbSystem().getValue(key)))
-
     def write_properties(self):
         """
             We have several differenty keystores: some in Book and
@@ -494,19 +519,10 @@ class DilBook(DbBook):
         # Because we may have changed the book we need to check on the previous name
 
         if len(database) > 0:
-            database[BOOK.book] = self.getTitle()
+            database[BOOK.book] = self.title
             self.update(**database)
 
         self.changes = {}
-
-    def set_property(self, key: str, value=None) -> bool:
-        """
-            Set property for both the change list and the book
-            If anything (other than name) is changed, return True
-        """
-        self.changes[key] = value
-        self.book[key] = value
-        return len(self.changes) > 0
 
     def _book_default_values(self, bookDir: str) -> dict:
         rtn = {}
@@ -558,7 +574,7 @@ class DilBook(DbBook):
         book_info = self._book_default_values(bookDir)
         if book_info[BOOK.totalPages] == 0:
             return (book_info, "No pages for book")
-        if self._use_toml_file :
+        if self._use_toml_file:
             from qdb.mixin.tomlbook import MixinTomlBook
             book_info.update(MixinTomlBook().read_toml_properties(bookDir))
 

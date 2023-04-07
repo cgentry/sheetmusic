@@ -39,7 +39,7 @@ class TestDbBook(unittest.TestCase):
         del s
         self.book = DbBook()
         self.book.showStack(False)
-        self.book.logger.setLevel( logging.CRITICAL )
+        self.book.logger.setlevel( logging.CRITICAL )
         self.query = QSqlQuery( DbConn.db() )
     
     def tearDown(self):

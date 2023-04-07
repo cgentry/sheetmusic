@@ -84,7 +84,7 @@ class TestSetup(unittest.TestCase):
 
         self.assertTrue(self.query.exec(self.sql_get_tablenames))
         self.query.next()
-        self.assertEqual(7, self.query.value(0))
+        self.assertEqual(8, self.query.value(0))
         self.query.finish()
 
     def test_dropTables(self):
@@ -93,12 +93,12 @@ class TestSetup(unittest.TestCase):
 
         self.assertTrue(self.query.exec(self.sql_get_tablenames))
         self.assertTrue(self.query.next())
-        self.assertEqual(0, self.query.value(0))
+        self.assertEqual(0, self.query.value(0), 'Number of tables')
         self.query.finish()
 
         self.assertTrue(self.query.exec(self.sql_get_viewnames))
         self.query.next()
-        self.assertEqual(0, self.query.value(0))
+        self.assertEqual(0, self.query.value(0), 'Number of views')
         self.query.finish()
 
     def test_initGenre(self):

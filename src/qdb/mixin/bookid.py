@@ -12,11 +12,13 @@ class MixinBookID:
 
     def lookup_book_id(self, book: str | int) -> int|None:
         """ Fetch the book ID and cache it for future access. If none found, return None"""
+        if book is None:
+            return None
         if isinstance(book, str):
             if self._current_book_name != book or self._current_book_id is None:
                 self._current_book_name = book
                 self._current_book_id = DbHelper.fetchone(MixinBookID.SQL_MX_LOOKUP_BY_NAME, book, default=None)
-                if id is not None:
+                if self._current_book_id :
                     self._current_book_id = int( self._current_book_id )
         else:
             self._current_book_id = book

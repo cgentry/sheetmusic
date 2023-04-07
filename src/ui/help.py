@@ -34,7 +34,7 @@ class UiHelp( QDialog ):
             )
             self.helpEngine.setupData()
         except Exception as err:
-            self.logger.exception( "Setting up Help system")
+            self.logger.critical( f"Setting up Help system: '{str(err)}'")
             raise err
 
         layout = QVBoxLayout()

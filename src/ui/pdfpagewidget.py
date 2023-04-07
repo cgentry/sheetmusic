@@ -93,7 +93,7 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
     def __init__(self, name: str):
         PageDisplayMixin.__init__( self, name )
         ISheetMusicDisplayWidget.__init__(self)
-        self._use_pdf_viewer = True
+        self._use_pdf_viewer = False
 
         self.logger = DbLog('PdfPageWidget')
         self._current_pdf = QPdfDocument()

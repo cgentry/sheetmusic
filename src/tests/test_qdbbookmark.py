@@ -65,7 +65,7 @@ class TestDbBookmark(unittest.TestCase):
 
         self.obj = DbBookmark()
         self.obj.showStack(False)
-        self.obj.logger.setLevel( logging.CRITICAL )
+        self.obj.logger.setlevel( logging.CRITICAL )
 
     def tearDown(self):
         # (_, cursor) = DbConn().openDB()
@@ -133,11 +133,11 @@ class TestDbBookmark(unittest.TestCase):
 
     def test_count( self ):
         count = self.obj.count(book='test1')
-        self.assertEqual( count, 4)
+        self.assertEqual( count, 4, 'Count of test1 should be 4')
         count = self.obj.count(book='test2')
-        self.assertEqual( count, 2)
+        self.assertEqual( count, 2, 'Count of test2 should be 2')
         count = self.obj.count(book='test3')
-        self.assertEqual( count, 0 )
+        self.assertEqual( count, 0 , 'Count of test3 should be zero')
 
     def test_getallbookmarks( self ):
         bk = self.obj.getAll( 'test1' )

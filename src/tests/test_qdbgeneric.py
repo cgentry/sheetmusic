@@ -41,7 +41,7 @@ class TestDbGeneric( unittest.TestCase ):
         self.sys.createTables()
         self.sys.initGenre()
         self.dummy = DummyData()
-        self.dummy.logger.setLevel( logging.CRITICAL )
+        self.dummy.logger.setlevel( logging.CRITICAL )
 
     def tearDown(self):
         #self.sys.dropTables()

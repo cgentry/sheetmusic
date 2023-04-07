@@ -195,7 +195,7 @@ class Setup():
             for viewCreate in views:
                 self.query.exec( "CREATE VIEW IF NOT EXISTS {};".format(viewCreate))
         except Exception as err:
-            self.logger.exception("Invalid view: '{}".format( viewCreate ) )
+            self.logger.critical("Invalid view: '{}".format( viewCreate ) )
             raise err
 
         self.query.exec( booktrigger )
@@ -208,7 +208,7 @@ class Setup():
             You really don't want to do this casually. It will wipe out ALL the data
         """
         tables = [
-            "Book","Genre","Composer","Bookmark","System","Booksetting","Note"
+            "Book","Bookmark","Booksetting","Composer","Genre","Log","Note", "System"
         ]
         views = ["BookView","BookmarkView","BookSettingView"]
 

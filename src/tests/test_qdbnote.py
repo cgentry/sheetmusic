@@ -66,7 +66,7 @@ class TestNote(unittest.TestCase):
 
         self.obj = DbNote()
         self.obj.showStack(False)
-        self.obj.logger.setLevel( logging.CRITICAL )
+        self.obj.logger.setlevel( logging.CRITICAL )
 
     def tearDown(self):
         # (_, cursor) = DbConn().openDB()

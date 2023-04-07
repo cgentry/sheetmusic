@@ -36,10 +36,15 @@ class DbBookSettings( MixinBookID, DbBase ):
     SQL_BOOKSETTING_GET="""SELECT * FROM BookSettingView WHERE book_id=? AND key=?"""
 
     SQL_GET_VALUE="""
-            SELECT value AS setting, 'setting' AS source 
-            FROM Booksetting WHERE book_id = ? AND key=?
+            SELECT value AS setting, 
+                   'setting' AS source 
+            FROM Booksetting 
+            WHERE book_id = ? AND key=?
         UNION ALL
-            SELECT value AS setting, 'sytem' AS source FROM System WHERE key=?"""
+            SELECT value AS setting, 
+                   'sytem' AS source 
+            FROM System 
+            WHERE key=?"""
     SQL_BOOKSETTING_FALLBACK="""
         SELECT   book, id AS book_id, System.key as key, System.value as value
             FROM Book, System
@@ -84,6 +89,8 @@ class DbBookSettings( MixinBookID, DbBase ):
             You can ask for all entries and get a list of dictionaries
             Or you can get a 'query' returned so you can retrieve them one-by-one
         """
+        if not book:
+            raise ValueError('No book id')
         sql = DbBookSettings.SQL_BOOKSETTING_ALL.replace(':order', order)
         if fetchall:
             return DbHelper.fetchrows( sql , self.lookup_book_id( book ), self.columnView , endquery=self._checkError )
@@ -130,8 +137,10 @@ class DbBookSettings( MixinBookID, DbBase ):
             
             if key in DbBookSettings.encoded_keys :
                 value = DbHelper.encode( value )
+            else:
+                value = str( value )
 
-            parms = [self.lookup_book_id(id ), key, value ]
+            parms = [self.lookup_book_id(book), key, value ]
             sql = DbBookSettings.SQL_BOOKSETTING_ADD.format( ('OR IGNORE ' if ignore else ''))
             query = DbHelper.bind( DbHelper.prep( sql ), parms )
             query.exec()
@@ -140,7 +149,7 @@ class DbBookSettings( MixinBookID, DbBase ):
             
             query.finish()
         except Exception as err:
-            self.logger.exception("setValueById BookID: '%s' Key: '%s' [%s]",  id, key ,str(err) , stacklevel=1)
+            self.logger.critical("setValueById BookID: '%s' Key: '%s' [%s]".format( id, key ,str(err) ) , trace=True)
             if ignore:
                 return False
             raise err
@@ -151,9 +160,11 @@ class DbBookSettings( MixinBookID, DbBase ):
         
     def upsertBookSetting(self, book: str | int=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
         try:
+            if book is None or key is None:
+                raise ValueError( 'No book or key passed')
             sqlid = ( id if id is not None else self.lookup_book_id(book))
         except Exception as err:
-            self.logger.exception("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]", book, id, key, str(err) , stacklevel=1)
+            self.logger.critical("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]".format( book, id, key, str(err) ), trace=True)
             if ignore:
                 return False
             raise err
@@ -173,6 +184,8 @@ class DbBookSettings( MixinBookID, DbBase ):
             Return record number deleted. 
         """
         try:
+            if not book:
+                raise ValueError('No book id')
             parms = [ self.lookup_book_id(book=book ), key]
             query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_DELETE, ), parms )
             query.exec()
@@ -180,7 +193,7 @@ class DbBookSettings( MixinBookID, DbBase ):
             rowcount = query.numRowsAffected()
             query.finish()
         except Exception as err:
-            self.logger.exception("deleteValue. Book: '%s' Key: '%s' [%s]", book, key, str(err), stacklevel=1 )
+            self.logger.critical("deleteValue. Book: '%s' Key: '%s' [%s]".format( book, key, str(err) ), trace=True )
             if ignore:
                 return 0
             raise err
@@ -192,13 +205,15 @@ class DbBookSettings( MixinBookID, DbBase ):
             If the book isn't found, you may get an exception (ignore=false)
             Return record number deleted. """
         try:
+            if not book:
+                raise ValueError('No book id')
             query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_DELETE_ALL, ), self.lookup_book_id(book) )
             query.exec()
             self._checkError( query )
             rowcount = query.numRowsAffected()
             query.finish()
         except Exception as err:
-            self.logger.exception("dbooksettings.deleteAllValues. BookID: '%s' [%s]", book, str(err), stacklevel=1)
+            self.logger.critical("dbooksettings.deleteAllValues. BookID: '%s' [%s]".format( book, str(err)) )
             if ignore:
                 return 0
             raise err

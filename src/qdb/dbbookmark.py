@@ -190,6 +190,6 @@ class DbBookmark(MixinBookID, DbBase):
             Return how many bookmarks are in a book
         """
         id = self.lookup_book_id(book)
-        if id is None or id < 1:
+        if not id:
             return 0
         return DbHelper.fetchone(DbBookmark.SQL_BOOKMARK_GET_COUNT, id, default=0)
