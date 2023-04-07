@@ -1,3 +1,23 @@
+# vim: ts=8:sts=8:sw=8:noexpandtab
+#
+# This file is part of SheetMusic
+# Copyright: 2022,2023 by Chrles Gentry
+#
+# This file is part of Sheetmusic.
+
+# Sheetmusic is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 import platform
 
 Symbols = {
@@ -7,7 +27,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.6.04"
+    version      = "0.6.05"
     version_main = "0.6"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -49,6 +69,7 @@ class DbKeys():
     VALUE_RECENT_SIZE_DEFAULT = 10
     VALUE_SHEETMUSIC_DOC        = 'sheetmusic_doc'
     VALUE_SHEETMUSIC_INDEX      = "index.doc"
+    VALUE_RENDER_PDF            = False
     
     ###
     #       STORED IN ONLY IN QPREFERENCES
@@ -81,6 +102,7 @@ class DbKeys():
     SETTING_LAST_BACKUP         = 'last_backup'    ## Where we stored the last backup
     SETTING_LOGGING_ENABLED     = 'logging_enabled'## Logging enabled 1-9 are levels 0 is None.
     SETTING_VERSION             = 'version'        ## Database Version (current)
+    SETTING_RENDER_PDF          = 'viewer_pdf'
 
     #       book settings
     SETTING_LAST_BOOK_NAME      = 'book'            ## Last book opened.

@@ -1,3 +1,24 @@
+# vim: ts=8:sts=8:sw=8:noexpandtab
+#
+# This file is part of SheetMusic
+# Copyright: 2022,2023 by Chrles Gentry
+#
+# This file is part of Sheetmusic.
+
+# Sheetmusic is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
 from util.pdfclass import PdfDimensions
 
 class PageDisplayMixin:
@@ -12,7 +33,7 @@ class PageDisplayMixin:
         self._identity = name
         self._pageNumber =  PageDisplayMixin.PAGE_NONE 
         self._is_clear = True
-        self.dimensions = dimension
+        self._dimensions = dimension
 
     def identity(self)->str:
         return self._identity 
@@ -56,6 +77,7 @@ class PageDisplayMixin:
         return self._dimensions 
     
     @dimensions.setter
-    def dimensions( self, dimensions:PdfDimensions):
-        self._dimensions = dimensions
-    
+    def dimensions( self, pdf_dimensions:PdfDimensions):
+        if pdf_dimensions:
+            self._dimensions = pdf_dimensions
+

@@ -23,11 +23,14 @@ from PySide6.QtPdf import QPdfDocument
 from PySide6.QtPdfWidgets import QPdfView
 from PySide6.QtWidgets import QApplication
 
-from qdb.log import DbLog, Trace
+from qdb.log import DbLog
+from qdb.dbsystem import DbSystem
+from qdb.keys import DbKeys
 from ui.mixin.pagedisplay import PageDisplayMixin
 from ui.interface.sheetmusicdisplay import ISheetMusicDisplayWidget
 from ui.label import LabelWidget
 from util.pdfclass import PdfDimensions
+from util.convert import toBool
 
 
 class PdfView(PageDisplayMixin,QPdfView):
@@ -70,7 +73,7 @@ class PdfLabel(LabelWidget):
             if page == 0 or page is None:
                 return False
             if not self.dimensions.isSet :
-                print('DIMENSIONS NOT SET')
+                print('DIMENSIONS NOT SET in navigate')
                 self.dimensions.checkSizeDocument( self.pdfDocument )
             render_size = self.dimensions.equalisePage( self.pdfDocument, page ).__mul__( self.ratio )
             self.setPageNumber( page )
@@ -91,10 +94,10 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
                  QPdfDocument.Error.UnsupportedSecurityScheme: 'Locked'}
 
     def __init__(self, name: str):
+        self._widget = None
         PageDisplayMixin.__init__( self, name )
         ISheetMusicDisplayWidget.__init__(self)
-        self._use_pdf_viewer = False
-
+        self._use_pdf_viewer = toBool( DbSystem().getValue( DbKeys.SETTING_RENDER_PDF, DbKeys.VALUE_RENDER_PDF) , False)
         self.logger = DbLog('PdfPageWidget')
         self._current_pdf = QPdfDocument()
         self._create_viewer(name)
@@ -162,6 +165,7 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
             self.logger.debug('pdf doc title is {}'.format(
                 pdfdoc.metaData(QPdfDocument.MetaDataField.Title)))
             self._current_pdf = pdfdoc
+
         self.widget().dimensions = self.dimensions
         self.widget().setDocument(self._current_pdf )
         return self.setClear(True)
@@ -195,6 +199,8 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
             return False
         
         self.logger.debug(f'Set page to {page}')
+        print( 'propogate dimensions - set pagenumber', self.dimensions)
+        self.widget().dimensions = self.dimensions
         return self.widget().navigate( page )
     
     def pageNumber(self)->int:

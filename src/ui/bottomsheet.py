@@ -97,14 +97,16 @@ class BottomSheet():
         self.page_height = None
         self.smartTurn = False
 
-    def setDimensions( self, dimensions:PdfDimensions):
-        self._dimensions = dimensions
-
     def dimensions( self )->PdfDimensions:
         if self._dimensions is None:
             self.setDimensions( PdfDimensions() )
         return self._dimensions 
 
+    def setDimensions( self, dimensions:PdfDimensions):
+        self._dimensions = dimensions
+        for page in self.pageRefs:
+            page.widget().dimensions = self.dimensions 
+  
     def createMainPageWidget(self, name:str) -> QWidget:
         """ This will create the main widget used to hold the pages"""
         self.mainPageWidget = QWidget()
@@ -345,8 +347,11 @@ class BottomSheet():
             either 'smart' page turn or for simple page turning.
         """
         self.logger.debug( 'Load {} {} {}'.format( page_number1, page_number2, page_number3))
+        self.pageRefs[0].dimensions = self.dimensions
         self.pageRefs[0].setContentPage(content_1, page_number1)
+        self.pageRefs[1].dimensions = self.dimensions
         self.pageRefs[1].setContentPage(content_2, page_number2)
+        self.pageRefs[2].dimensions = self.dimensions
         self.pageRefs[2].setContentPage(content_3, page_number3)
         self.direction = self.FORWARD
         self._size_pages()

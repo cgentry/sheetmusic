@@ -33,7 +33,7 @@ from qdb.keys import DbKeys, ImportNameSetting, LOG
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImageReader, QFont, QIntValidator
 from PySide6.QtWidgets import (
-    QApplication, QButtonGroup,  QCheckBox,
+    QAbstractButton, QButtonGroup,  QCheckBox,
     QComboBox,    QDialog,       QDialogButtonBox,
     QFileDialog,  QGridLayout,   QHBoxLayout,
     QLabel,       QLineEdit,     QMessageBox,
@@ -182,8 +182,8 @@ class UiPreferences(QDialog):
         return self.widgetFile
 
     def createBookSettings(self) -> QWidget:
-        labels = ["Book page formatted as", 'Default Genre',
-                  "Page layout", None, None, None, None]
+        labels = ["Book page import to format<br/>(Does not apply to PDF documents)", 'Default Genre',
+                  "Page layout", "Page controls", None, None, None]
         self.widgetBook = QWidget()
         self.layoutBook = QGridLayout()
         self.labelGrid(self.layoutBook, labels)
@@ -336,6 +336,38 @@ class UiPreferences(QDialog):
 
         row += 1
         return row
+    
+    def formatUsePdf( self, layout: QGridLayout, row:int)->int:
+        usePDF = self.settings.getValueBool(
+            DbKeys.SETTING_RENDER_PDF, DbKeys.VALUE_RENDER_PDF)
+        
+        self.btnUsePdfViewer = QRadioButton()
+        self.btnUsePdfViewer.setText(u"Render PDF pages using PDF Viewer")
+        self.btnUsePdfViewer.setObjectName('True')
+
+        self.btnUseLabelViewer = QRadioButton()
+        self.btnUseLabelViewer.setText(u"Render PDF pages using images")
+        self.btnUseLabelViewer.setObjectName('False')
+
+        self.btnBox = QButtonGroup()
+        self.btnBox.addButton(self.btnUsePdfViewer)
+        self.btnBox.addButton(self.btnUseLabelViewer)
+
+        btnLayout = QGridLayout()
+        btnLayout.addWidget(self.btnUsePdfViewer,    0, 0)
+        btnLayout.addWidget(self.btnUseLabelViewer,  1, 0)
+
+        if usePDF :
+            self.btnUsePdfViewer.setChecked(True)
+        else:
+            self.btnUseLabelViewer.setChecked(True)
+
+        layout.addLayout(btnLayout, row, 1)
+        self.btnBox.buttonClicked.connect(self.action_use_pdf)
+
+        row += 1
+        return row
+
 
     def formatFiletype(self, layout: QGridLayout, row: int) -> int:
         self.cmbType = QComboBox()
@@ -533,6 +565,7 @@ class UiPreferences(QDialog):
         row = self.formatReopenLastBook(self.layoutBook, row)
         row = self.formatAspectRatio(self.layoutBook, row)
         row = self.formatSmartPages(self.layoutBook, row)
+        row = self.formatUsePdf( self.layoutBook, row )
         #
         row = self.formatScript(self.layoutShellScript, 0)
         row = self.formatScriptVars(self.layoutShellScript, row)
@@ -702,6 +735,11 @@ class UiPreferences(QDialog):
 
     def action_log_changed( self, value ):
         self.states[DbKeys.SETTING_LOGGING_ENABLED] = self.cmbLogging.currentData()
+        self.flagChanged = True
+
+    def action_use_pdf( self, buttonObject:QAbstractButton ):
+        self.states[ DbKeys.SETTING_RENDER_PDF] = ( buttonObject.objectName() == 'True' )
+        print( 'use pdf is now' , self.states[ DbKeys.SETTING_RENDER_PDF] ,', object name was', buttonObject.objectName())
         self.flagChanged = True
 
     def action_type_changed(self, value):

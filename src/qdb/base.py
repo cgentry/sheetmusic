@@ -20,9 +20,7 @@ class DbBase():
         pass
 
     def setupLogger(self):
-        print('ksetupLogger')
         self.logger = DbLog(self.__class__.__name__)
-        print( 'end setupLogger')
 
     def getReturnCode(self, query: QSqlQuery):
         rtn = self.wasGood() and query.numRowsAffected() > 0

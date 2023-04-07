@@ -22,9 +22,11 @@ from qdb.dbbook import DbBook
 from qdb.dbbooksettings import DbBookSettings
 from qdb.dbbookmark import DbBookmark
 from qdb.dbsystem import DbSystem
-from qdb.keys import DbKeys, BOOK, BOOKPROPERTY
+from qdb.keys import DbKeys, BOOK, BOOKPROPERTY, BOOKSETTING
 from util.convert import toInt
 from PySide6.QtWidgets import QMessageBox
+from PySide6.QtPdf import QPdfDocument
+from util.pdfclass import PdfDimensions
 
 import fnmatch
 import os
@@ -175,6 +177,20 @@ class DilBook(DbBook):
 
         return QMessageBox.AcceptRole
 
+    def _fix_book( self ):
+        """ Fix any data for the book that may be missing or in error """
+        if ( BOOKSETTING.dimensions not in self.book or 
+            self.book[ BOOKSETTING.dimensions] is None or 
+            not isinstance( self.book[BOOKSETTING.dimensions], PdfDimensions)  or
+            not self.book[BOOKSETTING.dimensions].isSet ):
+                pdfdoc = QPdfDocument()
+                rtn = pdfdoc.load( self.book[ BOOK.source ])
+                if rtn != QPdfDocument.Error.None_:
+                    return
+                dimension = PdfDimensions()
+                dimension.checkSizeDocument( pdfdoc )
+                self.set_property(BOOKSETTING.dimensions , dimension )
+
     def open(self, book: str, page=None, fileType="png", onError=None) -> QMessageBox.ButtonRole:
         """
             Close current book and open new one. Use BookView for data
@@ -187,14 +203,13 @@ class DilBook(DbBook):
         rtn = self._check_book(book, open_book, onError)
         if rtn == QMessageBox.AcceptRole:
             self.book = open_book
-            data = self.dbooksettings.getAll(self.book[BOOK.id])
-            for entry in data:
-                self.book[entry['key']] = entry['value']
+            
+            self.book.update( self.dbooksettings.getAllSetting( self.book[BOOK.id]))
             self.setPaths()
             self.updateReadDate(self.book[BOOK.book])
             if page is not None:
                 self.book[BOOK.lastRead] = page
-
+            self._fix_book()
         return rtn
 
     def close(self):
@@ -514,8 +529,7 @@ class DilBook(DbBook):
         book_id = self.getID()
         settings, database = self._splitParms(self.changes)
         for key in settings:
-            self.dbooksettings.upsertBookSetting(
-                id=book_id, key=key, value=self.changes[key])
+            self.dbooksettings.upsertBookSetting(book_id, key, self.changes[key])
         # Because we may have changed the book we need to check on the previous name
 
         if len(database) > 0:

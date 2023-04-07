@@ -99,6 +99,13 @@ class DbBookSettings( MixinBookID, DbBase ):
         self._checkError( query )
         return query
     
+    def getAllSetting( self, book:str|int=None , order:str='key')->dict:
+        """ This returns all the settings """
+        settings = {}
+        for entry in self.getAll( book, order ):
+            settings[ entry['key']] = self._decode( entry['key'], entry['value'] )
+        return settings
+
     def getSetting( self, book:str=None, key:str=None, fallback=True ):
         if not key:
             raise ValueError( "No lookup key")
@@ -107,18 +114,27 @@ class DbBookSettings( MixinBookID, DbBase ):
         if rows is not None and len(rows)>0:
             if len( rows ) == 1 :
                 if fallback:
-                    return rows[0]['setting']
+                    return self._decode( key, rows[0]['setting'] )
             else:
-                return rows[0]['setting']
+                return self._decode( key,rows[0]['setting'] )
         return None
 
+    def _encode( self , key , value ):
+        if key in DbBookSettings.encoded_keys :
+            return DbHelper.encode( value )
+        return value
+        
+    def _decode( self, key, value ):
+        if value is not None and key in DbBookSettings.encoded_keys :
+            return DbHelper.decode( value )
+        return value
+        
     def getValue( self, book:str=None, key:str=None, fallback=True, default=None)->Any:
         """ Fetch value for Book key or fallback to the system setting 
             If no value exists, you get 'None'
         """
         value = self.getSetting(book=book, key=key, fallback=fallback)
-        if key in DbBookSettings.encoded_keys :
-            value = DbHelper.decode( value )
+        value = self._decode( key, value )
         return value if value is not None else default
 
     def getBool( self, book=None, key=None, fallback=True, default=False)->bool:
@@ -135,11 +151,7 @@ class DbBookSettings( MixinBookID, DbBase ):
             if key is None or value is None:
                 raise ValueError('Key and value are required')
             
-            if key in DbBookSettings.encoded_keys :
-                value = DbHelper.encode( value )
-            else:
-                value = str( value )
-
+            value = self._encode( key, value )
             parms = [self.lookup_book_id(book), key, value ]
             sql = DbBookSettings.SQL_BOOKSETTING_ADD.format( ('OR IGNORE ' if ignore else ''))
             query = DbHelper.bind( DbHelper.prep( sql ), parms )
@@ -158,17 +170,17 @@ class DbBookSettings( MixinBookID, DbBase ):
     def setValue(self, book: str | int=None, key=None, value=None, ignore=False )->bool:
         return self.setValueById( book, key, value, ignore )
         
-    def upsertBookSetting(self, book: str | int=None, id:int=None,  key:str=None, value:str=None, ignore=False )->bool:
+    def upsertBookSetting(self, book: str | int=None,   key:str=None, value:str=None, ignore=False )->bool:
         try:
             if book is None or key is None:
-                raise ValueError( 'No book or key passed')
-            sqlid = ( id if id is not None else self.lookup_book_id(book))
+                raise ValueError( f'No book or key passed BOOK: {book} KEY: {key} VALUE: {value}')
+            sqlid = ( book if book is not None and isinstance( book, int ) else self.lookup_book_id(book))
         except Exception as err:
             self.logger.critical("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]".format( book, id, key, str(err) ), trace=True)
             if ignore:
                 return False
             raise err
-
+        value = self._encode( key, value )
         parms = [ sqlid, key, value]
         query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_UPSERT, ), parms)
         query.exec()
