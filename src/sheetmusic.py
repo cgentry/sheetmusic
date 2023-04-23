@@ -24,10 +24,11 @@
 """
 
 from genericpath import isfile
-import sys
-import os
+import gc
 import logging
+import os
 import platform
+import sys
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QApplication, QMainWindow,  QMessageBox, QDialog, QFileDialog
@@ -49,7 +50,6 @@ from ui.properties import UiProperties
 from ui.bookmark import UiBookmark
 from ui.file import Openfile, Deletefile, DeletefileAction, Reimportfile
 from ui.note import UiNote
-from ui.runscript import RunSilentRunDeep
 
 from util.convert import toBool
 from util.toollist import GenerateToolList
@@ -213,7 +213,7 @@ class MainWindow(QMainWindow):
             aspect_ratio = self.book.keep_aspect_ratio
             self.book.pagenumber = self.book.lastPageRead 
 
-            self.ui.showPager( self.book.getFileType() )
+            self.ui.showPager( self.book.getFileType(), self.book.renderbookpdf() )
             self.ui.pageWidget().setDisplay(book_layout)
             self.ui.pageWidget().setSmartPageTurn( smart_page_turn )
             self.ui.pageWidget().setKeepAspectRatio(aspect_ratio)
@@ -253,6 +253,7 @@ class MainWindow(QMainWindow):
             cache.clear()
         self._set_menu_book_options(False)
         self.ui.mainWindow.hide()
+        gc.collect()
 
     def setupWheelTimer(self) -> None:
         self.wheelTimer = QTimer(self)
@@ -599,23 +600,45 @@ class MainWindow(QMainWindow):
 
     def _action_file_delete(self) -> None:
         df = Deletefile()
-        rtn = df.exec()
-        if rtn == QMessageBox.Accepted and df.bookName is not None:
-            self.logger.info( 'Deleted book {}'.format( df.bookName ))
-            DeletefileAction(df.bookName)
+        if df.delete():
+            self.logger.info( f'Deleted book {df.bookName}')
+
+    def _show_import_status(self, good_completion, number_files:int ):
+        dlg = QMessageBox()
+        dlg.setIcon( QMessageBox.Information )
+        dlg.setWindowTitle( 'Import PDF Documents')
+        dlg.setStandardButtons( QMessageBox.StandardButton.Ok )
+        if good_completion :
+            dlg.setText( f"Imported {number_files} documents." )
+            print('ok')
+        else:
+            dlg.setText( "Failed to import documents")
+            print('fail')
+        dlg.show()
+        rtn=dlg.exec()
 
     def _action_file_import_document(self)->None:
-        from util.toolconvert import UiImportPDFDocument
-        uiconvert = UiImportPDFDocument()
+        from util.toolconvert import UiImportPDFDocuments
+        uiconvert = UiImportPDFDocuments()
         uiconvert.setBaseDirectory(self.import_dir)
         uiconvert.process_files()
-        uiconvert.add_books_to_library()
+        ui_completion = uiconvert.add_books_to_library()
         self.import_dir = str(uiconvert.baseDirectory())
+        len_files = len( uiconvert.importFiles() )
         del uiconvert
+        self._show_import_status( ui_completion , len_files )
+        
+        print( ui_completion, 'done with action file import document')
+        
 
     def _action_file_import_document_dir(self)->None:
-        import ui.util
-        ui.util.not_yet_implemented()
+        from util.toolconvert import UiImportPdfDirectory
+        uiconvert = UiImportPdfDirectory()
+        uiconvert.setBaseDirectory(self.import_dir)
+        uiconvert.process_files()
+        ui_completion = uiconvert.add_books_to_library()
+        self.import_dir = str( uiconvert.baseDirectory() )
+        del uiconvert
 
     def _action_file_select_import(self) -> None:
         """ Select a PDF import script """
@@ -624,20 +647,26 @@ class MainWindow(QMainWindow):
         importset.pick_import()
 
     def _action_file_import_PDF(self) -> None:
-        from util.toolconvert import UiConvertPDF
-        uiconvert = UiConvertPDF()
+        from util.toolconvert import UiConvertFilenames
+        uiconvert = UiConvertFilenames()
         uiconvert.setBaseDirectory(self.import_dir)
         uiconvert.process_files()
-        uiconvert.add_books_to_library()
+        if uiconvert.add_books_to_library():
+            QMessageBox.information(
+                None,
+                'Import PDF Files to Images',
+                "Converted {} PDFs.".format( len( uiconvert.importFiles() )),
+                QMessageBox.Ok
+            )
         self.import_dir = str(uiconvert.baseDirectory())
         del uiconvert
 
     def _action_file_import_dir(self) -> None:
-        from util.toolconvert import UiConvertDirectory
-        uiconvert = UiConvertDirectory()
+        from util.toolconvert import UiConvertPDFDocumentDirectory
+        uiconvert = UiConvertPDFDocumentDirectory()
         uiconvert.setBaseDirectory(self.import_dir)
-        uiconvert.exec_()
-        self._importPDF(uiconvert.data, uiconvert.getduplicateList())
+        uiconvert.process_files()
+        ui_completion = uiconvert.add_books_to_library()
         self.import_dir = uiconvert.baseDirectory()
         del uiconvert
 
@@ -654,7 +683,7 @@ class MainWindow(QMainWindow):
                     return
 
             if uiconvert.processFile(book[BOOK.source]):
-                self._importPDF(uiconvert.data, uiconvert.getDuplicateList())
+                ui_completion = uiconvert.add_books_to_library()
             del uiconvert
         del rif
 
@@ -723,13 +752,11 @@ class MainWindow(QMainWindow):
         self._action_refresh()
 
     def _action_edit_properties(self) -> None:
-        property_editor = UiProperties()
-        property_editor.set_properties( self.book.get_properties() )
+        property_editor = UiProperties(self.book.get_properties() )
         if property_editor.exec():
-            if self.book.update_properties( property_editor.changes ):
-                self.setTitle()
-                self.update_status_bar()
-                self.loadPages()
+            if self.book.update_properties( property_editor.get_changes() ):
+                bookname = self.book.title
+                self.open_book( bookname )
 
     def _action_edit_preferences(self) -> None:
         try:
@@ -740,13 +767,10 @@ class MainWindow(QMainWindow):
             changes = pref.getChanges()
             if len(changes) > 0:
                 self.pref.saveAll(changes)
-            settings = self.pref.getAll()
-            self.ui.setNavigationShortcuts(settings)
-            self.ui.setBookmarkShortcuts(settings)
-            viewState = self.book.get_property(BOOKPROPERTY.layout, system=True)
-            self.ui.pager.setDisplay(viewState)
-            self._set_menu_page_options(viewState)
-            self.loadPages()
+            # settings = self.pref.getAll()
+            # self.ui.setNavigationShortcuts(settings)
+            # self.ui.setBookmarkShortcuts(settings)
+                self.open_book( self.book.title )
         except Exception as err:
             self.logger.critical('Error opening preferences: {}'.format( str(err)))
             QMessageBox.critical(
@@ -772,7 +796,8 @@ class MainWindow(QMainWindow):
     def _action_refresh(self) -> None:
         cache = QPixmapCache()
         cache.clear()
-        self.reloadPages()
+        self.open_book( self.book.title )
+        
 
     def _action_view_one_page(self) -> None:
         self._set_display_page_layout(DbKeys.VALUE_PAGES_SINGLE)
@@ -901,12 +926,12 @@ class MainWindow(QMainWindow):
     def _action_tool_script(self, action: QAction) -> None:
         if action is not None:
             if action.text() in self.toollist:
-                from ui.runscript import ScriptKeys, UiRunSimpleNote, UiRunScriptFile
+                from ui.runscript import UiRunSimpleNote, UiRunScript
                 key = action.text()
                 if self.toollist[key].isSimple():
                     runner = UiRunSimpleNote(self.toollist[key].path())
                 else:
-                    runner = UiRunScriptFile(self.toollist[key].path())
+                    runner = UiRunScript(self.toollist[key].path())
                 runner.run()
 
     def actionGoBookmark(self) -> None:
@@ -996,28 +1021,6 @@ class MainWindow(QMainWindow):
         self.ui.pager.setDisplay(value)
         self._set_menu_page_options(value)
         self.loadPages()
-
-    def _importPDF(self, insertData, duplicateData):
-        """ Import PDF imports all the PDF content and re-imports previous bookmarks """
-        dilb = DilBook()
-        bookmarks = {}
-        if len(duplicateData) > 0:
-            for loc in duplicateData:
-                bookmark = self.bookmark.getAll( dilb.lookup_book_by_column( BOOK.source, loc ))
-                if bookmark is not None:
-                    bookmarks[ loc ] = bookmark
-                dilb.delete( BOOK.source , loc )
-
-        if len(insertData) > 0:
-            for book_data in insertData:
-                new_book = dilb.newBook(**book_data)
-                if book_data[ BOOK.source ] in bookmarks:
-                    for marks in bookmarks[ book_data[ BOOK.source ]]:
-                        self.bookmark.add(
-                            new_book[ BOOK.id ], 
-                            marks[BOOKMARK.name ], 
-                            marks[BOOKMARK.page ]
-                        )
 
     def _lost_and_found_book(self, book_name: str) -> str:
         self.logger.warning(f'Could not locate book {book_name}')

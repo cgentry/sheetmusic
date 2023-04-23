@@ -1,4 +1,4 @@
-# sheetmusic version 0.6.05
+# sheetmusic version 0.6.06
 A graphical program to display sheet music on a monitor
 
 WARNING: 0.6.x may be unstable. 
@@ -15,7 +15,13 @@ Features:
 
 The main program is set to default to PNGs for display purposes. It can convert PDFs, using ghostscript, into separate pages. A batch conversion can be started and the program will prompt for output names as each conversion finishes.
 
-# 0.0.05
+# 0.6.06
+* Fixed multiple bugs in PDF display.
+* Fixed bug in shell running
+
+Note that PDFs can be displayed either by converting pages to images and provides great control, or by using PDF display which has less control. Currently PDF has a light grey background which can't be changed.
+
+# 0.6.05
 * Fixed bug with setting dimensions
 
 # 0.6.04

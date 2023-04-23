@@ -63,10 +63,14 @@ class SelectItems( QDialog ):
         self.buttonBox = QDialogButtonBox()
         self.btn_yes = QPushButton('Yes')
         self.btn_no  = QPushButton('No')
+        self.btn_toggle = QPushButton('Select All')
+        
         self.buttonBox.addButton( self.btn_yes, QDialogButtonBox.AcceptRole )
         self.buttonBox.addButton( self.btn_no , QDialogButtonBox.RejectRole )
+        self.buttonBox.addButton( self.btn_toggle , QDialogButtonBox.HelpRole)
         self.buttonBox.accepted.connect( self.actionAccepted )
         self.buttonBox.rejected.connect( self.actionRejected )
+        self.buttonBox.helpRequested.connect( self.action_toggle )
         return self.buttonBox
 
     def setHeading( self, heading:str ):
@@ -83,6 +87,7 @@ class SelectItems( QDialog ):
         lim.setText(label)
         lim.setFlags( Qt.ItemIsUserCheckable |Qt.ItemIsEnabled | Qt.ItemIsSelectable)
         lim.setCheckState(Qt.Unchecked)
+        
         return lim
 
     def _fromList(self, data:list ):
@@ -128,6 +133,11 @@ class SelectItems( QDialog ):
         """ Return the dictionary of checked items """
         return ( {} if self._ignoreCheckedItems else self._fillInCheckedItems( Qt.Checked ) )
     
+    def setCheckedList( self , value:bool):
+        state = Qt.Checked if value else Qt.UnChecked
+        for row in range( self.checkList.count() ):
+            self.checkList.item( row ).setCheckState( state )
+    
     def getUncheckedList(self)->dict:
         return ( self.getDataList() if self._ignoreCheckedItems else self._fillInCheckedItems( Qt.Unchecked ) )
     
@@ -143,6 +153,18 @@ class SelectItems( QDialog ):
     def actionRejected(self):
         self._ignoreCheckedItems = True
         self.reject()
+
+    def action_toggle(self):
+        have_checked = False
+        for row in range(0, self.checkList.count() ):
+            ischeck = self.checkList.item(row).checkState()
+            if ischeck == Qt.Checked:
+                self.checkList.item(row).setCheckState( Qt.Unchecked )
+            else:
+                self.checkList.item(row).setCheckState( Qt.Checked )
+                have_checked = True
+
+        self.btn_yes.setEnabled( have_checked )
 
     def actionSelected(self, item:QListWidgetItem ):
         if item.checkState() == Qt.Checked :

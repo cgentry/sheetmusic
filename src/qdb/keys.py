@@ -27,7 +27,7 @@ Symbols = {
 }
 
 class ProgramConstants:
-    version      = "0.6.05"
+    version      = "0.6.06"
     version_main = "0.6"
     author       = "Charles Gentry"
     copyright    = u'©2022-2023 Charles Gentry'
@@ -42,6 +42,7 @@ class DbKeys():
 
     The system stores 
     """
+    VALUE_DEFAULT_RENDER_PDF = True
     VALUE_DEFAULT_DB_FILENAME     = 'sheetmusic.sql'
     VALUE_DEFAULT_DIR   = "~/sheetmusic"
     VALUE_DEFAULT_USER_SCRIPT_DIR = "~/sheetmusic/scripts"
@@ -70,6 +71,7 @@ class DbKeys():
     VALUE_SHEETMUSIC_DOC        = 'sheetmusic_doc'
     VALUE_SHEETMUSIC_INDEX      = "index.doc"
     VALUE_RENDER_PDF            = False
+    VALUE_USE_TOML_FILE         = True
     
     ###
     #       STORED IN ONLY IN QPREFERENCES
@@ -83,6 +85,7 @@ class DbKeys():
     SETTING_PAGE_LAYOUT        = 'layout'         ## Page layout (1/2)
     SETTING_KEEP_ASPECT        = 'aspectRatio'    ## Keep aspect ratio when resizing
     SETTING_SMART_PAGES        = 'smartPages'     ## Use alternate pages for two page displays
+    SETTING_RENDER_PDF          = 'viewer_pdf'
 
     ###
     #       STORED ONLY IN System table
@@ -102,7 +105,6 @@ class DbKeys():
     SETTING_LAST_BACKUP         = 'last_backup'    ## Where we stored the last backup
     SETTING_LOGGING_ENABLED     = 'logging_enabled'## Logging enabled 1-9 are levels 0 is None.
     SETTING_VERSION             = 'version'        ## Database Version (current)
-    SETTING_RENDER_PDF          = 'viewer_pdf'
 
     #       book settings
     SETTING_LAST_BOOK_NAME      = 'book'            ## Last book opened.

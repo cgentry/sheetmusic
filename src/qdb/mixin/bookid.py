@@ -12,6 +12,7 @@ class MixinBookID:
 
     def lookup_book_id(self, book: str | int) -> int|None:
         """ Fetch the book ID and cache it for future access. If none found, return None"""
+        self._current_book_name = None
         if book is None:
             return None
         if isinstance(book, str):
@@ -20,17 +21,20 @@ class MixinBookID:
                 self._current_book_id = DbHelper.fetchone(MixinBookID.SQL_MX_LOOKUP_BY_NAME, book, default=None)
                 if self._current_book_id :
                     self._current_book_id = int( self._current_book_id )
-        else:
+        elif isinstance( book, dict ):
+            self._current_book_id = book[ BOOK.id ]
+        elif isinstance( book, int ):
             self._current_book_id = book
-            self._current_book_name = None
-
+        else:
+            raise RuntimeError( f'Invalid book parameter passed {type( book )}')
+            
         return self._current_book_id
     
     def lookup_books_by_column( self, column:str, value:str )->list:
         """ Find book IDs by any column. This will return a list """
         sql = MixinBookID.SQL_MX_LOOKUP_BY_COLUMN.replace( '::column', column )
-        all =  DbHelper.fetchrows( sql , [value], [ BOOK.id ])
-        return [ id for id in all.values() ]
+        all_rows =  DbHelper.fetchrows( sql , [value], [ BOOK.id ])
+        return [ row[ BOOK.id ] for row in all_rows ]
         
     def lookup_book_by_column(self, column:str, value:str )->int|None:
         """ Find a single book by a column query. If more than one exists, return None"""

@@ -999,7 +999,7 @@ class UiRunScript(RunScriptBase):
 
 class UiRunScriptFile(UiRunScript):
     """
-    Run a script that may require a filename / Directory *** OBSOLETE *** Use RunScriptSimpleNote
+    Run a script that may require a filename / Directory *** OBSOLETE *** Use UiRunSimpleNote
 
     Tags that are used (in addtion to UiRunScript)
     ==============================================

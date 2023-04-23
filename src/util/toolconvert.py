@@ -24,13 +24,14 @@ import fnmatch
 import os
 
 from PySide6.QtWidgets import (
-    QDialog,
+    QApplication,
+    QDialog,            QProgressDialog,
     QFileDialog,        QMessageBox,
     QComboBox,          QDialogButtonBox,
     QLabel,             QGridLayout,
-    QTextEdit,
+    QTextEdit,          QWidget
 )
-
+from PySide6.QtCore import Qt
 from qdb.keys import BOOK, BOOKMARK, DbKeys, LOG
 from qdb.log import DbLog
 from qdb.mixin.fieldcleanup import MixinFieldCleanup
@@ -38,12 +39,15 @@ from qdb.mixin.tomlbook import MixinTomlBook
 
 from qdil.preferences import DilPreferences
 from qdil.book import DilBook
+from qdil.bookmark import DilBookmark
 
 from ui.mixin.importinfo import MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinFilterFiles
 from ui.runscript import UiRunScript, UiScriptSetting, ScriptKeys
 from ui.simpledialog import SimpleDialog
 from ui.util import centerWidgetOnScreen
 from util.simpleparse import SDOption
+from ui.status import UsingStatusDialog, UiStatus
+
 
 
 class ImportSettings():
@@ -227,6 +231,7 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
         self.add_to_environment(ImportSettings.setting(self.script_file))
         self.dilb = DilBook()
         self.pref = DilPreferences()
+        self.bookmark = DilBookmark()
         self.status = self.RETURN_CANCEL
         self.set_output('text')
         self.logger = DbLog('UiBaseConvert')
@@ -245,59 +250,105 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
         """
         return (os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + self.page_suffix)) > 0)
 
-    def _fill_in_all_file_info(self, sourcelist: list[str]) -> list[dict]:
+    def _fill_in_all_file_info(self, sourcelist: list[str]) -> bool:
         """ From the filelist, fill in all the data from files, tomls, etc """
+        label_format = '{:4d}: {:<100s} '
+
         self.data = []
-        for sourceFile in sourcelist:
-            self.open_pdf(sourceFile)  # Open first to give time to load
+        self.status = self.RETURN_CONTINUE
+        
+        if len(sourcelist)>0:
+            count = 0
+            status_dlg = UiStatus()
+            status_dlg.setWindowTitle('Get infomration from PDF')
+            status_dlg.maximum = len(sourcelist )
+            for sourceFile in sourcelist:
+                status_dlg.setValue(count)
+                count += 1
+                status_dlg.title = label_format.format(
+                    count, os.path.basename(sourceFile))
+                
+                self.open_pdf( sourceFile )
+                if status_dlg.wasCanceled():
+                    self.status = self.RETURN_CANCEL
+                    break
+                self.open_pdf(sourceFile)  # Open first to give time to load
+                status_dlg.information = '...from file'
 
-            # Load in file information first
-            currentFile = self.get_info_from_file(sourceFile)
+                # Load in file information first
+                currentFile = self.get_info_from_file(sourceFile)
 
-            # PDF info
-            currentFile.update(self.get_info_from_pdf(sourceFile))
+                # PDF info
+                status_dlg.information = '...from PDF'
+                currentFile.update(self.get_info_from_pdf(sourceFile))
 
-            # TOML PROPERTIES FILE (optional)
-            currentFile.update(self.read_toml_properties_file(sourceFile))
+                # TOML PROPERTIES FILE (optional)
+                status_dlg.information = '...from config file (.cfg)'
+                currentFile.update(self.read_toml_properties_file(sourceFile))
 
-            # cleanup the filename
-            currentFile[BOOK.name] = self.clean_field_value(
-                currentFile[BOOK.name])
+                # cleanup the filename
+                currentFile[BOOK.name] = self.clean_field_value(
+                    currentFile[BOOK.name])
 
-            # From database
-            currentFile.update(self._fill_in_from_database(sourceFile))
+                # From database
+                status_dlg.information = '...from database'
+                currentFile.update(self._fill_in_from_database(sourceFile))
 
-            # Add to the data list
-            self.data.append(currentFile)
-        # Return datalist to user
-        return self.data
+                # Add to the data list
+                self.data.append(currentFile)
+            
+        return self.status
 
     def importFiles(self) -> list[dict]:
         return self.data
 
+    def _setsourcetype( self ):
+        """ Set a source_type in the data if none was preset 
+        """
+        for index, book in enumerate( self.data ):
+            if not BOOK.source_type in book or not book[ BOOK.source_type ]:
+                if book[ BOOK.source ] == book[ BOOK.location ] or  (book[ BOOK.location ]).lower().endswith( 'pdf'):
+                    self.data[ index ][BOOK.source_type ] = DbKeys.VALUE_PDF
+                else:
+                    self.data[ index ][BOOK.source_type ] = DbKeys.VALUE_PNG
+        
     def add_books_to_library(self) -> bool:
         """ Import PDF imports all the PDF content and re-imports previous bookmarks
             This will only add books if we have a good status and there is some data
             to import
         """
+        
+        counter = 0
         if self.status:
-            self.logger.debug('Status: {} Add {} books'.format(
-                self.status, len(self.data)))
             bookmarks = {}
             for loc in self.getduplicateList():
-                bookmark = self.bookmark.getAll(
-                    self.dilb.lookup_book_by_column(BOOK.source, loc))
+                bmk = DilBookmark( self.dilb.lookup_book_by_column(BOOK.source, loc) )
+                bookmark = bmk.getAll()
                 if bookmark is not None:
                     bookmarks[loc] = bookmark
                 self.logger.debug('Delete current book entry {}'.format(loc))
                 self.dilb.delete(BOOK.source, loc)
 
             if len(self.data) > 0:
+                self._setsourcetype()
+                plural = ( 's' if counter > 1 else '' )
+                status_dlg = UiStatus()
+                status_dlg.setWindowTitle( 'Add book{} to library'.format( plural ))
+                status_dlg.maximum = len( self.data )
+                label_format = '{:4d}: {:<100s} '
                 for book_data in self.data:
+                    if status_dlg.wasCanceled():
+                        self.status = self.RETURN_CANCEL
+                        break
+
+                    status_dlg.setValue(counter)
+                    counter += 1
+                    status_dlg.title = label_format.format(counter, book_data[BOOK.title ])
+                                    
                     self.logger.debug('Add new book {} Location {} Type {}'.format(
-                        book_data[BOOK.book], book_data[BOOK.location], book_data[BOOK.source_type]) )
+                        book_data[BOOK.book], book_data[BOOK.location], book_data[BOOK.source_type]))
                     self.dilb.delete(BOOK.source, book_data[BOOK.source])
-                    new_book=self.dilb.newBook(**book_data)
+                    new_book = self.dilb.newBook(**book_data)
                     if book_data[BOOK.source] in bookmarks:
                         for marks in bookmarks[book_data[BOOK.source]]:
                             self.bookmark.add(
@@ -305,7 +356,12 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
                                 marks[BOOKMARK.name],
                                 marks[BOOKMARK.page]
                             )
-        return (self.status and len(self.data) > 0 and len(self.getduplicateList()) > 0)
+                status_dlg.title = '{} Book{} added.'.format( counter , plural )
+                status_dlg.information = ""
+                status_dlg.buttonText = 'Close'
+                status_dlg.setValue( len(self.data) )
+                status_dlg.show()
+        return (self.status and len(self.data) > 0 )
 
     def update_file_properties(self) -> bool:
         """
@@ -313,16 +369,15 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
             for properties. It then fills in the information in the data array
         """
 
-        status=self.RETURN_CONTINUE
-
+        self.status = self.RETURN_CONTINUE
         from ui.properties import UiProperties
-        uiproperties=UiProperties()
+        uiproperties = UiProperties()
         for index, currentFile in enumerate(self.data):
             uiproperties.set_properties(currentFile)
             if uiproperties.exec() != QDialog.Accepted:
                 # Cancel the conversion
-                status=self.RETURN_CANCEL
-                self.data=[]
+                self.status = self.RETURN_CANCEL
+                self.data = []
                 break
 
             if len(uiproperties.changes) > 0:
@@ -330,9 +385,9 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
                 currentFile.update(uiproperties.changes)
                 self.write_toml_properties(
                     currentFile, currentFile[BOOK.source])
-                self.data[index]=currentFile
+                self.data[index] = currentFile
 
-        return status
+        return self.status
 
     def fixDuplicateNames(self):
         """
@@ -341,48 +396,110 @@ class UiBaseConvert(MixinFileInfo, MixinPDFInfo, MixinDBInfo, MixinTomlBook, Mix
             fix the names.
         """
         for index, book_entry in enumerate(self.data):
-            self.data[index][BOOK.name]=self.dilb.getUniqueName(
+            self.data[index][BOOK.name] = self.dilb.getUniqueName(
                 book_entry[BOOK.name])
 
     def filelist_to_dictionary(self, fileList: list) -> bool:
         """ Call functions that fill in all the data and cleanup for processing"""
         if fileList is None or len(fileList) == 0:
-            self.status=self.RETURN_CANCEL
+            self.status = self.RETURN_CANCEL
         else:
-            self._fill_in_all_file_info(fileList)
-            self.status=self.update_file_properties()
-            if self.status == self.RETURN_CONTINUE:
-                self.fixDuplicateNames()
+            if self._fill_in_all_file_info(fileList) == self.RETURN_CONTINUE:
+                if self.update_file_properties() == self.RETURN_CONTINUE:
+                    self.fixDuplicateNames()
         return self.status
 
-    def processDirectoryList(self, fileList: list) -> bool:
+    def _process_conversion_list(self, fileList: list) -> bool:
         """ Process all of the files in the filelist and run the selected script
         This does not import into the database. for that, call add_books_to_library
 
-        N.B. Override this function for PDFs.
+        N.B. Use processPdfList for PDF->PDF files
     """
-        if self.filelist_to_dictionary(self.fileList) == self.RETURN_CONTINUE:
+
+        if self.filelist_to_dictionary(fileList) == self.RETURN_CONTINUE:
             for index, entry in enumerate(self.data):
                 self.add_variable('SOURCE_FILE', entry[BOOK.source])
                 self.add_variable('TARGET_DIR', entry[BOOK.name])
-                self.bookPath=path.join(self.music_path, entry[BOOK.name])
+                self.bookPath = path.join(self.music_path, entry[BOOK.name])
                 if self.run(no_dialog=True) == self.RETURN_CANCEL:
                     break
                 if self.is_debug():
                     return self.RETURN_CANCEL
                 self.data[index].update({BOOK.location: self.bookPath})
                 if self._is_valid_book_directory(self.bookPath):
-                    self.data[index][BOOK.totalPages]=len(fnmatch.filter(
+                    self.data[index][BOOK.totalPages] = len(fnmatch.filter(
                         os.listdir(self.bookPath), '*.' + self.bookType))
                 else:
-                    self.data[index][BOOK.totalPages]=0
+                    self.data[index][BOOK.totalPages] = 0
                 self.reset()
+        return self.status
+
+    def _process_pdf_list( self, filelist: list )->bool:
+        if self.filelist_to_dictionary(filelist) == self.RETURN_CONTINUE:
+            for index in range(len(self.data)):
+                self.data[index][BOOK.source_type] = 'pdf'
+                self.data[index][BOOK.location] = self.data[index][BOOK.source]
         return self.status
 
     def add_final_vars(self):
         pass
 
+    def getListOfPdfFiles(self) -> list[str]:
+        self.logger.critical( 'getListOfPdfFiles is not implemented')
+        raise NotImplementedError("getListOfPdfFiles is not implemented")
+    
+    def processDirectoryList( self, data:list[str])->bool:
+        self.logger.critical( 'processDirectoryList is not implemented' )
+        raise NotImplementedError('processDirectoryList is not implemented')
+
+    def process_files(self) -> bool:
+        """
+            Handle the splitting of file lists and processing. This calls 
+            'processDirectoryList' which should be defined in the derived class
+        """
+        self.split_selected(self.getListOfPdfFiles())
+        return self.processDirectoryList(self.getFileList())
+
+    def _find_files_in_subdir(self, dir):
+        """ Fill in all the files within the directory and subdirectory """
+        for path, _, files in os.walk(dir):
+            for name in files:
+                if name.endswith('.pdf') or name.endswith('.PDF'):
+                    self.fileNames.append(os.path.join(path, name))
+        return self.fileNames
+
+    def get_files_from_directory(self, title:str='Select PDF Directory') -> list[str]:
+        """ Prompt the user for a directory then find all PDF files """
+        self.fileNames = []
+        self.dirname = QFileDialog.getExistingDirectory(
+            None,
+            title,
+            dir=path.expanduser(self.baseDirectory())
+        )
+        if self.dirname:
+            self.setBaseDirectory(self.dirname)
+            self._find_files_in_subdir(self.dirname)
+        return self.fileNames
+
+    def get_files(self, title: str = 'Select PDF Files') -> list[str]:
+        """ Prompt the user for PDF files and return a list """
+        (self.fileNames, _) = QFileDialog.getOpenFileNames(
+            None,
+            title,
+            dir=path.expanduser(self.baseDirectory()),
+            filter="(*.pdf *.PDF)"
+        )
+
+        if not self.fileNames:
+            self.fileNames = []
+        if len(self.fileNames) > 0:
+            self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
+        return self.fileNames
+
+
 class UiConvertFilenames(UiBaseConvert):
+    """ This is used to reimport a file, or list of files """
+
     def __init__(self, location=None):
         super().__init__()
         if location is not None:
@@ -394,80 +511,53 @@ class UiConvertFilenames(UiBaseConvert):
             return self.processDirectoryList(location)
 
         return self.processDirectoryList([location])
+    
+    def getListOfPdfFiles(self)->list[str]:
+        return self.get_files()
+    
+    def processDirectoryList( self, data:list[str])->bool:
+        return self._process_conversion_list( data )
 
 
-class UiConvert(UiBaseConvert):
+class UiConvertPDFDocuments(UiBaseConvert):
     """ Import and convert a single file """
+
     def __init__(self):
         super().__init__()
 
-    def getListOfPdfFiles(self) -> str:
-        (self.fileNames, _)=QFileDialog.getOpenFileNames(
-            None,
-            "Select PDF File",
-            dir=path.expanduser(self.baseDirectory()),
-            filter="(*.pdf *.PDF)"
-        )
-        if len(self.fileNames) > 0:
-            self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
-        return self.fileNames
+    def getListOfPdfFiles(self) -> list[str]:
+        return self.get_files()
+    
+    def processDirectoryList( self, data:list[str])->bool:
+        return self._process_conversion_list( data )
+       
 
-    def process_files(self) -> bool:
-        return self.processDirectoryList(self.getListOfPdfFiles())
-
-
-class UiConvertDirectory(UiBaseConvert):
-    """ Import and convert a directory of PDFs"""
-    def __init__(self):
-        super().__init__()
-
-    def getDirectory(self) -> str:
-        self.dirname=QFileDialog.getExistingDirectory(
-            None,
-            "Select PDF Directory",
-            dir=path.expanduser(self.baseDir)
-        )
-        self.baseDir=self.dirname
-        return self.dirname
-
-    def exec_(self) -> bool:
-        return self.processDirectoryList(self.getListOfDirs())
-
-    def getListOfDirs(self):
-        """
-            get a list of all files within the directories passed
-
-        """
-        self.fileName=[]
-        for path, _, files in os.walk(self.getDirectory()):
-            for name in files:
-                if name.endswith('.pdf') or name.endswith('.PDF'):
-                    self.fileName.append(os.path.join(path, name))
-        return self.fileName
-
-
-class UiImportPDFDocument(UiBaseConvert):
+class UiImportPDFDocuments(UiConvertPDFDocuments):
     """ Import a PDF Document without conversion """
-    def __init__(self):
-        super().__init__()
 
-    def getListOfPdfFiles(self) -> str:
-        (self.fileNames, _)=QFileDialog.getOpenFileNames(
-            None,
-            "Select PDF File",
-            dir=path.expanduser(self.baseDirectory()),
-            filter="(*.pdf *.PDF)"
-        )
-        if len(self.fileNames) > 0:
-            self.setBaseDirectory(PurePath(self.fileNames[0]).parents[0])
-        return self.fileNames
+    def getListOfPdfFiles(self) -> list[str]:
+        return self.get_files()
+    
+    def processDirectoryList(self, data:list[str] )->bool:
+        return self._process_pdf_list( data )
 
+
+class UiConvertPDFDocumentDirectory(UiBaseConvert):
+    """ Import and convert a directory of PDFs"""
+
+
+    def getListOfPdfFiles(self) -> list[str]:
+        self.get_files_from_directory()
+
+    def processDirectoryList(self, data: list[str]) -> bool:
+        return self._process_conversion_list( data )
+
+
+class UiImportPdfDirectory(UiConvertPDFDocumentDirectory):
+    """ Import a directory contents of PDFs without conversion to PNGs """
+
+    def getListOfPdfFiles(self, title=str):
+        return self.get_files_from_directory()
+    
     def processDirectoryList(self, filelist: list):
-        if self.filelist_to_dictionary(filelist) == self.RETURN_CONTINUE:
-            for index in range(len(self.data)):
-                self.data[index][BOOK.source_type]='pdf'
-                self.data[index][BOOK.location]=self.data[index][BOOK.source]
-        return self.status
-
-    def process_files(self) -> bool:
-        return self.processDirectoryList(self.getListOfPdfFiles())
+        return self._process_pdf_list( filelist )

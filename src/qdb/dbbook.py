@@ -400,15 +400,22 @@ class DbBook(MixinBookID, DbBase):
                 return "{} [{}]".format(name, 1+int(count))
         return name
 
-    def sourcesExist(self, sources: list) -> list:
+    def sourcesExist(self, sources: list[str]) -> list[list]:
         """
             Pass in a list of locations and determine if the books
             are referenced. Return list of sources that ARE in the database
         """
         fileList = []
-        for source in sources:
-            if self.isSource(source):
-                fileList.append(source)
+        if sources is not None:
+            if not isinstance( sources , list ):
+                sources = [ sources ]
+            if len( sources ) > 0 :
+                sql = 'SELECT source FROM Book WHERE source in ({})'.format( ','.join('?'*len( sources ) ) )
+                query = DbHelper.bind( DbHelper.prep( sql),  sources )
+                if query.exec():
+                    fileList = DbHelper.allList( query , 0 )
+                else:
+                    print( query.lastError().text())
         return fileList
 
     ######################################

@@ -44,13 +44,14 @@ class UiMain(object):
         pass
 
     def setupUi(self, MainWindow):
+        self._mainwindow = MainWindow
         self.setupMainWindow(MainWindow)
         self.createActions(MainWindow)
         self.createMenus(MainWindow)
         self.addActions(MainWindow)
         self.setNavigationShortcuts()
         self.setBookmarkShortcuts()
-        self.addPageWidgets(MainWindow)
+        self.addPageWidgets()
         self.addStatus(MainWindow)
 
     def getWindow(self):
@@ -223,6 +224,9 @@ class UiMain(object):
         self.label_page_note.setMinimumWidth(30)
         self.setPageNote(True)
 
+        self.label_slider = QLabel()
+        self.label_slider.setHidden( True )
+
         self.slider_page_position = QSlider()
         self.slider_page_position.setObjectName(u'progressbar')
         self.slider_page_position.setMinimum(1)
@@ -241,7 +245,7 @@ class UiMain(object):
         self.statusbar.addWidget(self.label_page_relative)
         self.statusbar.addWidget(self.label_book_note)
         self.statusbar.addWidget(self.label_page_note)
-        # self.statusbar.addWidget( self.btn_bookmark )
+        self.statusbar.addWidget(self.label_slider )
         self.statusbar.addWidget(self.slider_page_position, 100)
         #
         self.statusbar.addWidget(self.label_page_absolute)
@@ -438,7 +442,7 @@ class UiMain(object):
             can contain other entries - that won't affect the operation.
         """
         navigationShortcut = {
-            DbKeys.SETTING_PAGE_PREVIOUS:      u'Up',
+            DbKeys.SETTING_PAGE_PREVIOUS:       u'Up',
             DbKeys.SETTING_BOOKMARK_PREVIOUS:   u'Alt+Up',
             DbKeys.SETTING_PAGE_NEXT:           u'Down',
             DbKeys.SETTING_BOOKMARK_NEXT:       u'Alt+Down',
@@ -483,11 +487,11 @@ class UiMain(object):
         shortcut('markBookmark',        self.action_bookmark_current)
         shortcut('addBookmark',         self.action_bookmark_add)
 
-    def addPageWidgets(self, MainWindow):
+    def addPageWidgets(self):
         """ Add all of the pager widgets here. Call 'showPager(name) to pick"""
         self._stacks_widget = {}
 
-        self.stacks = QStackedWidget( MainWindow )
+        self.stacks = QStackedWidget( self._mainwindow )
         self.stacks.setObjectName( u'pagerStacks')
         self.stacks.setAutoFillBackground(True)
 
@@ -495,7 +499,7 @@ class UiMain(object):
         # displayWidget is the widget that holds all the pages.
 
         # PNG Pager
-        pagerClass = PxWidget( MainWindow )
+        pagerClass = PxWidget( self._mainwindow )
         displayWidget = pagerClass.getPager()
         self._stacks_widget[ DbKeys.VALUE_PNG] = {
             UiMain.STACK_PAGER_CLASS: pagerClass,
@@ -503,25 +507,37 @@ class UiMain(object):
         }
         self.stacks.addWidget( displayWidget  )
 
-        # PDF pager 
-        pagerClass = PdfWidget( MainWindow )
+        # PDF pager - Image
+        pagerClass = PdfWidget( self._mainwindow )
+        pagerClass.setPdfDisplayMode(False)
         displayWidget = pagerClass.getPager()
-        self._stacks_widget[ DbKeys.VALUE_PDF] = {
+        self._stacks_widget[ f"{DbKeys.VALUE_PDF}_{'False'}"] = {
             UiMain.STACK_PAGER_CLASS: pagerClass,
             UiMain.STACK_DISPLAY_WIDGET : displayWidget
         }
         self.stacks.addWidget( displayWidget  )
 
-        MainWindow.setCentralWidget(self.stacks)
+        # PDF pager - PDF
+        pagerClass = PdfWidget( self._mainwindow )
+        pagerClass.setPdfDisplayMode(True)
+        displayWidget = pagerClass.getPager()
+        self._stacks_widget[ f"{DbKeys.VALUE_PDF}_{'True'}"] = {
+            UiMain.STACK_PAGER_CLASS: pagerClass,
+            UiMain.STACK_DISPLAY_WIDGET : displayWidget
+        }
+        self.stacks.addWidget( displayWidget  )
+
+        self._mainwindow.setCentralWidget(self.stacks)
         self.showPager( DbKeys.VALUE_PNG )
 
-    def showPager( self , name:str )->object:
+    def showPager( self , name:str , pdfdisplaymode:bool=True)->object:
+        """ Select which pager in the stack we are using """
+        name = f"{name}" if name != DbKeys.VALUE_PDF else f"{DbKeys.VALUE_PDF}_{str(pdfdisplaymode)}"
         if name in self._stacks_widget :
             self._current_stack = name
             self.pager = self._stacks_widget[ name ][ UiMain.STACK_PAGER_CLASS]
             self.stacks.setCurrentWidget( self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET] )
             self._stacks_widget[ name ][ UiMain.STACK_DISPLAY_WIDGET ].show()
-            
         return self.pager
     
     def pageWidget(self)->PdfWidget|PxWidget:
@@ -530,12 +546,3 @@ class UiMain(object):
     def statusText(self, statusTxt=""):
         self.statusbar.showMessage(statusTxt)
     
-    # def createPageSizePolicy(self, widget:QWidget ) -> QSizePolicy:
-    #     """ Create the page size policy used for the page display widget"""
-    #     sizePolicy = QSizePolicy(
-    #         QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-    #     sizePolicy.setHorizontalStretch(0)
-    #     sizePolicy.setVerticalStretch(0)
-    #     sizePolicy.setHeightForWidth(
-    #         widget.getPager().sizePolicy().hasHeightForWidth())
-    #     return sizePolicy

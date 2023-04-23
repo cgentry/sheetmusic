@@ -20,6 +20,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import re
+import os
 from PySide6.QtCore import Qt
 from PySide6.QtGui  import QIntValidator, QValidator
 from PySide6.QtWidgets import (
@@ -31,6 +32,8 @@ from qdb.mixin.fieldcleanup import MixinFieldCleanup
 from ui.editItem      import UiGenericCombo
 from qdb.dbbook       import DbComposer, DbGenre
 from qdil.preferences import DilPreferences
+from qdb.dbsystem     import DbSystem
+from qdb.dbbooksettings import DbBookSettings
 from util.convert     import toInt
 
 class simpleValidator( QValidator ):
@@ -58,8 +61,10 @@ class UiProperties(MixinFieldCleanup, QDialog):
     btnTxtCancel = u'Cancel'
     btnTxtApply  = u'Apply Changes and Continue'
 
+    pdf_options = {'Use System Setting' : None,  'Image conversion': False, 'PDF Page render': True}
+    pdf_values  = {None: 'Use System Setting',  '0': 'Image conversion', '1': 'PDF Page render'}
+
     staticBookInformation = [
-        [ BOOK.source_type,  'Format'],
         [ BOOK.location,     'Book location'],
         [ BOOK.totalPages,   'Total pages'],
         [ BOOK.source,       'Original book source'],
@@ -68,8 +73,9 @@ class UiProperties(MixinFieldCleanup, QDialog):
         [ BOOK.fileCreated,  'File date created'],
         [ BOOK.fileModified, 'File date modified'],
     ]
-    def __init__(self, parent=None):
+    def __init__(self, properties:dict=None,parent=None):
         super().__init__(parent)
+        self.dbbooksettings = DbBookSettings()
         self.createPropertiesTable()
         self.createButtons()
         mainLayout = QGridLayout()
@@ -78,6 +84,8 @@ class UiProperties(MixinFieldCleanup, QDialog):
         self.setLayout(mainLayout)
         self.cleanupLevel = DilPreferences().getValueInt( DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_0 )
         self.resize(700, 500)
+        if properties:
+            self.set_properties( properties )
 
     def clear(self):
         """ clear will remove all content from the QTable and reset counters"""
@@ -202,6 +210,10 @@ class UiProperties(MixinFieldCleanup, QDialog):
         self.changes[ BOOK.genre ] = value.strip()
         self.defaultButton()
 
+    def changeRender( self, value ):
+        value = value.strip()
+        self.changes[ DbKeys.SETTING_RENDER_PDF ] = UiProperties.pdf_options.get( value )
+        self.defaultButton()
 
     def _nameProperty( self , label:str, musicbook:dict , valueKey:str, onChange, isInt:bool=False , cleanup:bool=True, readonly:bool=False):
         name = QLineEdit()
@@ -225,13 +237,17 @@ class UiProperties(MixinFieldCleanup, QDialog):
         name.setObjectName( valueKey )
         name.textEdited.connect( onChange )
         self._insertPropertyEntry( [QTableWidgetItem( label ) , name] )
-        
-    def _comboProperty( self, label:str, dbentry,  musicbook:dict, valueKey:str, changeFunction ):
-        combo = UiGenericCombo()
-        currentEntry = ( str(musicbook[valueKey] ) if valueKey in musicbook else 'Unknown' )
-        combo.fillTable( dbentry , currentEntry )
+
+    def _comboPropertyValue( self, label:str, datasource,  currentEntry, changeFunction ):
+        """ Create a combo (dropdown) option list based on a db entry and list"""
+        combo = UiGenericCombo( True, datasource, currentEntry, label )
         combo.currentTextChanged.connect( changeFunction )
         self._insertPropertyEntry( [ QTableWidgetItem( label ) , combo ])
+        
+    def _comboProperty( self, label:str, dbentry,  musicbook:dict, valueKey:str, changeFunction ):
+        """ Create a combo (dropdown) option list based on a db entry and list"""
+        currentEntry = ( str(musicbook[valueKey] ) if valueKey in musicbook else 'Unknown' )
+        self._comboPropertyValue( label, dbentry, currentEntry, changeFunction )
     
     def _checkboxProperty( self, label:str, ischecked:bool, checkedFunction ):
         cbox = QCheckBox()
@@ -249,6 +265,29 @@ class UiProperties(MixinFieldCleanup, QDialog):
         """ OVERRIDE: To extend the static rows, use this hook """
         pass
 
+
+    def _add_source_type( self, musicbook:dict ):
+        """ Figure out what type of entry we have (PDF or PNG) and display options based upon that """
+        label = 'Book Display Using'
+        if not os.path.exists( musicbook[ BOOK.location ] ):
+            self._insertPropertyEntry( self._format_static_property(
+                label, '(Book not found)', False ) )
+            return
+               
+        if os.path.isdir( musicbook[ BOOK.location ]):
+            self._insertPropertyEntry( self._format_static_property(
+                label, 'PNG (image files)', False ) )
+            return
+
+        pdf_render = self.dbbooksettings.getSetting( musicbook[ BOOK.id ], DbKeys.SETTING_RENDER_PDF , fallback=False, raw=True )
+        current_entry = UiProperties.pdf_values[ pdf_render ]
+        self._comboPropertyValue( label, UiProperties.pdf_options , current_entry  , self.changeRender )
+
+    def get_changes(self)->dict:
+        """ get the properties that have changed """
+        print("\nget_changes:", self.changes )
+        return self.changes
+    
     def set_properties(self, musicbook:dict ):
         """
         musicbook is the database row for the book which can be indexed
@@ -270,8 +309,10 @@ class UiProperties(MixinFieldCleanup, QDialog):
         self._nameProperty( 'Author' ,          musicbook, BOOK.author,       self.changedAuthor, isInt = False , cleanup=False)
         self.add_additional_properties()
 
+        self._add_source_type( musicbook )
         for prop in self.staticBookInformation:
             data = musicbook[ prop[ self.bpData] ] if prop[self.bpData] in musicbook else "(no data)"
+            
             tableEntry = self._format_static_property(
                 prop[ self.bpLabel ], 
                 data,
@@ -283,6 +324,8 @@ class UiProperties(MixinFieldCleanup, QDialog):
 
         #self.adjustSize(  )
 
+
+    
 class UiPropertiesImages( UiProperties ):
     """ Property images extends the Properties to provide a checkbox for saving TOML informatin"""
     

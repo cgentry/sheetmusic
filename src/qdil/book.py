@@ -44,7 +44,6 @@ class DilBook(DbBook):
 
         Values setup:
             GENERAL:
-                numberRecent    : Number of recent books for menu
 
             ALL DOCUMENTS:
                 locationpath        : Normalised directory location for book
@@ -76,11 +75,39 @@ class DilBook(DbBook):
             DbKeys.SETTING_FILE_PREFIX, DbKeys.VALUE_FILE_PREFIX)
         self.page_suffix = s.getValue(
             DbKeys.SETTING_FILE_TYPE,   DbKeys.VALUE_FILE_TYPE)
-        self.numberRecent = s.getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
         self._use_toml_file = s.getValue(DbKeys.SETTING_USE_TOML_FILE, True)
         del s
 
         self.clear()
+
+    """ ====================================
+                INTERNAL METHODS
+        ====================================
+    """
+
+    def _book_xlate( self , book: str|int|dict|None)->dict:
+        if book is None:
+            return self.book
+        if isinstance( book, int ):
+            return self.getBookById( book )
+        if isinstance( book, str ):
+            return self.getBookByColumn( BOOK.book, book )
+        raise ValueError( f'Invalid type passed: {type(book)}')
+    
+    def _book_default_values(self, bookDir: str) -> dict:
+        rtn = {}
+        image_extension = DbSystem().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
+        rtn = {
+            BOOK.book:  os.path.basename(bookDir),
+            BOOK.totalPages:  len(fnmatch.filter(os.listdir(bookDir), '*.' + image_extension)),
+            BOOK.source: bookDir,
+            BOOK.location: bookDir,
+            BOOK.numberStarts: 1,
+            BOOK.publisher: '(import images)',
+        }
+
+        rtn[BOOK.numberEnds] = rtn[BOOK.totalPages]
+        return rtn
 
     def _formatPrettyName(self, name):
         ''' Only called when you want to split apart a page name to something nicer'''
@@ -100,40 +127,6 @@ class DilBook(DbBook):
         book = {x: args[x] for x in self.columnView if x in args}
         settings = {x: args[x] for x in args if x not in self.columnView}
         return settings, book
-
-    def isPDF(self) -> bool:
-        return (DbKeys.VALUE_PDF == self.book[BOOK.source_type])
-
-    def isPNG(self) -> bool:
-        return not self.isPDF()
-
-    def setPaths(self):
-        """
-        Split the directory path up into paths used by the Book class
-
-        take a directory path (e.g. /users/yourname/sheetmusic/mybook) and split it up.
-        The directory (/users/yourname/sheetmusic/mybook) is the book directory
-        the first part (..../sheetmusic) is the home to all your books
-        The second part (mybook) is the name of the book
-        We then get formatPagePrefix (the page plus three digit extension)
-        and the complete path formatter string
-        """
-
-        self.locationpath = os.path.normpath(self.book[BOOK.location])
-        self.sourcepath = os.path.normpath(self.book[BOOK.source])
-        self.formatPagePrefix = "".join([self.page_prefix, "-{0:03d}"])
-        self.formatPage = "".join(
-            [self.formatPagePrefix, ".", self.page_suffix])
-        self.bookPathFormat = os.path.join(self.locationpath, self.formatPage)
-
-    def getFileType(self) -> str:
-        """ Return the type of book to process (png or pdf)"""
-        return (DbKeys.VALUE_PDF if self.ispdf() else self.page_suffix)
-
-    def ispdf(self, book: dict = None) -> bool:
-        if book is None:
-            book = self.book
-        return (isinstance(book, dict) and BOOK.source_type in book and book[BOOK.source_type] == DbKeys.VALUE_PDF)
 
     def _check_book(self, book_name: str, open_book: dict | None, onError=QMessageBox.ButtonRole | None) -> QMessageBox.ButtonRole:
         """
@@ -161,7 +154,7 @@ class DilBook(DbBook):
             dlg.exec()
             return dlg.buttonRole(dlg.clickedButton())
 
-        if self.ispdf(open_book):
+        if self.isbookpdf( open_book ):
             if not os.path.isfile(open_book[BOOK.location]):
                 dlg.setWindowTitle('Opening directory')
                 dlg.setText("Book is not valid. (No PDF)\n{}".format(
@@ -191,6 +184,10 @@ class DilBook(DbBook):
                 dimension.checkSizeDocument( pdfdoc )
                 self.set_property(BOOKSETTING.dimensions , dimension )
 
+    """ ====================================
+            HIGH LEVEL BOOK METHODS
+        ====================================
+    """
     def open(self, book: str, page=None, fileType="png", onError=None) -> QMessageBox.ButtonRole:
         """
             Close current book and open new one. Use BookView for data
@@ -226,7 +223,6 @@ class DilBook(DbBook):
             if self.book[DbKeys.SETTING_PAGE_LAYOUT] is not None:
                 self.changes[DbKeys.SETTING_PAGE_LAYOUT] = self.book[DbKeys.SETTING_PAGE_LAYOUT]
             self.write_properties()
-            self.clearCache()
         self.clear()
 
     def isOpen(self) -> bool:
@@ -243,7 +239,7 @@ class DilBook(DbBook):
 
         for key, value in settings.items():
             self.dbooksettings.upsertBookSetting(
-                id=recId, key=key, value=value)
+                book=recId, key=key, value=value)
         return self.getBook(book=bookname)
 
     def delete_pages(self, book_location) -> bool:
@@ -266,7 +262,7 @@ class DilBook(DbBook):
             id = book[BOOK.id]
             self.delbycolumn(BOOK.id, id)
             self.delete_pages(book[BOOK.location])
-            DbBookSettings().deleteAllValues(id, ignore=True)
+            self.dbooksettings.deleteAllValues(id, ignore=True)
             DbBookmark().delete_all(id)
         return id is not None
 
@@ -294,6 +290,21 @@ class DilBook(DbBook):
         del ui
         return
 
+    def update_properties(self, change_list: dict) -> bool:
+        """ Update properties for a book based on dictionary 
+
+            Return True if any changes were made
+        """
+        print( 'update_properties:', change_list )
+        self.set_property(BOOK.id, self.book[BOOK.id])
+        for key, value in change_list.items():
+            self.set_property(key, value)
+        if len(self.changes) > 0:
+            self.write_properties()
+            return True
+        return False
+    
+    
     def clear(self):
         """ Clear all the book data that is stored for a book
 
@@ -311,9 +322,11 @@ class DilBook(DbBook):
         self._thisPage = 0
         self._page_content_start = 0
     
+    """ ====================================
+                PAGE NUMBER METHODS
+        ====================================
     """
-            PAGE NUMBER ROUTINES
-    """
+    
     @property
     def pagenumber(self) -> int:
         """ Get the current, absolute page number we are on """
@@ -408,7 +421,10 @@ class DilBook(DbBook):
         """ Alias function: returns the relative offset for the book"""
         return self.relative_offset
 
-    """ END OF PAGE ROUTINES"""
+    """ ====================================
+               FILE AND PATH METHODS 
+        ====================================
+    """
 
     def filepath(self, bookPath: str = None) -> str:
         """ Return the bookpath for this book or the normalised bookpath"""
@@ -429,34 +445,40 @@ class DilBook(DbBook):
             return imagePath
         return None
 
-    def clearCache(self):
-        # self.tcache.cache_clear()
-        pass
-
-    def getRecent(self):
-        self.numberRecent = DbSystem().getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10)
-        return super().getRecent(limit=self.numberRecent)
-
-    def getBooknameByID(self, id: int = None) -> str:
+    def setPaths(self):
         """
-            This will get the book name form the database rather than
-            pulling it from our local storage
+        Split the directory path up into paths used by the Book class
+
+        take a directory path (e.g. /users/yourname/sheetmusic/mybook) and split it up.
+        The directory (/users/yourname/sheetmusic/mybook) is the book directory
+        the first part (..../sheetmusic) is the home to all your books
+        The second part (mybook) is the name of the book
+        We then get formatPagePrefix (the page plus three digit extension)
+        and the complete path formatter string
         """
-        if id is None:
-            id = self.getID()
-        book = self.getBookById(id)
-        if book is None:
-            raise RuntimeError("No book found for ID: {}".format(id))
-        return book[BOOK.name]
+
+        self.locationpath = os.path.normpath(self.book[BOOK.location])
+        self.sourcepath = os.path.normpath(self.book[BOOK.source])
+        self.formatPagePrefix = "".join([self.page_prefix, "-{0:03d}"])
+        self.formatPage = "".join(
+            [self.formatPagePrefix, ".", self.page_suffix])
+        self.bookPathFormat = os.path.join(self.locationpath, self.formatPage)
 
 
-    def getNote(self) -> str:
-        return self.get_property(BOOK.note)
-
-
+    """ ====================================
+                GENERAL METHODS 
+        ====================================
     """
-        PROPERTY FUNCTIONS
+
+    def getRecent(self)->list:
+        """ Get the recent books opened, in date/time order. Number returned is defined in System table """
+        return super().getRecent( DbSystem().getValue(DbKeys.SETTING_MAX_RECENT_SIZE, 10))
+
+    """ ====================================
+                 PROPERTY METHODS 
+        ====================================
     """
+
     
     def get_properties(self) -> dict | None:
         """ Return all of the properties for the book """
@@ -507,19 +529,45 @@ class DilBook(DbBook):
         newAspect = 1 if aspect else 0
         return self.set_property(BOOK.aspectRatio, newAspect)
 
-
-    def update_properties(self, change_list: dict) -> bool:
-        """ Update properties for a book based on dictionary 
-
-            Return True if any changes were made
+    def renderbookpdf( self, book: dict|int|str|None=None )->bool:
+        """ Determine if a pf book should be rendered as a PDF. (return false if not a PDF)
+            book can be:
+                None  - use current book
+                int   - lookup book by record ID
+                str   = book name
+                dict  - a book retrieved by the dbbook class
         """
-        self.set_property(BOOK.id, self.book[BOOK.id])
-        for key, value in change_list.items():
-            self.set_property(key, value)
-        if len(self.changes) > 0:
-            self.write_properties()
-            return True
+        if not isinstance( book, dict ):
+            book = self._book_xlate( book )
+        if self.isbookpdf( book ):
+            return self.dbooksettings.getBool( book, DbKeys.SETTING_RENDER_PDF, fallback=True, default=DbKeys.VALUE_DEFAULT_RENDER_PDF )
         return False
+
+    def isbookpdf(self, book: dict|int|str|None=None) -> bool:
+        """ Determine if book is a PDF
+            The book must exist and the dictionary must have values for locations
+            The Book is not a PDF is location points to a directory (images are stored in a directory)
+            The book is a pdf if the location extension is 'pdf'
+        """
+        if not isinstance( book, dict ):
+            book = self._book_xlate( book )
+        if BOOK.source not in book or BOOK.location not in book:
+            return False
+        if os.path.isdir( book[ BOOK.location ]):
+            return False
+        return True
+
+
+    def isPDF(self) -> bool:
+        """ Return True if currently open book is a PDF """
+        return self.isbookpdf( self.book )
+    
+    def getFileType(self) -> str:
+        """ Return the type of book to process (png or pdf)"""
+        return (DbKeys.VALUE_PDF if self.isPDF() else self.page_suffix)
+
+    def isPNG(self) -> bool:
+        return not self.isPDF()
 
     def write_properties(self):
         """
@@ -527,31 +575,18 @@ class DilBook(DbBook):
             some in BookSettings. We need to know where to put it.
         """
         book_id = self.getID()
-        settings, database = self._splitParms(self.changes)
-        for key in settings:
-            self.dbooksettings.upsertBookSetting(book_id, key, self.changes[key])
-        # Because we may have changed the book we need to check on the previous name
-
-        if len(database) > 0:
-            database[BOOK.book] = self.title
-            self.update(**database)
-
+        db = {}
+        for key, value in self.changes.items():
+            if key not in self.columnView:
+                self.dbooksettings.upsertBookSetting( book_id , key , value, ignore=True) 
+            else:
+                db[ key ] = value
+        if len( db )> 0:
+            db[BOOK.id] = book_id
+            self.book.update( db )
         self.changes = {}
 
-    def _book_default_values(self, bookDir: str) -> dict:
-        rtn = {}
-        image_extension = DbSystem().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
-        rtn = {
-            BOOK.book:  os.path.basename(bookDir),
-            BOOK.totalPages:  len(fnmatch.filter(os.listdir(bookDir), '*.' + image_extension)),
-            BOOK.source: bookDir,
-            BOOK.location: bookDir,
-            BOOK.numberStarts: 1,
-            BOOK.publisher: '(import images)',
-        }
 
-        rtn[BOOK.numberEnds] = rtn[BOOK.totalPages]
-        return rtn
 
     def import_one_book(self, bookDir=dir):
         """ 

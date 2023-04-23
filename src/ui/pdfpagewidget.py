@@ -73,7 +73,6 @@ class PdfLabel(LabelWidget):
             if page == 0 or page is None:
                 return False
             if not self.dimensions.isSet :
-                print('DIMENSIONS NOT SET in navigate')
                 self.dimensions.checkSizeDocument( self.pdfDocument )
             render_size = self.dimensions.equalisePage( self.pdfDocument, page ).__mul__( self.ratio )
             self.setPageNumber( page )
@@ -93,22 +92,38 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
                  QPdfDocument.Error.IncorrectPassword: 'Incorrect Password',
                  QPdfDocument.Error.UnsupportedSecurityScheme: 'Locked'}
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, usepdf:bool=False ):
         self._widget = None
         PageDisplayMixin.__init__( self, name )
         ISheetMusicDisplayWidget.__init__(self)
-        self._use_pdf_viewer = toBool( DbSystem().getValue( DbKeys.SETTING_RENDER_PDF, DbKeys.VALUE_RENDER_PDF) , False)
+        self._name = name
+        self._use_pdf_viewer = usepdf 
         self.logger = DbLog('PdfPageWidget')
         self._current_pdf = QPdfDocument()
-        self._create_viewer(name)
+        self._create_viewer()
         self.clear()
 
-    def _create_viewer(self, name: str):
-        self._widget = (PdfView(name) 
+    def _create_viewer(self ):
+        self._widget = (PdfView(self._name) 
                         if self._use_pdf_viewer else 
-                        PdfLabel(name))
+                        PdfLabel(self._name))
         #self._widget.setStyleSheet( "border-color: blue; border-width: 7px;background: white;")
         # self._widget.documentChanged.connect(self._document_changed)
+
+    @property
+    def pdfdisplaymode(self )->bool:
+        return self._use_pdf_viewer
+    
+    @pdfdisplaymode.setter
+    def pdfdisplaymode(self, usepdf:bool):
+        if usepdf != self._use_pdf_viewer:
+            content = self.content()
+            page = self.pageNumber()
+            iscontent = self.iscontent()
+            self._use_pdf_viewer = usepdf
+            self._create_viewer( )
+            if iscontent :
+                self.setContentPage( content  , page )
 
     def _document_changed(self, document: QPdfDocument):
         self.logger.debug('Document changed {}'.format(
@@ -199,7 +214,6 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
             return False
         
         self.logger.debug(f'Set page to {page}')
-        print( 'propogate dimensions - set pagenumber', self.dimensions)
         self.widget().dimensions = self.dimensions
         return self.widget().navigate( page )
     

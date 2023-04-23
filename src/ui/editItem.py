@@ -39,6 +39,7 @@ class UiGenericCombo( QComboBox ):
         if name is not None:
             self.setObjectName( name )
         if fill is not None:
+            
             if isinstance( fill, dict ):
                 self.fillDict( fill , currentValue )
             elif isinstance( fill, list ):

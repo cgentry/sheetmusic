@@ -70,17 +70,19 @@ class PdfDimensions:
             self.heightLandscape = max(self.heightLandscape, h)
         self.isSet = True
 
-    def equalisePage(self, document: QPdfDocument, page: int) -> QSize:
-        """ Equalise one page of a document """
+    def equalisePage(self, document: QPdfDocument, page: int, offset:int=1) -> QSize:
+        """ Equalise one page of a document 
+            Offset is 1 if we use numbering 1->n
+        """
         if not self.isSet :
             self.checkSizeDocument( document )
-        return self.equalise( document.pagePointSize(page) )
+        return self.equalise( document.pagePointSize(page-offset) )
 
     def equalise(self, dimensions: QSizeF) -> QSize:
         """ Return a size that matches the maximum value for the document """
         if not self.isSet :
             return QSize( dimensions.width(), dimensions.height() )
         if self.isPortrait(dimensions):
-            return QSize(self.widthPortrait, self.heightPortrait)
+                return QSize(self.widthPortrait, self.heightPortrait)
         return QSize(self.widthLandscape, self.heightLandscape)
     

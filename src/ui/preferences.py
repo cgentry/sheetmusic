@@ -173,8 +173,14 @@ class UiPreferences(QDialog):
                 grid.addWidget(lbl, i, 0)
 
     def createFileLayout(self) -> QWidget:
-        labels = ['Sheetmusic directory', 'Library Directory (database)', 'User Script Directory',
-                  "Number of recent files", "", "Editor", "Log Level", None]
+        labels = ['Sheetmusic directory', 
+                  'Library Directory (database)', 
+                  'User Script Directory',
+                  "Number of recent files", 
+                  "", 
+                  "Editor", 
+                  "Log Level", 
+                  None]
         self.widgetFile = QWidget()
         self.layoutFile = QGridLayout()
         self.labelGrid(self.layoutFile, labels)
@@ -182,8 +188,13 @@ class UiPreferences(QDialog):
         return self.widgetFile
 
     def createBookSettings(self) -> QWidget:
-        labels = ["Book page import to format<br/>(Does not apply to PDF documents)", 'Default Genre',
-                  "Page layout", "Page controls", None, None, None]
+        labels = ["Book page import to format<br/>(Does not apply to PDF documents)", 
+                  "Configuration",
+                  'Default Genre',
+                  "Page layout", 
+                  "Page controls", 
+                  None, 
+                  None]
         self.widgetBook = QWidget()
         self.layoutBook = QGridLayout()
         self.labelGrid(self.layoutBook, labels)
@@ -450,6 +461,18 @@ class UiPreferences(QDialog):
         layout.addWidget(self.checkReopen, row, 1)
         self.checkReopen.stateChanged.connect(self.action_reopen_last_book)
         return row+1
+    
+    def formatSaveConfig( self, layout: QGridLayout, row: int) -> int:
+        self.checkSaveConfig = QCheckBox()
+        self.checkSaveConfig.setObjectName(DbKeys.SETTING_USE_TOML_FILE)
+        self.checkSaveConfig.setText("Save configuration file with PDF (.cfg)")
+        self.checkSaveConfig.setCheckable(True)
+
+        self.checkSaveConfig.setChecked(self.settings.getValueBool(
+            DbKeys.SETTING_USE_TOML_FILE, DbKeys.VALUE_USE_TOML_FILE))
+        layout.addWidget(self.checkSaveConfig, row, 1)
+        self.checkSaveConfig.stateChanged.connect(self.action_save_config)
+        return row+1
 
     def formatAspectRatio(self, layout: QGridLayout, row: int) -> int:
         self.checkAspect = QCheckBox()
@@ -560,6 +583,7 @@ class UiPreferences(QDialog):
         row = self.formatLogLevel(self.layoutFile, row )
         #
         row = self.formatFiletype(self.layoutBook, 0)
+        row = self.formatSaveConfig( self.layoutBook, row )
         row = self.formatDefaultGenre( self.layoutBook, row )
         row = self.formatLayout(self.layoutBook, row)
         row = self.formatReopenLastBook(self.layoutBook, row)
@@ -739,7 +763,6 @@ class UiPreferences(QDialog):
 
     def action_use_pdf( self, buttonObject:QAbstractButton ):
         self.states[ DbKeys.SETTING_RENDER_PDF] = ( buttonObject.objectName() == 'True' )
-        print( 'use pdf is now' , self.states[ DbKeys.SETTING_RENDER_PDF] ,', object name was', buttonObject.objectName())
         self.flagChanged = True
 
     def action_type_changed(self, value):
@@ -775,6 +798,10 @@ class UiPreferences(QDialog):
         '''Save the state of the 'ReopenLastBook checkbox '''
 
         self.states[DbKeys.SETTING_LAST_BOOK_REOPEN] = self.checkReopen.isChecked()
+        self.flagChanged = True
+
+    def action_save_config( self, status ):
+        self.states[DbKeys.SETTING_USE_TOML_FILE] = self.checkSaveConfig.isChecked()
         self.flagChanged = True
 
     def action_show_filepath(self, status ):

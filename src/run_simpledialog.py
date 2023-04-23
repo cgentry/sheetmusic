@@ -31,7 +31,7 @@ if __name__ == "__main__":
     #except Exception as err:
     #    print( "Nope!", str(err))
 
-    # converter = UiConvert()
+    # converter = UiConvertPDFDocuments()
     # converter.exec_()
     app.quit()
     sys.exit(0)

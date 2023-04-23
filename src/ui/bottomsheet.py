@@ -48,6 +48,7 @@ class BottomSheet():
     ALL_PAGES = 3
 
     def __init__(self, MainWindow: QMainWindow, name:str ):
+        self.pageRefs = []
         self.border_glow = BorderGlow()
         self._setupVars(MainWindow)
         self._set_size(MainWindow)
@@ -96,6 +97,7 @@ class BottomSheet():
         self.page_width = None
         self.page_height = None
         self.smartTurn = False
+        self._pdfmode = False
 
     def dimensions( self )->PdfDimensions:
         if self._dimensions is None:
@@ -283,6 +285,17 @@ class BottomSheet():
         rtn = self.smartTurn
         self.smartTurn = state
         return rtn
+
+    @property
+    def usepdf(self)->bool:
+        return self._pdfmode 
+    
+    def setPdfDisplayMode( self, state:bool)->None:
+        print('In bottomsheet, setPdfDisplayMode', state)
+        self._pdfmode = state
+        for page in self.pageRefs:
+            print('set page', page.pageNumber() )
+            page.pdfdisplaymode = state
 
     def clear(self):
         """ Clear both left and right pages but do not remove them from layout"""

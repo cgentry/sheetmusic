@@ -21,6 +21,8 @@
 
 import os
 from qdb.keys import BOOK
+from qdb.dbsystem import DbSystem
+from qdb.keys import DbKeys
 from pathlib import Path
 from datetime import date, datetime
 from qdb.keys import ProgramConstants
@@ -34,6 +36,7 @@ class MixinTomlBook:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._use_toml_file = DbSystem().getValue(DbKeys.SETTING_USE_TOML_FILE, True)
 
     CONFIG_TOML_FILE = 'properties.cfg'
     CONFIG_TOML_EXT = '.cfg'
@@ -42,6 +45,7 @@ class MixinTomlBook:
         BOOK.numberStarts, BOOK.lastRead,
         BOOK.author, BOOK.publisher, BOOK.link,
     ]
+
     def _toml_format(self, value)->str:
         match value:
             case bool():
@@ -84,9 +88,18 @@ class MixinTomlBook:
             if key in config:
                 list.append("{} = {}".format( key.strip(), self._toml_format( config[key])))
         return "\n".join( list )
+
+    def setToml(self, usetoml:bool):
+        """ Override the system TOML flag"""
+        self._use_toml_file = usetoml
+
+    def useToml(self)->bool:
+        return self._use_toml_file
               
     def write_toml_properties(self, config: dict, directory: str, filename: str = None) -> str:
         """ Write out the propertes valid for a TOML configuration file."""
+        if not self.useToml:
+            return ""
         toml_fname = self.toml_path(directory, filename)
         with open( toml_fname , "w") as f:
             f.write( "# SheetMusic version {}\n".format( ProgramConstants.version ) )
@@ -108,19 +121,21 @@ class MixinTomlBook:
 
     def read_toml_properties_file(self, directory: str, filename: str = None) -> dict:
         """ Load the TOML file into a dictionary """
-        path = self.toml_path(directory, filename)
-        if os.path.isfile(path):
-            with open(path, "r") as f:
-                toml = f.read()
-            return self.read_toml_properties_str( toml )
+        if self.useToml:
+            path = self.toml_path(directory, filename)
+            if os.path.isfile(path):
+                with open(path, "r") as f:
+                    toml = f.read()
+                return self.read_toml_properties_str( toml )
         return {}
 
     def read_toml_properties_str( self, toml_str:str )->dict:
         """ Process the string and turn into toml file """
-        import tomllib
         rtn = {}
-        data = tomllib.loads(toml_str)
-        for key, data in data.items():
-            if key in MixinTomlBook.VALID_TOML_KEYS:
-                rtn[key] = data
+        if self.useToml:
+            import tomllib
+            data = tomllib.loads(toml_str)
+            for key, data in data.items():
+                if key in MixinTomlBook.VALID_TOML_KEYS:
+                    rtn[key] = data
         return rtn

@@ -22,6 +22,7 @@
 import shutil
 from qdb.dbbook import DbGenre, DbComposer, DbBook
 from qdb.keys   import BOOK
+from ui.qbox    import QBox
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QPushButton,
@@ -45,7 +46,6 @@ class FileBase(QDialog):
         self.lastSortOrder = ""
         self.selectedLabel('Name')
         self.sortOrder = 'ASC'
-        self.bookSelected = None
         self.bookName = None
 
         layout = self.createWindowLayout()
@@ -72,12 +72,13 @@ class FileBase(QDialog):
 
     def bookItem(self,name:str )->QTableWidgetItem:
         item = QTableWidgetItem()
+        if not name:
+            name = ''
         item.setText( name )
         item.setFlags( Qt.ItemIsEnabled|Qt.ItemIsSelectable)
         return item
 
     def fillTable( self, books ):
-        self.bookSelected = None
         self.bookName = None
         self.fileList.clear()
         self.fileList.setHorizontalHeaderLabels(["Name","Genre","Composer"])
@@ -92,25 +93,22 @@ class FileBase(QDialog):
             row += 1
 
     def buttonAccepted(self):
-        if self.bookSelected is not None:
+        if self.bookName is not None:
             self.reject()
         self.accept()
 
     def buttonRejected(self):
-        self.bookSelected = None
         self.bookName = None
         self.reject()
 
     def loadBookOrder(self, filterName:str, filter:str, sortOrder:list):
         """ Load books by sort order """
         self.allBooksLoaded = False
-        self.bookSelected = None
         self.bookName = None
         self.fillTable( self.dbook.getFilterBooks( filterName, filter, sortOrder ) )
 
     def loadBook(self):
         """ Load all books into table """
-        self.bookSelected = None
         self.bookName = None
         if not self.allBooksLoaded:
             self.allBooksLoaded = True
@@ -157,7 +155,6 @@ class FileBase(QDialog):
 
     def fileSelected(self , item:QTableWidgetItem ):
         self._btnSelect.setDisabled( False )
-        self.bookSelected = self.fileList.item( item.row(), 3 ).text()
         self.bookName     = self.fileList.item( item.row(), 0 ).text()
     
     def fileOpen( self, item:QTableWidgetItem ):
@@ -305,21 +302,97 @@ class Openfile( FileBase ):
     def info(self):
         pass
 
-class Deletefile( FileBase ):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Delete Book")
+class Deletefile:
+    class promptFile(FileBase):
+        def __init__(self):
+            super().__init__()
+            self.setWindowTitle("Delete Book")
 
-    def createButtons(self):
-        self.buttons = QDialogButtonBox()
-        self._btnSelect = QPushButton()
-        self._btnSelect.setText('Delete')
-        self.buttons.addButton( self._btnSelect, QDialogButtonBox.AcceptRole  )
-        self.buttons.addButton( QDialogButtonBox.Cancel )
+        def createButtons(self):
+            self.buttons = QDialogButtonBox()
+            self._btnSelect = QPushButton()
+            self._btnSelect.setText('Delete')
+            self.buttons.addButton( self._btnSelect, QDialogButtonBox.AcceptRole  )
+            self.buttons.addButton( QDialogButtonBox.Cancel )
         
-        self.buttons.accepted.connect( self.buttonAccepted )
-        self.buttons.rejected.connect( self.buttonRejected )
-        return self.buttons
+            self.buttons.accepted.connect( self.buttonAccepted )
+            self.buttons.rejected.connect( self.buttonRejected )
+            return self.buttons
+
+    def __init__(self, parent=None):
+        self._parent = parent
+        self.q = QBox(  )
+        self.q.setIcon( QMessageBox.Question )
+        self.q.setWindowTitle('Sheetmusic Delete')
+        self.q.setStandardButtons(QMessageBox.Yes | QMessageBox.No )
+    
+    def _setText(self, msg:str):
+        # NOTE: This should compute based on width of character not length
+        flen = int( max( len(msg) , 1.75*len(self.q.informativeText()) ) )
+        fmt = f'{{0:{flen}s}} '
+        print( f"format: '{fmt}'")
+        self.q.setText( fmt.format( msg ))
+
+    def _getbookname( self )->bool:
+        self.bookName = None
+        fname = Deletefile.promptFile()
+        if fname.exec() == QMessageBox.Accepted:
+            self.bookName = fname.bookName
+        return self.bookName is not None
+        
+    def _getbook(self )->bool:
+        self.dbook = DbBook()
+        self.book = self.dbook.getBook( self.bookName ) 
+        return self.book is not None and BOOK.name in self.book
+
+    def delete(self, show_status:bool=True)->bool:
+        if not self._getbookname() or not self._getbook():
+            self.showError( None, self.bookName, f'Could not find book {self.bookName}')
+            return False
+        self.q.setInformativeText( self.bookName )
+        status = self._delete_db_entry( ) and self._delete_all_files(  )
+        if status and show_status:
+            self.q.setStandardButtons( QMessageBox.Ok)
+            self.q.setText('Book deleted')
+            self.q.exec()
+
+        return status
+
+    def _delete_db_entry( self  )->bool:
+        self.q.setText( "Delete book entry?"  )
+        if QMessageBox.Yes == self.q.exec():
+            try:
+                return (self.dbook.delBook( self.bookName) > 0)
+            except Exception as err:
+                self.showError( None, self.bookName, err )
+        return False
+
+    def _delete_all_files(self  )->bool:
+        """ Delete all the associated image files attached to the book 
+            If the source and location are the same, it will not delete the files
+            (This is usually the case for PDFs)
+        """
+        if self.book[BOOK.location] == self.book[BOOK.source ]:
+            return True
+        self.q.setText( "Delete all music files?")
+        if self.book is not None and QMessageBox.Yes == self.q.exec():
+            shutil.rmtree( self.book[ BOOK.location ], onerror=self.showError )
+            return True
+        return False
+
+    def showError( self , func, path, errinfo:Exception|str|int ):
+        if isinstance( errinfo, tuple ):
+            emsg = str( errinfo[1] ) 
+        else:
+            emsg = str(errinfo)
+        QMessageBox.critical( 
+            None,
+            "File Deletion Error",
+            "Error deleting {}\n{}".format( path, emsg ),
+            QMessageBox.Cancel
+        )
+
+
 
 class Reimportfile( FileBase ):
     def __init__(self):
@@ -339,35 +412,34 @@ class Reimportfile( FileBase ):
         self.buttons.rejected.connect( self.buttonRejected )
         return self.buttons
 
-class DeletefileAction( ):
-    def __init__( self , name:str ):
+class DeletefileAction:
+
+    def delete_file( self, name:str )->bool:
+        print('*** delete_file', name )
         dbb = DbBook()
         book = dbb.getBook( book=name)
+        print('***BOOK DICT', book )
         if book is None or BOOK.name not in book:
-            QMessageBox.critical(
-                None,
-                'Sheetmusic Delete',
-                f'Could not find {name}',
-                QMessageBox.Cancel )
-        elif self._delete_db_entry( dbb , book ):
-            self._delete_all_files( dbb , book )
+            print('   No book found')
+            self.showError( None, name, f'Could not find {name}')
+            return False
+        return self._delete_db_entry( dbb , book ) and self._delete_all_files( dbb , book )
 
     
     def _delete_db_entry( self , dbb:DbBook, book:dict )->bool:
-        if book is not None and BOOK.book in book:
-            book_name = book[BOOK.book]
-            if QMessageBox.Yes == QMessageBox.question(
+        print('*** _delete_db_entry')
+        rtn = QMessageBox.question(
                 None,
                 "Sheetmusic Delete",
                 "Delete library entry '{}'?".format( book[BOOK.book] ),
-                QMessageBox.Yes | QMessageBox.No 
-            ):
-            
-                try:
-                    if dbb.delBook( book_name):
-                        return True
-                except Exception as err:
-                    self.showError( None, book_name, err )
+                QMessageBox.Yes | QMessageBox.No )
+        print('   Return is',rtn )
+        if QMessageBox.Yes == rtn:
+            try:
+                print('   Call delete book')
+                return (dbb.delBook( book[BOOK.book]) > 0)
+            except Exception as err:
+                self.showError( None, book[BOOK.book], err )
         return False
 
     def _delete_all_files(self , dbb:DbBook, book:dict )->bool:
@@ -378,8 +450,10 @@ class DeletefileAction( ):
             QMessageBox.Yes | QMessageBox.No 
         ):
             shutil.rmtree( book[ BOOK.location ], onerror=self.showError )
+            return True
+        return False
 
-    def showError( self , func, path, errinfo:Exception ):
+    def showError( self , func, path, errinfo:Exception|str|int ):
         if isinstance( errinfo, tuple ):
             emsg = str( errinfo[1] ) 
         else:
@@ -387,6 +461,6 @@ class DeletefileAction( ):
         QMessageBox.critical( 
             None,
             "File Deletion Error",
-            "Error deleteing {}\n{}".format( path, emsg ),
+            "Error deleting {}\n{}".format( path, emsg ),
             QMessageBox.Cancel
         )

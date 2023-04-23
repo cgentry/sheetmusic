@@ -25,7 +25,7 @@
 from qdb.dbconn import DbConn
 from qdb.util   import DbHelper
 from qdb.base   import DbBase
-from qdb.keys   import BOOKSETTING
+from qdb.keys   import BOOKSETTING, DbKeys
 from qdb.mixin.bookid import MixinBookID
 from util.convert import    toBool, toInt
 from typing import Any
@@ -39,7 +39,8 @@ class DbBookSettings( MixinBookID, DbBase ):
             SELECT value AS setting, 
                    'setting' AS source 
             FROM Booksetting 
-            WHERE book_id = ? AND key=?
+            WHERE book_id = ? 
+              AND key=?
         UNION ALL
             SELECT value AS setting, 
                    'sytem' AS source 
@@ -65,6 +66,7 @@ class DbBookSettings( MixinBookID, DbBase ):
     SQL_IS_EXPANDED=False
 
     encoded_keys = [ BOOKSETTING.dimensions ]
+    encoded_bool = [ DbKeys.SETTING_RENDER_PDF ]
 
     def __init__(self, book:str=None):
         """
@@ -99,59 +101,79 @@ class DbBookSettings( MixinBookID, DbBase ):
         self._checkError( query )
         return query
     
-    def getAllSetting( self, book:str|int=None , order:str='key')->dict:
-        """ This returns all the settings """
+    def getAllSetting( self, book:str|int=None , order:str='key', raw:bool=False)->dict:
+        """ This returns all the settings 
+            Order of data is by key unless you set 'order'
+            If you don't want the values decoded, set 'raw' = true. No conversion will take place
+        """
         settings = {}
         for entry in self.getAll( book, order ):
-            settings[ entry['key']] = self._decode( entry['key'], entry['value'] )
+            settings[ entry['key']] = self._decode( entry['key'], entry['value'] , raw)
         return settings
 
-    def getSetting( self, book:str=None, key:str=None, fallback=True ):
+    def getSetting( self, book:str=None, key:str=None, fallback=True, raw:bool=False ):
+        """ Fetch the value for the key. """
         if not key:
             raise ValueError( "No lookup key")
-        parms = [ self.lookup_book_id( book) , key, key]
+        id = self.lookup_book_id( book)
+        parms = [ id , key, key]
         rows= DbHelper.fetchrows( DbBookSettings.SQL_GET_VALUE, parms , ['setting','system'], endquery=self._checkError )
         if rows is not None and len(rows)>0:
             if len( rows ) == 1 :
                 if fallback:
-                    return self._decode( key, rows[0]['setting'] )
+                    return self._decode( key, rows[0]['setting'], raw=raw )
             else:
-                return self._decode( key,rows[0]['setting'] )
+                return self._decode( key,rows[0]['setting'] , raw=raw)
         return None
 
     def _encode( self , key , value ):
         if key in DbBookSettings.encoded_keys :
             return DbHelper.encode( value )
+        if key in DbBookSettings.encoded_bool:
+            if value == None:
+                return None
+            return 1 if value == True or value == 1 else 0
         return value
         
-    def _decode( self, key, value ):
-        if value is not None and key in DbBookSettings.encoded_keys :
-            return DbHelper.decode( value )
-        return value
-        
-    def getValue( self, book:str=None, key:str=None, fallback=True, default=None)->Any:
-        """ Fetch value for Book key or fallback to the system setting 
-            If no value exists, you get 'None'
+    def _decode( self, key, value , raw:bool=False):
+        """ Call this to decode the value from the database
+            If you pass it raw==True, it will just retrurn the value
         """
-        value = self.getSetting(book=book, key=key, fallback=fallback)
-        value = self._decode( key, value )
-        return value if value is not None else default
+        if not raw:
+            if value is not None and key in DbBookSettings.encoded_keys :
+                return DbHelper.decode( value )
+            if key in DbBookSettings.encoded_bool:
+                if value == None:
+                    return None
+                return True if value == True or value == 1 or value == '1' else False
+        return value
+        
+    def getValue( self, book:str=None, key:str=None, fallback:bool=True, default=None, raw:bool=False)->Any:
+        """ Fetch value for Book key or fallback to the system setting (if fallback is True )
+            If no value exists, you get 'None' 
+            If raw = True, no conversion occurs. You get whatever is there.
+            NOTE: If you code 'raw=True' this is the same as calling getSetting with fallback=False
+        """
+        value = self.getSetting(book=book, key=key, fallback=fallback, raw=raw)
+        return value if value is not None or raw else default
 
-    def getBool( self, book=None, key=None, fallback=True, default=False)->bool:
+    def getBool( self, book=None, key=None, fallback=True, default=False )->bool:
         value = self.getValue( book=book, key=key, fallback=fallback, default=default)
         return toBool( value )
 
     def getInt( self, book=None, key=None, fallback=True, default=0)->int:
-        value = self.getValue( book=book, key=key, fallback=fallback, default=default)
-        return toInt( value )
+        return ( self.getValue( book=book, key=key, fallback=fallback, default=default, raw=True) )
 
     def setValueById( self, book: str | int=None, key=None, value=None, ignore=False)->bool:
         rtn = True
+        print(f'setvalue KEY {key} VALUE: {value}')
         try:
             if key is None or value is None:
                 raise ValueError('Key and value are required')
             
             value = self._encode( key, value )
+            if value == None:
+                return self.deleteValue( book, key, ignore )
             parms = [self.lookup_book_id(book), key, value ]
             sql = DbBookSettings.SQL_BOOKSETTING_ADD.format( ('OR IGNORE ' if ignore else ''))
             query = DbHelper.bind( DbHelper.prep( sql ), parms )
@@ -171,6 +193,7 @@ class DbBookSettings( MixinBookID, DbBase ):
         return self.setValueById( book, key, value, ignore )
         
     def upsertBookSetting(self, book: str | int=None,   key:str=None, value:str=None, ignore=False )->bool:
+        """ Update or insert a book setting. If the value is None, the value will be deleted """
         try:
             if book is None or key is None:
                 raise ValueError( f'No book or key passed BOOK: {book} KEY: {key} VALUE: {value}')
@@ -180,6 +203,8 @@ class DbBookSettings( MixinBookID, DbBase ):
             if ignore:
                 return False
             raise err
+        if value == None:
+            return ( self.deleteValue( book , key, ignore = True ) > 0 )
         value = self._encode( key, value )
         parms = [ sqlid, key, value]
         query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_UPSERT, ), parms)
