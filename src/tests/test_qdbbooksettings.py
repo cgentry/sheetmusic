@@ -138,14 +138,14 @@ class TestDbBookSettings(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(-42, self.obj.getInt(self.BOOK1, 'KeyNeg42'))
 
-        ok = self.assertEqual(52, self.obj.getInt(
-            self.BOOK1, 'noKey', fallback=False, default=52))
-        ok = self.assertEqual(-52, self.obj.getInt(self.BOOK1,
-                              'noKey', fallback=False, default=-52))
+        ok = self.obj.getInt(self.BOOK1, 'noKey', fallback=False, default=52)
+        self.assertEqual(52, ok, 'wrong value returned: {}'.format( self.obj.getValue(self.BOOK1, 'noKey') ))
+
+        ok = self.obj.getInt(self.BOOK1, 'noKey', fallback=False, default=-52)
+        self.assertEqual(-52, ok )
 
     def test_getBookSettingInt_bad(self):
-        ok = self.obj.setValue(self.BOOK1, 'keyNoWay', 'no way')
-        self.assertTrue(ok)
+        self.assertTrue(self.obj.setValue(self.BOOK1, 'keyNoWay', 'no way'))
         self.assertEqual(0, self.obj.getInt(self.BOOK1, 'keyNoWay'))
 
     def test_getBool(self):

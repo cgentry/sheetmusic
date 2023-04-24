@@ -85,6 +85,9 @@ class PdfLabel(LabelWidget):
 
 
 class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
+    """ PdfPageWidget is created by the PdfWidget
+        It is responsible for displaying a single page from the PDF
+    """
     pdf_error = {QPdfDocument.Error.Unknown: 'Unknown',
                  QPdfDocument.Error.DataNotYetAvailable: 'Not available',
                  QPdfDocument.Error.FileNotFound: 'Not found',
@@ -110,6 +113,10 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
         #self._widget.setStyleSheet( "border-color: blue; border-width: 7px;background: white;")
         # self._widget.documentChanged.connect(self._document_changed)
 
+    """ -----------------------------------------------
+            DISPLAY METHODS
+        -----------------------------------------------
+    """
     @property
     def pdfdisplaymode(self )->bool:
         return self._use_pdf_viewer
@@ -131,6 +138,15 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
         rtn = self.widget().navigate( self.pageNumber() )
         self.logger.debug( f'Return is {rtn}')
 
+    def hide(self) -> None:
+        return self.widget().hide()
+
+    def isVisible(self) -> bool:
+        return self.widget().isVisible()
+
+    def show(self) -> None:
+        return self.widget().show()
+
     def clear(self) -> None:
         self.setClear(True)
         try:
@@ -142,7 +158,20 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
                 self._current_pdf.close()
             except:
                 pass
-        
+    
+    def resize(self, width: int | QSize, height: int = 0) -> None:
+        """ Issue a resize either with a QSize or dimentsions"""
+        if isinstance(width, QSize):
+            self.widget().resize(width)
+        else:
+            if height > 0:
+                self.widget().resize(width, height)
+        return self.widget().navigate( self.pageNumber() )
+
+    """ -----------------------------------------------
+            CONTENT METHODS
+        -----------------------------------------------
+    """    
     def widget(self) -> PdfLabel|PdfView:
         if self.widget is None:
             raise ValueError('Widget is none')
@@ -220,7 +249,6 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
     def pageNumber(self)->int:
         return self.widget().pageNumber()
     
-
     def copy(self, otherPage )->bool:
         """ Copy moves the page number from one PDF view to this one """
         widget = otherPage.widget()
@@ -229,20 +257,4 @@ class PdfPageWidget(PageDisplayMixin, ISheetMusicDisplayWidget):
             self.setContentPage(otherPage.content(), page )
         return not self.isClear()
 
-    def resize(self, width: int | QSize, height: int = 0) -> None:
-        """ Issue a resize either with a QSize or dimentsions"""
-        if isinstance(width, QSize):
-            self.widget().resize(width)
-        else:
-            if height > 0:
-                self.widget().resize(width, height)
-        return self.widget().navigate( self.pageNumber() )
 
-    def hide(self) -> None:
-        return self.widget().hide()
-
-    def isVisible(self) -> bool:
-        return self.widget().isVisible()
-
-    def show(self) -> None:
-        return self.widget().show()

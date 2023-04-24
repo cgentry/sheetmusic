@@ -61,7 +61,6 @@ class DbBookSettings( MixinBookID, DbBase ):
     """
     SQL_BOOKSETTING_DELETE      ="""DELETE FROM BookSetting WHERE book_id=:id AND key=?"""
     SQL_BOOKSETTING_DELETE_ALL  ="""DELETE FROM BookSetting WHERE book_id=?"""
-    SQL_GET_BOOK_ID             ="""SELECT id FROM Book WHERE book=?"""
 
     SQL_IS_EXPANDED=False
 
@@ -84,7 +83,50 @@ class DbBookSettings( MixinBookID, DbBase ):
             DbBookSettings.SQL_BOOKSETTING_GET   = DbHelper.addColumnNames( DbBookSettings.SQL_BOOKSETTING_GET,self.columnView)
             DbBookSettings.SQL_IS_EXPANDED = True
 
-     
+    def _encode( self , key , value ):
+        if key in DbBookSettings.encoded_keys :
+            return DbHelper.encode( value )
+        if key in DbBookSettings.encoded_bool:
+            if value == None:
+                return None
+            return 1 if value == True or value == 1 else 0
+        return value
+        
+    def _decode( self, key, value , raw:bool=False):
+        """ Call this to decode the value from the database
+            If you pass it raw==True, it will just retrurn the value
+        """
+        if not raw:
+            if value is not None and key in DbBookSettings.encoded_keys :
+                return DbHelper.decode( value )
+            if key in DbBookSettings.encoded_bool:
+                if value == None:
+                    return None
+                return True if value == True or value == 1 or value == '1' else False
+        return value
+
+    def upsertBookSetting(self, book: str | int=None,   key:str=None, value:str=None, ignore=False )->bool:
+        """ Update or insert a book setting. If the value is None, the value will be deleted """
+        try:
+            if book is None or key is None:
+                raise ValueError( f'No book or key passed BOOK: {book} KEY: {key} VALUE: {value}')
+            sqlid = ( book if book is not None and isinstance( book, int ) else self.lookup_book_id(book))
+        except Exception as err:
+            self.logger.critical("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]".format( book, id, key, str(err) ), trace=True)
+            if ignore:
+                return False
+            raise err
+        if value == None:
+            return ( self.deleteValue( book , key, ignore = True ) > 0 )
+        value = self._encode( key, value )
+        parms = [ sqlid, key, value]
+        query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_UPSERT, ), parms)
+        query.exec()
+        rtn = not self.isError() and query.numRowsAffected() > 0 
+        self._checkError( query )
+        query.finish()
+        return rtn
+
     def getAll(self, book:str|int=None , order:str='key', fetchall:bool=True)->list:
         """
             Retrieve all the booksettings, ordered by 'order' (key).
@@ -126,28 +168,6 @@ class DbBookSettings( MixinBookID, DbBase ):
                 return self._decode( key,rows[0]['setting'] , raw=raw)
         return None
 
-    def _encode( self , key , value ):
-        if key in DbBookSettings.encoded_keys :
-            return DbHelper.encode( value )
-        if key in DbBookSettings.encoded_bool:
-            if value == None:
-                return None
-            return 1 if value == True or value == 1 else 0
-        return value
-        
-    def _decode( self, key, value , raw:bool=False):
-        """ Call this to decode the value from the database
-            If you pass it raw==True, it will just retrurn the value
-        """
-        if not raw:
-            if value is not None and key in DbBookSettings.encoded_keys :
-                return DbHelper.decode( value )
-            if key in DbBookSettings.encoded_bool:
-                if value == None:
-                    return None
-                return True if value == True or value == 1 or value == '1' else False
-        return value
-        
     def getValue( self, book:str=None, key:str=None, fallback:bool=True, default=None, raw:bool=False)->Any:
         """ Fetch value for Book key or fallback to the system setting (if fallback is True )
             If no value exists, you get 'None' 
@@ -162,7 +182,7 @@ class DbBookSettings( MixinBookID, DbBase ):
         return toBool( value )
 
     def getInt( self, book=None, key=None, fallback=True, default=0)->int:
-        return ( self.getValue( book=book, key=key, fallback=fallback, default=default, raw=True) )
+        return toInt( self.getValue( book=book, key=key, fallback=fallback, default=default) )
 
     def setValueById( self, book: str | int=None, key=None, value=None, ignore=False)->bool:
         rtn = True
@@ -192,28 +212,6 @@ class DbBookSettings( MixinBookID, DbBase ):
     def setValue(self, book: str | int=None, key=None, value=None, ignore=False )->bool:
         return self.setValueById( book, key, value, ignore )
         
-    def upsertBookSetting(self, book: str | int=None,   key:str=None, value:str=None, ignore=False )->bool:
-        """ Update or insert a book setting. If the value is None, the value will be deleted """
-        try:
-            if book is None or key is None:
-                raise ValueError( f'No book or key passed BOOK: {book} KEY: {key} VALUE: {value}')
-            sqlid = ( book if book is not None and isinstance( book, int ) else self.lookup_book_id(book))
-        except Exception as err:
-            self.logger.critical("upsertBookSetting (no book) Book: '%s', BookID: '%s' Key: '%s' [%s]".format( book, id, key, str(err) ), trace=True)
-            if ignore:
-                return False
-            raise err
-        if value == None:
-            return ( self.deleteValue( book , key, ignore = True ) > 0 )
-        value = self._encode( key, value )
-        parms = [ sqlid, key, value]
-        query = DbHelper.bind( DbHelper.prep(DbBookSettings.SQL_BOOKSETTING_UPSERT, ), parms)
-        query.exec()
-        rtn = not self.isError() and query.numRowsAffected() > 0 
-        self._checkError( query )
-        query.finish()
-        return rtn
-
     def deleteValue( self, book: str | int=None, key=None, ignore=False)->int:
         """
             Delete one key for book. If no book or key are passed anexcepion will be raised.

@@ -26,6 +26,7 @@ from dataclasses import dataclass
 
 @dataclass
 class PdfDimensions:
+    """ PdfDimensions stores and computes dimensions for PDF Pages"""
     widthPortrait: float = 0.0
     widthLandscape: float = 0.0
     heightPortrait: float = 0.0
@@ -34,6 +35,7 @@ class PdfDimensions:
 
 
     def isPortrait(self, dimensions: QSizeF) -> bool:
+        """ Return True if width < height (portrait) """
         return dimensions.width() < dimensions.height()
 
     def checkSizeDocument( self, document: QPdfDocument ):
@@ -48,10 +50,12 @@ class PdfDimensions:
 
     @property
     def isSet(self)->bool:
+        """ Have dimensions bet set? """
         return self._dimensionsSet
     
     @isSet.setter
     def isSet( self, flag:bool):
+        """ Set the dimension flag """
         self._dimensionsSet = flag 
         
     def checkSizePage(self, document: QPdfDocument, page: int):

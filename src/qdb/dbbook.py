@@ -88,12 +88,21 @@ class DbBook(MixinBookID, DbBase):
         SELECT * From BookView 
         ORDER BY :order 
         COLLATE NOCASE ASC"""
+    SQL_GET_BOOKVIEW_BY_ID = """
+            SELECT * 
+            FROM BookView 
+            WHERE id = ?
+            LIMIT 1"""
     SQL_GET_BOOKVIEW = """
             SELECT * 
             FROM BookView 
             WHERE book = ?
             LIMIT 1"""
-    SQL_GET_BOOKVIEW_BY = """SELECT * FROM BookView WHERE ::column = ? LIMIT 1"""
+    SQL_GET_BOOKVIEW_BY = """
+            SELECT * 
+            FROM BookView 
+            WHERE ::column = ? 
+            LIMIT 1"""
     SQL_SELECT_BOOKVIEW_FILTER = """
         SELECT * 
         FROM   BookView
@@ -134,6 +143,9 @@ class DbBook(MixinBookID, DbBase):
                 DbBook.SQL_SELECT_BOOKVIEW_FILTER, self.columnView)
             DbBook.SQL_SELECT_BOOKVIEW_LIKE = DbHelper.addColumnNames(
                 DbBook.SQL_SELECT_BOOKVIEW_LIKE, self.columnView)
+            DbBook.SQL_GET_BOOKVIEW_BY_ID = DbHelper.addColumnNames(
+                DbBook.SQL_GET_BOOKVIEW_BY_ID , self.columnView )
+
             DbBook.SQL_IS_EXPANDED = True
 
     def _checkColumn(self, colname):
@@ -146,20 +158,115 @@ class DbBook(MixinBookID, DbBase):
             msg = "Invalid column name {} in view".format(colname)
             raise ValueError(msg)
 
+    def _checkIfExists(self, key: str = None, value: str = None) -> bool:
+        if not key or not value:
+            return False
+
+        sql = DbBook.SQL_IS_BOOK_FIELD.replace('::key', key)
+        returnID = DbHelper.fetchone(sql, value, default=0)
+        return (int(returnID) > 0)
+
+
+    """ -----------------------------------------------
+            UTITLITY METHODS
+        -----------------------------------------------
+    """
+
+    def cleanupArguments(self, kwargs) -> dict:
+        """ cleanupArguments will strip out composer and genre, replacing them with composer_id and genre_id"""
+        convertEntries = {}
+        composerName = kwargs.pop('composer', None)
+        genreName = kwargs.pop('genre', None)
+
+        if composerName is not None:
+            convertEntries['composer_id'] = DbComposer().getID(
+                composerName, create=True)
+        if genreName is not None:
+            convertEntries['genre_id'] = DbGenre().getID(
+                genreName, create=True)
+        return convertEntries
+
+    """ -----------------------------------------------
+            INFORMATION METHODS
+        -----------------------------------------------
+    """
+    def count(self) -> int:
+        """ Return a count of how many books are in the database """
+        return int(DbHelper.fetchone(DbBook.SQL_GET_COUNT, default=0))
+
+    def isBook(self, bookName: str) -> bool:
+        return self._checkIfExists(BOOK.book, bookName)
+
+    def isLocation(self, location: str) -> bool:
+        """ Check if the location exists """
+        return self._checkIfExists(BOOK.location, location)
+
+    def isSource(self, source: str) -> bool:
+        """ Check if the book source is already in the library"""
+        return self._checkIfExists(BOOK.source, source)
+
+    def getUniqueName(self, name: str) -> str:
+        """
+            If you are adding a book but the name is there but
+            its source is different, this will give you a unique name
+
+            You should also check to see if the book is already added by 
+            checking with 'isSource()'. If it is, delete the entry and addNew
+        """
+        if self.isBook(name):
+            pattern = '{}%'.format(name)
+            query = DbHelper.bind(DbHelper.prep(
+                "SELECT count(*) as count FROM Book WHERE book LIKE ?"), pattern)
+            if query.exec() and query.next():
+                count = query.value(0)
+            else:
+                count = 0
+            self._checkError(query)
+            query.finish()
+            del query
+            if count is not None and count > 0:  # shouldn't have gotten here!
+                return "{} [{}]".format(name, 1+int(count))
+        return name
+
+    def sourcesExist(self, sources: list[str]) -> list[list]:
+        """
+            Pass in a list of locations and determine if the books
+            are referenced. Return list of sources that ARE in the database
+        """
+        fileList = []
+        if sources is not None:
+            if not isinstance( sources , list ):
+                sources = [ sources ]
+            if len( sources ) > 0 :
+                sql = 'SELECT source FROM Book WHERE source in ({})'.format( ','.join('?'*len( sources ) ) )
+                query = DbHelper.bind( DbHelper.prep( sql),  sources )
+                if query.exec():
+                    fileList = DbHelper.allList( query , 0 )
+                else:
+                    print( query.lastError().text())
+        return fileList
+
+
+    """ -----------------------------------------------
+            RECORD READ METHODS
+        -----------------------------------------------
+    """   
     def getId(self, book: str) -> int:
         """ Shim for backward compatibility """
         return self.lookup_book_id( book )
 
     def getBookByColumn(self, column: str, value: str) -> dict:
-
+        """ Get book by column """
         self._checkColumnView(column)
         sql = DbBook.SQL_GET_BOOKVIEW_BY.replace('::column', column)
         return DbHelper.fetchrow(sql,  value, self.columnView)
 
     def getBookById(self, id: int) -> dict:
-        return self.getBookByColumn(BOOK.id, id)
+        """ Get book by record ID """
+        return DbHelper.fetchrow(DbBook.SQL_GET_BOOKVIEW_BY_ID,  id , self.columnView )
 
     def getBook(self, book: str) -> dict:
+        """ Get book by book name """
         return DbHelper.fetchrow(DbBook.SQL_GET_BOOKVIEW, book, self.columnView)
 
     def getFilterBooks(self, filterName: str, filter: str, orderList: list = ['book']):
@@ -214,25 +321,36 @@ class DbBook(MixinBookID, DbBase):
     def getRecentNext(self, query: QSqlQuery) -> dict:
         return DbHelper.record(query, DbBook.COL_SELECT_RECENT)
 
-    def count(self) -> int:
+    def getIncompleteBooks(self):
         """
-            How many books?
+        This will get a list of books that don't have pages set or genre and composer set
+        You can then prompt for each book to be updated
+        A list of reasons will be passed back. the field with a problem will be 'field:'
         """
-        return int(DbHelper.fetchone(DbBook.SQL_GET_COUNT, default=0))
+        bookList = {}
+        rows = DbHelper.fetchrows(
+            DbBook.SQL_BOOK_INCOMPLETE, None, self.columnBook, endquery=self._checkError)
+        if rows is not None:
+            for row in rows:
+                reasons = []
+                if row['name_default'] == 1:
+                    reasons.append(
+                        'name: Default name used is "{}"'.format(row['book']))
+                if row['composer_id'] is None or row['composer_id'] == '':
+                    reasons.append("composer: entry is empty")
+                if row['genre_id'] is None or row['genre_id'] == '':
+                    reasons.append("genre: entry is empty")
+                if row['numbering_starts'] == row['numbering_ends']:
+                    reasons.append("numbering: Page numbering isn't set")
 
-    def cleanupArguments(self, kwargs) -> dict:
-        """ cleanupArguments will strip out composer and genre, replacing them with composer_id and genre_id"""
-        convertEntries = {}
-        composerName = kwargs.pop('composer', None)
-        genreName = kwargs.pop('genre', None)
+                bookList[row['book']] = reasons
+        return bookList
 
-        if composerName is not None:
-            convertEntries['composer_id'] = DbComposer().getID(
-                composerName, create=True)
-        if genreName is not None:
-            convertEntries['genre_id'] = DbGenre().getID(
-                genreName, create=True)
-        return convertEntries
+
+    """ -----------------------------------------------
+            RECORD UPDATE/ ADD  METHODS
+        -----------------------------------------------
+    """
 
     def updateName(self, oldName, newName):
         """
@@ -301,6 +419,11 @@ class DbBook(MixinBookID, DbBase):
         query.finish()
         return id
 
+
+    """ -----------------------------------------------
+            RECORD DELETE METHODS
+        -----------------------------------------------
+    """
     def delBook(self, bookname: str) -> int:
         """
             Delete a book from the database by book
@@ -334,89 +457,6 @@ class DbBook(MixinBookID, DbBase):
         del query
         return rtn    
 
-    def getIncompleteBooks(self):
-        """
-        This will get a list of books that don't have pages set or genre and composer set
-        You can then prompt for each book to be updated
-        A list of reasons will be passed back. the field with a problem will be 'field:'
-        """
-        bookList = {}
-        rows = DbHelper.fetchrows(
-            DbBook.SQL_BOOK_INCOMPLETE, None, self.columnBook, endquery=self._checkError)
-        if rows is not None:
-            for row in rows:
-                reasons = []
-                if row['name_default'] == 1:
-                    reasons.append(
-                        'name: Default name used is "{}"'.format(row['book']))
-                if row['composer_id'] is None or row['composer_id'] == '':
-                    reasons.append("composer: entry is empty")
-                if row['genre_id'] is None or row['genre_id'] == '':
-                    reasons.append("genre: entry is empty")
-                if row['numbering_starts'] == row['numbering_ends']:
-                    reasons.append("numbering: Page numbering isn't set")
-
-                bookList[row['book']] = reasons
-        return bookList
-
-    def _checkIfExists(self, key: str = None, value: str = None) -> bool:
-        if not key or not value:
-            return False
-
-        sql = DbBook.SQL_IS_BOOK_FIELD.replace('::key', key)
-        returnID = DbHelper.fetchone(sql, value, default=0)
-        return (int(returnID) > 0)
-
-    def isBook(self, bookName: str) -> bool:
-        return self._checkIfExists(BOOK.book, bookName)
-
-    def isLocation(self, location: str) -> bool:
-        return self._checkIfExists(BOOK.location, location)
-
-    def isSource(self, source: str) -> bool:
-        """ Check if the book source is already in the library"""
-        return self._checkIfExists(BOOK.source, source)
-
-    def getUniqueName(self, name: str) -> str:
-        """
-            So, if you are adding a book but the name is there but
-            its source is different, this will give you a unique name
-
-            You should also check to see if the book is already added by 
-            checking with 'isSource()'. If it is, delete the entry and addNew
-        """
-        if self.isBook(name):
-            pattern = '{}%'.format(name)
-            query = DbHelper.bind(DbHelper.prep(
-                "SELECT count(*) as count FROM Book WHERE book LIKE ?"), pattern)
-            if query.exec() and query.next():
-                count = query.value(0)
-            else:
-                count = 0
-            self._checkError(query)
-            query.finish()
-            del query
-            if count is not None and count > 0:  # shouldn't have gotten here!
-                return "{} [{}]".format(name, 1+int(count))
-        return name
-
-    def sourcesExist(self, sources: list[str]) -> list[list]:
-        """
-            Pass in a list of locations and determine if the books
-            are referenced. Return list of sources that ARE in the database
-        """
-        fileList = []
-        if sources is not None:
-            if not isinstance( sources , list ):
-                sources = [ sources ]
-            if len( sources ) > 0 :
-                sql = 'SELECT source FROM Book WHERE source in ({})'.format( ','.join('?'*len( sources ) ) )
-                query = DbHelper.bind( DbHelper.prep( sql),  sources )
-                if query.exec():
-                    fileList = DbHelper.allList( query , 0 )
-                else:
-                    print( query.lastError().text())
-        return fileList
 
     ######################################
     # Operate on 'sub' tables:

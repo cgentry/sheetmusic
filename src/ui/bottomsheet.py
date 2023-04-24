@@ -98,17 +98,18 @@ class BottomSheet():
         self.page_height = None
         self.smartTurn = False
         self._pdfmode = False
+    
+    """ -----------------------------------------------
+            ACTION / CREATION METHODS
+        -----------------------------------------------
+    """
+    def _add_page_widget( self, page:int)->None:
+        """ Add the page widget to the layout if it isn't there already """
+        if not self.pageRefs[ page ].isVisible():
+            if self._currentLayout.indexOf( self.pageRefs[page].widget() ) < 0 :
+                self._currentLayout.insertWidget(page , self.pageRefs[page].widget() ,  0 )
+        self.pageRefs[ page ].show()
 
-    def dimensions( self )->PdfDimensions:
-        if self._dimensions is None:
-            self.setDimensions( PdfDimensions() )
-        return self._dimensions 
-
-    def setDimensions( self, dimensions:PdfDimensions):
-        self._dimensions = dimensions
-        for page in self.pageRefs:
-            page.widget().dimensions = self.dimensions 
-  
     def createMainPageWidget(self, name:str) -> QWidget:
         """ This will create the main widget used to hold the pages"""
         self.mainPageWidget = QWidget()
@@ -119,20 +120,6 @@ class BottomSheet():
         self.mainPageWidget.setSizePolicy( self.createPageSizePolicy( self.mainPageWidget))
         return self.mainPageWidget
     
-    def current_pages(self)->list[str]:
-        rtn = []
-        if self._currentLayout is not None:
-            for i in range( self._currentLayout.count() ) :
-                item = self._currentLayout.itemAt( i ).widget()
-                desc = "Item {}: type: {} Objectname: {}".format( i , type(item) ,item.objectName() )
-                rtn.append( desc )
-        return rtn
-                       
-    def show(self)->None:
-        """ Display the pages, resize to fit and force the main widget to display"""
-        self.showPages()
-        self.mainPageWidget.show()
-
     def createPages(self ):
         """ Create all of the page content display widgets
             content generator must take one parm: label and
@@ -144,20 +131,28 @@ class BottomSheet():
         for page in self.pageRefs:
             page.widget().setStyleSheet("background: black")
             page.widget().hide()
+                            
+    def createPageSizePolicy(self, widget) -> QSizePolicy:
+        """ Create the page size policy used for the display widget"""
+        sizePolicy = QSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
+        sizePolicy.setHorizontalStretch(1)
+        sizePolicy.setVerticalStretch(1)
+        sizePolicy.setHeightForWidth(widget.sizePolicy().hasHeightForWidth())
+        return sizePolicy
 
-    def getPager(self):
-        """ Get the main pager widget"""
-        return self.mainPageWidget
+    def createSideBySideLayout(self)->QHBoxLayout:
+        self.layoutPagesSide = QHBoxLayout()
+        self.layoutPagesSide.setObjectName(u"horizontalLayoutWidget")
+        self.layoutPagesSide.setContentsMargins(0, 0, 0, 0)
+        return self.layoutPagesSide
 
-    def setKeepAspectRatio(self, flag: bool) -> None:
-        for page in self.pageRefs:
-            page.setKeepAspectRatio(flag)
-            page.widget().setKeepAspectRatio(flag)
+    def createStackedLayout(self)->QVBoxLayout:
+        self.layoutPagesStacked = QVBoxLayout()
+        self.layoutPagesStacked.setObjectName(u"VerticalLayoutWidget")
+        self.layoutPagesStacked.setContentsMargins(0, 0, 0, 0)
+        return self.layoutPagesStacked
 
-    def keepAspectRatio(self) -> bool:
-        """ Only return the flag from page one
-            All pages have the same flag set and page one is always displayed"""
-        return self.pageRefs[0].keepAspectRatio()
 
     def _set_size(self, windowSize:QMainWindow|QSize) -> bool:
         """ Save the size for the main window. This will accept
@@ -189,26 +184,17 @@ class BottomSheet():
         if self._set_size( size ) and self._currentLayoutMode :
             self._size_pages()
 
-    def createPageSizePolicy(self, widget) -> QSizePolicy:
-        """ Create the page size policy used for the display widget"""
-        sizePolicy = QSizePolicy(
-            QSizePolicy.MinimumExpanding, QSizePolicy.MinimumExpanding)
-        sizePolicy.setHorizontalStretch(1)
-        sizePolicy.setVerticalStretch(1)
-        sizePolicy.setHeightForWidth(widget.sizePolicy().hasHeightForWidth())
-        return sizePolicy
-
-    def createSideBySideLayout(self)->QHBoxLayout:
-        self.layoutPagesSide = QHBoxLayout()
-        self.layoutPagesSide.setObjectName(u"horizontalLayoutWidget")
-        self.layoutPagesSide.setContentsMargins(0, 0, 0, 0)
-        return self.layoutPagesSide
-
-    def createStackedLayout(self)->QVBoxLayout:
-        self.layoutPagesStacked = QVBoxLayout()
-        self.layoutPagesStacked.setObjectName(u"VerticalLayoutWidget")
-        self.layoutPagesStacked.setContentsMargins(0, 0, 0, 0)
-        return self.layoutPagesStacked
+    def show(self)->None:
+        """ Display the pages, resize to fit and force the main widget to display"""
+        self.showPages()
+        self.mainPageWidget.show()
+    
+    def showPages(self, maxpages:int=0) -> None:
+        """ Show all the pages and issue a resize """
+        if maxpages == 0 or maxpages > self.numberPages() :
+            maxpages = self.numberPages()
+        for index in range( maxpages ):
+            self._add_page_widget( index )
 
     def _hidePage( self, page:int)->None:
         """ Index is offset from zero """
@@ -223,40 +209,39 @@ class BottomSheet():
             maxpages = len( self.pageRefs )
         for page in range( 0, maxpage ):
             self._hidePage( page )
-        
-    def _add_page_widget( self, page:int)->None:
-        """ Add the page widget to the layout if it isn't there already """
-        if not self.pageRefs[ page ].isVisible():
-            if self._currentLayout.indexOf( self.pageRefs[page].widget() ) < 0 :
-                self._currentLayout.insertWidget(page , self.pageRefs[page].widget() ,  0 )
-        self.pageRefs[ page ].show()
 
-    def showPages(self, maxpages:int=0) -> None:
-        """ Show all the pages and issue a resize """
-        if maxpages == 0 or maxpages > self.numberPages() :
-            maxpages = self.numberPages()
-        for index in range( maxpages ):
-            self._add_page_widget( index )
+    def clear(self):
+        """ Clear all pages (displayed or not), but do not remove them from layout"""
+        self.border_glow.stopBorderGlow()
+        for page in self.pageRefs:
+            page.clear()
+
+    """ -----------------------------------------------
+            PROPERTY METHODS
+        -----------------------------------------------
+    """
+    def dimensions( self )->PdfDimensions:
+        if self._dimensions is None:
+            self.setDimensions( PdfDimensions() )
+        return self._dimensions 
+
+    def setDimensions( self, dimensions:PdfDimensions):
+        self._dimensions = dimensions
+        for page in self.pageRefs:
+            page.widget().dimensions = self.dimensions 
+  
+    def setKeepAspectRatio(self, flag: bool) -> None:
+        for page in self.pageRefs:
+            page.setKeepAspectRatio(flag)
+            page.widget().setKeepAspectRatio(flag)
+
+    def keepAspectRatio(self) -> bool:
+        """ Only return the flag from page one
+            All pages have the same flag set and page one is always displayed"""
+        return self.pageRefs[0].keepAspectRatio()
 
     def _getLayoutValue(self, key):
         return self._layout[self._currentLayoutMode][key]
-
-    def numberPages(self) -> int:
-        """ Return how many pages will be shown for this layout """
-        if self._currentLayoutMode == None:
-            return 0
-        return self._layout[self._currentLayoutMode][self.LAYOUT_PAGES]
-    
-    def all_pages(self) -> list:
-        return self.pageRefs
-    
-    def setDisplay(self, layout: str) -> None:
-        """ Set the widget layout for display. Options are single, double, triple, side or stacked. """
-        if layout in self._layout:
-            self._setLayout(layout)
-        else:
-            raise ValueError(
-                "Internal error: Unknown layout requested {}".format(layout))
 
     def _removeCurrentLayout(self) -> None:
         if self._currentLayoutMode is not None and self._currentLayout is not None:
@@ -280,6 +265,14 @@ class BottomSheet():
             self.mainPageWidget.setLayout(self._currentLayout)
             self._size_pages()
 
+    def setDisplay(self, layout: str) -> None:
+        """ Set the widget layout for display. Options are single, double, triple, side or stacked. """
+        if layout in self._layout:
+            self._setLayout(layout)
+        else:
+            raise ValueError(
+                "Internal error: Unknown layout requested {}".format(layout))
+
     def setSmartPageTurn(self, state: bool) -> bool:
         """ Set the smart turn feature and return the previous state """
         rtn = self.smartTurn
@@ -297,12 +290,11 @@ class BottomSheet():
             print('set page', page.pageNumber() )
             page.pdfdisplaymode = state
 
-    def clear(self):
-        """ Clear both left and right pages but do not remove them from layout"""
-        self.border_glow.stopBorderGlow()
-        for page in self.pageRefs:
-            page.clear()
 
+    """ -----------------------------------------------
+            PAGE MOVEMENT METHODS
+        -----------------------------------------------
+    """
     def _rollForward(self, page_number: int) -> bool:
         """
             OK, so we have up to 'n' pages loaded but on 'p' pages are 
@@ -369,25 +361,6 @@ class BottomSheet():
         self.direction = self.FORWARD
         self._size_pages()
 
-    def page_numbers(self):
-        return [ page.pageNumber() for page in self.pageRefs ]
-    
-    def page_numbers_displayed(self):
-        return self.page_numbers()[0:self.numberPages()]
-
-    def _find_page_by_pagenumber(self, page_number: int) -> ISheetMusicDisplayWidget:
-        """ find the pagelabelwidget that is displayed and return to caller """
-        search_list = self.page_numbers_displayed()
-        if page_number in search_list:
-            return self.all_pages[search_list.index(page_number)]
-        return None
-
-    def set_pagelabel_stylesheet(self, page_number: int, style: str = "") -> bool:
-        """ pagelabelwidget and set the stylesheet """
-        page = self._find_page_by_pagenumber(page_number)
-        if page:
-            page.setStyleSheet(style)
-
     def nextPage(self, content: object, page_number: int, end: bool = False):
         if not end or not self.isShown(page_number):
             if self.smartTurn and self.numberPages() > 1:
@@ -404,19 +377,67 @@ class BottomSheet():
                 self._simplePreviousPage(content, page_number)
         self.direction = self.BACKWARD
 
-    def getHighestPageShown(self):
-        return max(self.page_numbers_displayed())
+    """ -----------------------------------------------
+            PAGE NUMBER INFORMATION METHODS
+        -----------------------------------------------
+    """
+    def current_pages(self)->list[str]:
+        """ Return a list of printable page descriptions (Used for debugging/logging)"""
+        rtn = []
+        if self._currentLayout is not None:
+            for i in range( self._currentLayout.count() ) :
+                item = self._currentLayout.itemAt( i ).widget()
+                desc = "Item {}: type: {} Objectname: {}".format( i , type(item) ,item.objectName() )
+                rtn.append( desc )
+        return rtn
+
+    def page_numbers(self)->list[int]:
+        return [ page.pageNumber() for page in self.pageRefs ]
+    
+    def page_numbers_displayed(self)->list[int]:
+        """ Return all the page numbers currently displayed """
+        return self.page_numbers()[0:self.numberPages()]
 
     def getLowestPageShown(self):
         """ Return the lowest page in the array that can be seen"""
         return min(self.page_numbers_displayed())
 
-    def getPageForPosition(self, position):
+    def getHighestPageShown(self):
+        return max(self.page_numbers_displayed())
+
+    def getPageForPosition(self, position)->int:
         return self.page_numbers()[position-1]
 
-    def isShown(self, page: int) -> dict:
+    def numberPages(self) -> int:
+        """ Return how many pages will be shown for this layout """
+        if self._currentLayoutMode == None:
+            return 0
+        return self._layout[self._currentLayoutMode][self.LAYOUT_PAGES]
+
+    """ -----------------------------------------------
+            PAGE FIND METHODS
+        -----------------------------------------------
+    """
+    def _find_page_by_pagenumber(self, page_number: int) -> ISheetMusicDisplayWidget|None:
+        """ find the pagelabelwidget that is displayed and return to caller """
+        search_list = self.page_numbers_displayed()
+        if page_number in search_list:
+            return self.all_pages[search_list.index(page_number)]
+        return None
+
+    def set_pagelabel_stylesheet(self, page_number: int, style: str = "") -> bool:
+        """ pagelabelwidget and set the stylesheet """
+        page = self._find_page_by_pagenumber(page_number)
+        if page:
+            page.setStyleSheet(style)
+
+    def isShown(self, page: int) -> bool:
         return page in self.page_numbers_displayed()
 
+    """ -----------------------------------------------
+            Object Access METHODS
+        -----------------------------------------------
+    """
     def get_widgets_in_page_order(self) -> list[ISheetMusicDisplayWidget]:
         """ 
         Return the widgets in page order
@@ -445,3 +466,11 @@ class BottomSheet():
 
     def lowestSheetMusicWidget(self) -> ISheetMusicDisplayWidget:
         return self.get_widgets_in_page_order()[0]
+    
+    def getPager(self):
+        """ Get the main pager widget"""
+        return self.mainPageWidget
+
+    def all_pages(self) -> list:
+        """ Return a list of all the page widgets"""
+        return self.pageRefs
