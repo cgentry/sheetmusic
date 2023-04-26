@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.loadUi()
-        self.logger = DbLog( 'MainWindow')
+        self.logger = DbLog('MainWindow')
         self.logger.debug('Program starting')
         self.book = DilBook()
         self.system = DbSystem()
@@ -73,13 +73,13 @@ class MainWindow(QMainWindow):
         self.import_dir = self.pref.getValue(DbKeys.SETTING_LAST_IMPORT_DIR)
         tl = GenerateToolList()
         self.toollist = tl.list()
-        
+
         del tl
 
         self._perform_resize = False
         self._timer = QTimer()
-        self._timer.timeout.connect( self._set_page_size )
-        self._timer.setSingleShot( True )
+        self._timer.timeout.connect(self._set_page_size)
+        self._timer.setSingleShot(True)
 
     def loadUi(self) -> None:
         self.pref = DilPreferences()
@@ -127,11 +127,11 @@ class MainWindow(QMainWindow):
         return self._loadPageWidget(plist[0], plist[1], plist[2])
 
     def _loadPageWidget(self, pg1: int, pg2: int, pg3: int):
-        self.logger.debug( Trace.callstr())
+        self.logger.debug(Trace.callstr())
         page1 = self.book.page_filepath(pg1)
         page2 = self.book.page_filepath(pg2)
         page3 = self.book.page_filepath(pg3)
-        self.logger.debug( 'Pages: {}, {}, {}'.format( pg1, pg2, pg3))
+        self.logger.debug('Pages: {}, {}, {}'.format(pg1, pg2, pg3))
         self.ui.pageWidget().resize(self.ui.stacks.size())
         self.ui.pager.loadPages(page1, pg1, page2, pg2, page3, pg3)
         self.book.pagenumber = (pg1)
@@ -195,49 +195,52 @@ class MainWindow(QMainWindow):
 
     def _show_png(self):
         pass
-    def _show_pdf( self ):
+
+    def _show_pdf(self):
         pass
 
-    @profile
     def open_book(self, newBookName: str, page=None) -> None:
         """ """
         self.close_book()
-        self.logger.debug( f"BEGIN '{newBookName}'" )
-        self.logger.debug( Trace.callstr() )
+        self.logger.debug(f"BEGIN '{newBookName}'")
+        self.logger.debug(Trace.callstr())
         rtn = QMessageBox.Retry
         while rtn == QMessageBox.Retry:
             rtn = self.book.open(newBookName, page)
 
         if rtn == QMessageBox.AcceptRole:
-            book_layout = self.book.get_property(BOOKPROPERTY.layout, system=True)
-            smart_page_turn = toBool(self.book.get_property(DbKeys.SETTING_SMART_PAGES, system=True))
+            book_layout = self.book.get_property(
+                BOOKPROPERTY.layout, system=True)
+            smart_page_turn = toBool(self.book.get_property(
+                DbKeys.SETTING_SMART_PAGES, system=True))
             aspect_ratio = self.book.keep_aspect_ratio
-            self.book.pagenumber = self.book.lastPageRead 
+            self.book.pagenumber = self.book.lastPageRead
 
-            self.ui.showPager( self.book.getFileType(), self.book.renderbookpdf() )
+            self.ui.showPager(self.book.getFileType(),
+                              self.book.renderbookpdf())
             self.ui.pageWidget().setDisplay(book_layout)
-            self.ui.pageWidget().setSmartPageTurn( smart_page_turn )
+            self.ui.pageWidget().setSmartPageTurn(smart_page_turn)
             self.ui.pageWidget().setKeepAspectRatio(aspect_ratio)
-            self.ui.pageWidget().dimensions = self.book.get_property( BOOKSETTING.dimensions )
+            self.ui.pageWidget().dimensions = self.book.get_property(BOOKSETTING.dimensions)
             self.loadPages()
 
             # Update page and menu displays
             self.setTitle()
             self._set_menu_book_options(True)
-            self._set_menu_page_options(book_layout )
+            self._set_menu_page_options(book_layout)
             self.ui.actionAspectRatio.setChecked(aspect_ratio)
-            self.ui.actionSmartPages.setChecked( smart_page_turn )
+            self.ui.actionSmartPages.setChecked(smart_page_turn)
 
-            self.bookmark.open(newBookName )
+            self.bookmark.open(newBookName)
             self.updateBookmarkMenuNav(self.bookmark.getBookmarkPage(page))
 
             self.ui.pageWidget().show()
             self.update_status_bar()
         else:
-            self.logger.warning( f"Couldn't open {newBookName}")
+            self.logger.warning(f"Couldn't open {newBookName}")
             if rtn == QMessageBox.DestructiveRole:
                 self.book.delBook(newBookName)
-            self.openLastBook( noretry=newBookName)
+            self.openLastBook(noretry=newBookName)
         self.logger.debug(f'END "{newBookName}"')
 
         return
@@ -304,16 +307,14 @@ class MainWindow(QMainWindow):
 
         return False
 
-    def _set_page_size( self ):
+    def _set_page_size(self):
         self.ui.pageWidget().resize(self.ui.stacks.size())
         self.reloadPages()
-
 
     def resizeEvent(self, event):
         if self._timer.isActive():
             self._timer.stop()
-        self._timer.start( MainWindow.RESIZE_TIMER )
-            
+        self._timer.start(MainWindow.RESIZE_TIMER)
 
     def keyPressEvent(self, ev) -> None:
         # if False and (ev.type() == QEvent.KeyPress):
@@ -381,9 +382,9 @@ class MainWindow(QMainWindow):
         self.ui.action_file_delete.triggered.connect(self._action_file_delete)
         # --------------
         self.ui.action_file_import_document.triggered.connect(
-            self._action_file_import_document )
+            self._action_file_import_document)
         self.ui.action_file_import_document_dir.triggered.connect(
-            self._action_file_import_document_dir )
+            self._action_file_import_document_dir)
         # ---------------
         self.ui.action_file_select_import.triggered.connect(
             self._action_file_select_import)
@@ -397,13 +398,13 @@ class MainWindow(QMainWindow):
             self._action_file_import_images)
         self.ui.action_file_import_images_dir.triggered.connect(
             self._action_file_import_images_dir)
-        #------
+        # ------
         self.ui.action_file_library_consolidate.triggered.connect(
-            self._action_file_library_consolidate )
+            self._action_file_library_consolidate)
         self.ui.action_file_library_check.triggered.connect(
-            self._action_file_library_check )
+            self._action_file_library_check)
         self.ui.action_file_library_stats.triggered.connect(
-            self._action_file_library_stats )
+            self._action_file_library_stats)
 
         # EDIT:
         self.ui.menuEdit.aboutToShow.connect(self._about_to_show_edit_menu)
@@ -482,17 +483,17 @@ class MainWindow(QMainWindow):
         # self.ui.actionBookmark.triggered.connect(self.actionGoBookmark)
         # self.ui.twoPagesSide.installEventFilter( self)
 
-    def openLastBook(self, noretry:str = None) -> None:
+    def openLastBook(self, noretry: str = None) -> None:
         if self.pref.getValueBool(DbKeys.SETTING_LAST_BOOK_REOPEN, True):
             recent = self.book.getRecent()
             if recent is None or len(recent) == 0:
                 self.logger.info('No last book to open')
             else:
                 last_book_name = recent[0][BOOK.name]
-                self.logger.debug(f'Recent book "{last_book_name}" noretry: "{noretry}"')
+                self.logger.debug(
+                    f'Recent book "{last_book_name}" noretry: "{noretry}"')
                 if noretry != last_book_name:
                     self.open_book(recent[0][BOOK.name])
-            
 
     def setTitle(self, bookmark: str = None) -> None:
         """ Title is made of the title and bookmark if there is one """
@@ -560,7 +561,7 @@ class MainWindow(QMainWindow):
         is_import_set = (ImportSettings.get_select() is not None)
         self.ui.action_file_import_PDF.setEnabled(is_import_set)
         self.ui.action_file_import_dir.setEnabled(is_import_set)
-        #self.ui.action_file_reimport.setEnabled(is_import_set)
+        # self.ui.action_file_reimport.setEnabled(is_import_set)
 
     def _action_file_open(self) -> None:
         of = Openfile()
@@ -602,40 +603,38 @@ class MainWindow(QMainWindow):
     def _action_file_delete(self) -> None:
         df = Deletefile()
         if df.delete():
-            self.logger.info( f'Deleted book {df.bookName}')
+            self.logger.info(f'Deleted book {df.bookName}')
 
-    def _show_import_status(self, good_completion, number_files:int ):
+    def _show_import_status(self, good_completion, number_files: int):
         dlg = QMessageBox()
-        dlg.setIcon( QMessageBox.Information )
-        dlg.setWindowTitle( 'Import PDF Documents')
-        dlg.setStandardButtons( QMessageBox.StandardButton.Ok )
-        if good_completion :
-            dlg.setText( f"Imported {number_files} documents." )
+        dlg.setIcon(QMessageBox.Information)
+        dlg.setWindowTitle('Import PDF Documents')
+        dlg.setStandardButtons(QMessageBox.StandardButton.Ok)
+        if good_completion:
+            dlg.setText(f"Imported {number_files} documents.")
         else:
-            dlg.setText( "Failed to import documents")
+            dlg.setText("Failed to import documents")
         dlg.show()
-        rtn=dlg.exec()
+        rtn = dlg.exec()
 
-    def _action_file_import_document(self)->None:
+    def _action_file_import_document(self) -> None:
         from util.toolconvert import UiImportPDFDocuments
         uiconvert = UiImportPDFDocuments()
         uiconvert.setBaseDirectory(self.import_dir)
         uiconvert.process_files()
         ui_completion = uiconvert.add_books_to_library()
         self.import_dir = str(uiconvert.baseDirectory())
-        len_files = len( uiconvert.importFiles() )
+        len_files = len(uiconvert.importFiles())
         del uiconvert
-        self._show_import_status( ui_completion , len_files )
-        
-        
+        self._show_import_status(ui_completion, len_files)
 
-    def _action_file_import_document_dir(self)->None:
+    def _action_file_import_document_dir(self) -> None:
         from util.toolconvert import UiImportPdfDirectory
         uiconvert = UiImportPdfDirectory()
         uiconvert.setBaseDirectory(self.import_dir)
         uiconvert.process_files()
         ui_completion = uiconvert.add_books_to_library()
-        self.import_dir = str( uiconvert.baseDirectory() )
+        self.import_dir = str(uiconvert.baseDirectory())
         del uiconvert
 
     def _action_file_select_import(self) -> None:
@@ -653,7 +652,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(
                 None,
                 'Import PDF Files to Images',
-                "Converted {} PDFs.".format( len( uiconvert.importFiles() )),
+                "Converted {} PDFs.".format(len(uiconvert.importFiles())),
                 QMessageBox.Ok
             )
         self.import_dir = str(uiconvert.baseDirectory())
@@ -671,7 +670,7 @@ class MainWindow(QMainWindow):
     def _action_file_reimport(self) -> None:
         rif = Reimportfile()
         if rif.exec() == QMessageBox.Accepted:
-            self.logger.info('Re-import book {}'.rif.bookName )
+            self.logger.info('Re-import book {}'.rif.bookName)
             book = self.book.getBook(book=rif.bookName)
             from util.toolconvert import UiConvertFilenames
             uiconvert = UiConvertFilenames()
@@ -685,25 +684,25 @@ class MainWindow(QMainWindow):
             del uiconvert
         del rif
 
-    def _action_file_import_images( self )->None:
+    def _action_file_import_images(self) -> None:
         from ui.addbook import UiAddBook
         addbook = UiAddBook()
         addbook.import_book()
 
-    def _action_file_import_images_dir( self )->None:
+    def _action_file_import_images_dir(self) -> None:
         from ui.addbook import UiAddBook
         addbook = UiAddBook()
         addbook.import_directory()
 
-    def _action_file_library_consolidate( self )->None:
+    def _action_file_library_consolidate(self) -> None:
         from ui.library import UiLibraryConsolidate
         UiLibraryConsolidate().exec()
 
-    def _action_file_library_check( self )->None:
+    def _action_file_library_check(self) -> None:
         from ui.library import UiLibraryCheck
         UiLibraryCheck().exec()
 
-    def _action_file_library_stats(self)->None:
+    def _action_file_library_stats(self) -> None:
         from ui.library import UiLibraryStats
         UiLibraryStats().exec()
 
@@ -741,7 +740,7 @@ class MainWindow(QMainWindow):
         vars = [
             "-BOOK",        self.book.filepath(),
             "-PAGE",        self.book.page_filepath(
-                self.book.pagenumber , required=False),
+                self.book.pagenumber, required=False),
             "-TITLE",        self.book.title,
             "-O",    platform.platform(terse=True),
         ]
@@ -750,11 +749,11 @@ class MainWindow(QMainWindow):
         self._action_refresh()
 
     def _action_edit_properties(self) -> None:
-        property_editor = UiProperties(self.book.get_properties() )
+        property_editor = UiProperties(self.book.get_properties())
         if property_editor.exec():
-            if self.book.update_properties( property_editor.get_changes() ):
+            if self.book.update_properties(property_editor.get_changes()):
                 bookname = self.book.title
-                self.open_book( bookname )
+                self.open_book(bookname)
 
     def _action_edit_preferences(self) -> None:
         try:
@@ -768,9 +767,10 @@ class MainWindow(QMainWindow):
             # settings = self.pref.getAll()
             # self.ui.setNavigationShortcuts(settings)
             # self.ui.setBookmarkShortcuts(settings)
-                self.open_book( self.book.title )
+                self.open_book(self.book.title)
         except Exception as err:
-            self.logger.critical('Error opening preferences: {}'.format( str(err)))
+            self.logger.critical(
+                'Error opening preferences: {}'.format(str(err)))
             QMessageBox.critical(
                 None,
                 ProgramConstants.system_name,
@@ -794,8 +794,7 @@ class MainWindow(QMainWindow):
     def _action_refresh(self) -> None:
         cache = QPixmapCache()
         cache.clear()
-        self.open_book( self.book.title )
-        
+        self.open_book(self.book.title)
 
     def _action_view_one_page(self) -> None:
         self._set_display_page_layout(DbKeys.VALUE_PAGES_SINGLE)
@@ -820,13 +819,13 @@ class MainWindow(QMainWindow):
 
     def _action_view_aspect_ratio(self, state) -> None:
         self.book.keep_aspect_ratio = (state)
-        self.ui.pager.setKeepAspectRatio( state )
+        self.ui.pager.setKeepAspectRatio(state)
         self.loadPages()
 
     def _action_view_smart_pages(self, state: bool) -> None:
         self.book.set_property(DbKeys.SETTING_SMART_PAGES, state)
-        self.ui.pager.setSmartPageTurn( state )
-        self.book.set_property( DbKeys.SETTING_SMART_PAGES, state) 
+        self.ui.pager.setSmartPageTurn(state)
+        self.book.set_property(DbKeys.SETTING_SMART_PAGES, state)
 
     # BOOKMARK ACTIONS
     def _action_bookmark_show(self) -> None:
@@ -906,7 +905,7 @@ class MainWindow(QMainWindow):
             QMessageBox.No | QMessageBox.Yes
         )
         if rtn == QMessageBox.Yes:
-            self.logger.info('Delete all bookmarks for {}'.self.book.title )
+            self.logger.info('Delete all bookmarks for {}'.self.book.title)
             self.bookmark.delete_all(book=self.book.title)
             self.updateBookmarkMenuNav()
 
@@ -933,7 +932,8 @@ class MainWindow(QMainWindow):
                 runner.run()
 
     def actionGoBookmark(self) -> None:
-        uiBookmark = UiBookmark(self.book.title, self.bookmark.getAll(), self.book.relative_offset )
+        uiBookmark = UiBookmark(
+            self.book.title, self.bookmark.getAll(), self.book.relative_offset)
         uiBookmark.exec()
         newPage = uiBookmark.selectedPage
         if newPage:
@@ -946,7 +946,7 @@ class MainWindow(QMainWindow):
         self.ui.action_edit_properties.setEnabled(show)
         self.ui.action_file_close.setEnabled(show)
         self.ui.action_file_reopen.setEnabled(show)
-        #self.ui.action_file_delete.setEnabled(show)
+        # self.ui.action_file_delete.setEnabled(show)
         self.ui.action_refresh.setEnabled(show)
 
         self.ui.action_bookmark_current.setEnabled(show)
