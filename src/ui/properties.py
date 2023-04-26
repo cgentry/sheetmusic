@@ -285,7 +285,6 @@ class UiProperties(MixinFieldCleanup, QDialog):
 
     def get_changes(self)->dict:
         """ get the properties that have changed """
-        print("\nget_changes:", self.changes )
         return self.changes
     
     def set_properties(self, musicbook:dict ):

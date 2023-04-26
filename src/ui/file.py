@@ -330,7 +330,6 @@ class Deletefile:
         # NOTE: This should compute based on width of character not length
         flen = int( max( len(msg) , 1.75*len(self.q.informativeText()) ) )
         fmt = f'{{0:{flen}s}} '
-        print( f"format: '{fmt}'")
         self.q.setText( fmt.format( msg ))
 
     def _getbookname( self )->bool:
@@ -415,28 +414,22 @@ class Reimportfile( FileBase ):
 class DeletefileAction:
 
     def delete_file( self, name:str )->bool:
-        print('*** delete_file', name )
         dbb = DbBook()
         book = dbb.getBook( book=name)
-        print('***BOOK DICT', book )
         if book is None or BOOK.name not in book:
-            print('   No book found')
             self.showError( None, name, f'Could not find {name}')
             return False
         return self._delete_db_entry( dbb , book ) and self._delete_all_files( dbb , book )
 
     
     def _delete_db_entry( self , dbb:DbBook, book:dict )->bool:
-        print('*** _delete_db_entry')
         rtn = QMessageBox.question(
                 None,
                 "Sheetmusic Delete",
                 "Delete library entry '{}'?".format( book[BOOK.book] ),
                 QMessageBox.Yes | QMessageBox.No )
-        print('   Return is',rtn )
         if QMessageBox.Yes == rtn:
             try:
-                print('   Call delete book')
                 return (dbb.delBook( book[BOOK.book]) > 0)
             except Exception as err:
                 self.showError( None, book[BOOK.book], err )

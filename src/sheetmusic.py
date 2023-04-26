@@ -198,6 +198,7 @@ class MainWindow(QMainWindow):
     def _show_pdf( self ):
         pass
 
+    @profile
     def open_book(self, newBookName: str, page=None) -> None:
         """ """
         self.close_book()
@@ -610,10 +611,8 @@ class MainWindow(QMainWindow):
         dlg.setStandardButtons( QMessageBox.StandardButton.Ok )
         if good_completion :
             dlg.setText( f"Imported {number_files} documents." )
-            print('ok')
         else:
             dlg.setText( "Failed to import documents")
-            print('fail')
         dlg.show()
         rtn=dlg.exec()
 
@@ -628,7 +627,6 @@ class MainWindow(QMainWindow):
         del uiconvert
         self._show_import_status( ui_completion , len_files )
         
-        print( ui_completion, 'done with action file import document')
         
 
     def _action_file_import_document_dir(self)->None:

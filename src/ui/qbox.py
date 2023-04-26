@@ -10,7 +10,6 @@ class QBox( QMessageBox ):
 
 
     def _setTextFields(self ):
-        print("Fields:\n{}\n{}\n".format( self._text, self._info ))
         """ Resize based upon what text is the largest size"""
         flen = ''
         flen = (max(len(self._text), len( self._info ) )  * self.fontMetrics().averageCharWidth() ) + self._padding

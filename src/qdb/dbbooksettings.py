@@ -186,7 +186,6 @@ class DbBookSettings( MixinBookID, DbBase ):
 
     def setValueById( self, book: str | int=None, key=None, value=None, ignore=False)->bool:
         rtn = True
-        print(f'setvalue KEY {key} VALUE: {value}')
         try:
             if key is None or value is None:
                 raise ValueError('Key and value are required')

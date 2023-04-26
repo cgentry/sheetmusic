@@ -284,10 +284,8 @@ class BottomSheet():
         return self._pdfmode 
     
     def setPdfDisplayMode( self, state:bool)->None:
-        print('In bottomsheet, setPdfDisplayMode', state)
         self._pdfmode = state
         for page in self.pageRefs:
-            print('set page', page.pageNumber() )
             page.pdfdisplaymode = state
 
 

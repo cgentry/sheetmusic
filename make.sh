@@ -50,7 +50,8 @@ elif [[ "$unamestr" == 'FreeBSD' ]]; then
 elif [[ "$unamestr" == 'Darwin' ]]; then
    platform='macos'
    SPEC_OPTIONS+=("--noconsole" "--osx-bundle-identifier" "com.organmonkey.sheetmusic"  )
-   ICON=( "-i" "src/images/sheetmusic.icns" "--add-binary" "src/images/sheetmusic.icns:images/sheetmusic.icns" )
+   # ICON=( "--icon" "src/images/sheetmusic.icns" "--add-binary" "src/images/sheetmusic.icns:images/sheetmusic.icns" )
+   ICON=( "--icon" "src/images/sheetmusic.icns" )
 else
    error_exit "Unknown system: ${unamestr}" ${LINENO}
 fi

@@ -295,7 +295,6 @@ class DilBook(DbBook):
 
             Return True if any changes were made
         """
-        print( 'update_properties:', change_list )
         self.set_property(BOOK.id, self.book[BOOK.id])
         for key, value in change_list.items():
             self.set_property(key, value)
