@@ -1,24 +1,31 @@
-from ui.runscript       import UiRunScript, UiRunScriptFile, UiScriptSetting, UiRunSimpleNote
+""" Simple program that for running scriptfiles.
+
+Not meant for general usage, but more for testing
+
+"""
+import os
+import sys
+from PySide6.QtWidgets  import QApplication
+
+
+from ui.runscript       import UiRunScriptFile
 from qdil.preferences   import SystemPreferences
 from qdb.dbconn         import DbConn
-from PySide6.QtWidgets  import QApplication
-import os, sys
-from util.toollist      import GenerateToolList
 
 
 if "__main__" == __name__ :
 
-    sy = SystemPreferences()
-    dbLocation    = sy.getPathDB()          # Fetch the system settings
-    mainDirectory = sy.getDirectory()       # Get direcotry
-    DbConn.openDB( dbLocation )
+    syspref = SystemPreferences()
+    dbLocation    = syspref.dbpath
+    mainDirectory = syspref.dbdirectory
+    DbConn.open_db( dbLocation )
 
     app = QApplication([])
 
     mainFile = os.path.abspath(sys.modules['__main__'].__file__)
     mainExePath = os.path.dirname( os.path.dirname(mainFile) )
-  
-    script="""#!/bin/bash
+
+    SCRIPT="""#!/bin/bash
     #:title This is just a test and doesn't do anything
     #:comment line 1
     #:comment line 2
@@ -38,13 +45,14 @@ if "__main__" == __name__ :
     # gen = GenerateToolList()
     # listid =  gen.list()
     # for key in listid :
-    #     print("Script: {}\n\tpath: {}\nRequires: {}\nComment: {}\n".format( key , listid[key]['path'], listid[key]['require'],listid[key]['comment'] ))
+    #     print("Script: {}\n\tpath: {}\nRequires: {}\nComment: {}\n".format(
+    # key , listid[key]['path'], listid[key]['require'],listid[key]['comment'] ))
     # tmod = UiScriptSetting( filename='dummy', lines=script.splitlines() )
     # print( tmod.settings())
 
     # script_file="/Users/Charles/python/sheet_music/SheetMusic/src/util/scripts/scriptinfo.sh"
-    script_file="/Users/Charles/python/sheet_music/SheetMusic/src/util/scripts/fixpdf.sh"
-    tmod = UiRunScriptFile( script_file, [], isFile=True)
+    SCRIPT_FILE="/Users/Charles/python/sheet_music/SheetMusic/src/util/scripts/fixpdf.sh"
+    tmod = UiRunScriptFile( SCRIPT_FILE, [], is_file=True)
 
     tmod.run()
 

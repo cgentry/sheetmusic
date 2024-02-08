@@ -1,54 +1,49 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Test frame: DbBookmark
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+"""
+#disable no docstrings, too many public methods
+#pylint: disable=C0115
+#pylint: disable=C0116
+#pylint: disable=R0904
+
 import unittest
 import logging
 
-sys.path.append("../")
+#sys.path.append("../")
+from PySide6.QtSql  import QSqlQuery
 from qdb.dbconn     import DbConn
 from qdb.dbbookmark import DbBookmark
 from qdb.setup      import Setup
-from qdb.keys       import BOOKMARK
-from PySide6.QtSql  import QSqlQuery
+from qdb.fields.bookmark import BookmarkField
+
 
 class TestDbBookmark(unittest.TestCase):
+    """ TestDbBookmark"""
     def glue( self, query:QSqlQuery , bulkdata:dict ):
         for row in bulkdata:
             for key in row:
                 query.bindValue( ":"+key , row[key])
             query.exec()
-            
+
 
     def setUp(self):
-        db = DbConn.openDB(':memory:')
+        db = DbConn.open_db(':memory:')
         self.setup = Setup(':memory:')
-        self.setup.dropTables()
-        self.setup.createTables()
+        self.setup.drop_tables()
+        self.setup.create_tables()
         query = QSqlQuery( db )
-    
-        bkData = [
+
+        bk_data = [
                 {'book': 'test1', 'location': '/loc', 'source': '/src'},
                 {'book': 'test2', 'location': '/loc', 'source': '/src'},
         ]
-        bkmarkData = [
+        bkmark_data = [
                 {'book_id': 1, 'bookmark': 'bk01', 'page': 5},
                 {'book_id': 1, 'bookmark': 'bk02', 'page': 10},
                 {'book_id': 1, 'bookmark': 'bk03', 'page': 15},
@@ -58,121 +53,125 @@ class TestDbBookmark(unittest.TestCase):
 
         ]
         query.prepare("INSERT INTO Book ( book,location,source) VALUES( :book,:location,:source)" )
-        self.glue( query , bkData )
+        self.glue( query , bk_data )
 
-        query.prepare( "INSERT INTO Bookmark ( book_id,bookmark,page) VALUES( :book_id,:bookmark,:page)" )
-        self.glue( query, bkmarkData )
+        query.prepare( """INSERT INTO Bookmark
+                      ( book_id,bookmark,page) VALUES( :book_id,:bookmark,:page)""" )
+        self.glue( query, bkmark_data )
 
         self.obj = DbBookmark()
-        self.obj.showStack(False)
+        self.obj.show_stack(False)
         self.obj.logger.setlevel( logging.CRITICAL )
 
     def tearDown(self):
-        # (_, cursor) = DbConn().openDB()
+        # (_, cursor) = DbConn().open_db()
         # cursor.execute('DROP TABLE IF EXISTS Bookmark')
-        # = DbConn().openDB(close=True)
+        # = DbConn().open_db(close=True)
         pass
 
-    def test_getBookmarkForPage(self):
-        bk = self.obj.getBookmarkForPage(book='test1', page=12)
+    def test_get_bookmark_for_page(self):
+        bk = self.obj.get_bookmark_for_page(book='test1', page=12)
         self.assertIsNotNone(bk)
         self.assertEqual( len(bk) , 5 )
-        self.assertEqual(bk[ BOOKMARK.book ], 'test1')
-        self.assertEqual(bk[ BOOKMARK.name ], 'bk02')
-        self.assertEqual(bk[ BOOKMARK.page ], 10)
+        self.assertEqual(bk[ BookmarkField.BOOK ], 'test1')
+        self.assertEqual(bk[ BookmarkField.NAME ], 'bk02')
+        self.assertEqual(bk[ BookmarkField.PAGE ], 10)
 
     def test_last( self ):
-        bk = self.obj.last( book='test1')
+        """ check last bookmark """
+        bk = self.obj.get_last( book='test1')
         self.assertIsNotNone(bk)
-        self.assertEqual( len(bk) , 6 )
-        self.assertEqual(bk[ BOOKMARK.book ] , 'test1')
-        self.assertEqual(bk[ BOOKMARK.name ] , 'bk04')
-    
-    def test_last( self ):
-        bk = self.obj.last( book='nothere')
+        self.assertEqual( len(bk) , 5, 'Should be five fields' )
+        self.assertEqual(bk[ BookmarkField.BOOK ] , 'test1')
+        self.assertEqual(bk[ BookmarkField.NAME ] , 'bk04')
+
+    def test_last_nothere( self ):
+        """ Test if book doesn't exist"""
+        bk = self.obj.get_last( book='nothere')
         self.assertIsNone(bk)
 
-    def test_emptyDatabase(self):
-        self.setup.dropTables()
-        self.setup.createTables()
-        bk = self.obj.getBookmarkForPage(book='test1', page=12)
+    def test_empty_database(self):
+        self.setup.drop_tables()
+        self.setup.create_tables()
+        bk = self.obj.get_bookmark_for_page(book='test1', page=12)
         self.assertIsNone( bk )
-        
-    def test_getFirstBookmarkFor(self):
-        bk = self.obj.first(book='test1')
-        self.assertIsNotNone(bk)
-        self.assertEqual(bk[ BOOKMARK.book ], 'test1')
-        self.assertEqual(bk[ BOOKMARK.name ], 'bk01')
-        self.assertEqual(bk[ BOOKMARK.page], 5)
-    
-    def test_getPreviousBookmarkForPage(self):
-        bk = self.obj.getBookmarkForPage( 'test1' , 12 )
-        self.assertIsNotNone(bk)
-        self.assertEqual(bk[ BOOKMARK.name ], 'bk02','Confirm we have the correct ID for this page')
-        bk = self.obj.getPreviousBookmarkForPage(book='test1', page=12)
-        self.assertIsNotNone(bk)
-        self.assertEqual(bk[ BOOKMARK.book ], 'test1')
-        self.assertEqual(bk[ BOOKMARK.name ], 'bk01', 'Went from bk02 to bk01')
-        self.assertEqual(bk[ BOOKMARK.page], 5)
 
-    def test_getPreviousBookmarkForPage_AtStart(self):
-        bk = self.obj.getPreviousBookmarkForPage(book='test1', page=5)
+    def test_get_first_bookmark_for_page(self):
+        bk = self.obj.get_first(book='test1')
+        self.assertIsNotNone(bk)
+        self.assertEqual(bk[ BookmarkField.BOOK ], 'test1')
+        self.assertEqual(bk[ BookmarkField.NAME ], 'bk01')
+        self.assertEqual(bk[ BookmarkField.PAGE], 5)
+
+    def test_get_previous_bookmark_for_page(self):
+        bk = self.obj.get_bookmark_for_page( 'test1' , 12 )
+        self.assertIsNotNone(bk)
+        self.assertEqual(bk[ BookmarkField.NAME ], 'bk02',
+                         'Confirm we have the correct ID for this page')
+        bk = self.obj.get_previous_bookmark_for_page(book='test1', page=12)
+        self.assertIsNotNone(bk)
+        self.assertEqual(bk[ BookmarkField.BOOK ], 'test1')
+        self.assertEqual(bk[ BookmarkField.NAME ], 'bk01', 'Went from bk02 to bk01')
+        self.assertEqual(bk[ BookmarkField.PAGE], 5)
+
+    def test_get_previous_bookmark_for_page_at_start(self):
+        bk = self.obj.get_previous_bookmark_for_page(book='test1', page=5)
         self.assertIsNone(bk)
 
-    def test_getNextBookmarkForPage(self):
-        bk = self.obj.getNextBookmarkForPage(book='test1', page=12)
+    def test_get_next_bookmark_for_page(self):
+        bk = self.obj.get_next_bookmark_for_page(book='test1', page=12)
         self.assertEqual( len(bk) , 5 )
         self.assertIsNotNone(bk)
-        self.assertEqual( bk[ BOOKMARK.book ], 'test1')
-        self.assertEqual( bk[ BOOKMARK.name ], 'bk03')
-        self.assertEqual( bk[ BOOKMARK.page ], 15)
+        self.assertEqual( bk[ BookmarkField.BOOK ], 'test1')
+        self.assertEqual( bk[ BookmarkField.NAME ], 'bk03')
+        self.assertEqual( bk[ BookmarkField.PAGE ], 15)
 
-    def test_getNextBookmarkForPage_AtEnd(self):
-        bk = self.obj.getNextBookmarkForPage(book='test1', page=20)
+    def test_get_next_bookmark_for_page_at_end(self):
+        bk = self.obj.get_next_bookmark_for_page(book='test1', page=20)
         self.assertIsNone(bk)
 
     def test_count( self ):
-        count = self.obj.count(book='test1')
+        count = self.obj.get_count(book='test1')
         self.assertEqual( count, 4, 'Count of test1 should be 4')
-        count = self.obj.count(book='test2')
+        count = self.obj.get_count(book='test2')
         self.assertEqual( count, 2, 'Count of test2 should be 2')
-        count = self.obj.count(book='test3')
+        count = self.obj.get_count(book='test3')
         self.assertEqual( count, 0 , 'Count of test3 should be zero')
 
-    def test_getallbookmarks( self ):
-        bk = self.obj.getAll( 'test1' )
+    def test_get_all_bookmarks( self ):
+        bk = self.obj.get_all( 'test1' )
         self.assertEqual( len(bk), 4 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 5)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[2][ BOOKMARK.value ] , 15)
-        self.assertEqual( bk[3][ BOOKMARK.value ] , 20)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 5)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[2][ BookmarkField.VALUE ] , 15)
+        self.assertEqual( bk[3][ BookmarkField.VALUE ] , 20)
 
-        bk = self.obj.getAll('test2')
+        bk = self.obj.get_all('test2')
         self.assertEqual( len(bk), 2 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 5)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 10)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 5)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 10)
 
         ## bookmark names will reverse the page order
-        bk = self.obj.getAll('test2', order="bookmark")
+        bk = self.obj.get_all('test2', order="bookmark")
         self.assertEqual( len(bk), 2 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 5)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 5)
 
-    def test_delbookmark( self):
+    def test_del_bookmark( self):
         rtn = self.obj.delete( book='test1', bookmark='bk01')
         self.assertTrue(rtn )
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 3 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 15)
-        self.assertEqual( bk[2][ BOOKMARK.value ] , 20)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 15)
+        self.assertEqual( bk[2][ BookmarkField.VALUE ] , 20)
 
         rtn = self.obj.delete( book='test1', bookmark='bk03')
         self.assertTrue( rtn )
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 2 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 20)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 20)
 
         rtn = self.obj.delete( book='test1', bookmark='bk03')
         self.assertFalse( rtn )
@@ -180,60 +179,60 @@ class TestDbBookmark(unittest.TestCase):
     def test_delbookmark_bypage( self):
         rtn=self.obj.delete_by_page( book='test1', page=5)
         self.assertTrue( rtn )
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 3 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 15)
-        self.assertEqual( bk[2][ BOOKMARK.value ] , 20)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 15)
+        self.assertEqual( bk[2][ BookmarkField.VALUE ] , 20)
 
         self.obj.delete_by_page( book='test1', page=15)
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 2 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 20)
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 20)
 
     def test_delallbookmark(self):
         self.obj.delete_all( 'test1')
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 0 )
         self.obj.delete_all( 'test1')
         rtn=self.obj.delete_by_page( book='test1', page=5)
         self.assertFalse( rtn )
-        
+
         rtn=self.obj.delete_all( None)
         self.assertFalse( rtn )
 
     def test_addbookmark(self):
         self.obj.add('test1','new01',25)
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 5 )
-        self.assertEqual( bk[0][ BOOKMARK.value ] ,  5)
-        self.assertEqual( bk[1][ BOOKMARK.value ] , 10)
-        self.assertEqual( bk[2][ BOOKMARK.value ] , 15)
-        self.assertEqual( bk[3][ BOOKMARK.value ] , 20)
-        self.assertEqual( bk[4][ BOOKMARK.value ] , 25)
-        self.assertEqual( bk[4][ BOOKMARK.name  ] , 'new01')
+        self.assertEqual( bk[0][ BookmarkField.VALUE ] ,  5)
+        self.assertEqual( bk[1][ BookmarkField.VALUE ] , 10)
+        self.assertEqual( bk[2][ BookmarkField.VALUE ] , 15)
+        self.assertEqual( bk[3][ BookmarkField.VALUE ] , 20)
+        self.assertEqual( bk[4][ BookmarkField.VALUE ] , 25)
+        self.assertEqual( bk[4][ BookmarkField.NAME  ] , 'new01')
 
-    def test_getAllBookmarks_empty(self):
+    def test_get_all_bookmarks_empty(self):
         self.obj.delete_all('test1')
-        bk = self.obj.getAll('test1')
+        bk = self.obj.get_all('test1')
         self.assertEqual( len(bk), 0 )
-        bk = self.obj.getAll(None)
+        bk = self.obj.get_all(None)
         self.assertEqual( len(bk), 0 )
 
-    def test_lastpage(self):
-        val = self.obj.lastpage( 'test1',5)
+    def test_last_page(self):
+        val = self.obj.last_page( 'test1',5)
         self.assertIsNotNone( val )
         self.assertEqual( val, 9)
-        val = self.obj.lastpage( 'test1',10)
+        val = self.obj.last_page( 'test1',10)
         self.assertIsNotNone( val )
         self.assertEqual( val, 14 )
 
-        val = self.obj.lastpage( 'test1',17)
+        val = self.obj.last_page( 'test1',17)
         self.assertIsNotNone( val )
         self.assertEqual( val, 19)
 
-        val = self.obj.lastpage( 'test1',21)
+        val = self.obj.last_page( 'test1',21)
         self.assertIsNone( val ,"Last bookmark at 20")
 
     def test_delbookmark_no_book( self):

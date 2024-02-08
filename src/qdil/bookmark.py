@@ -1,9 +1,12 @@
+""" High level database interface for bookmarks
+    This is based on the lower-level DbBookmark class
+"""
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
-# This file is part of Sheetmusic. 
+# This file is part of Sheetmusic.
 
 # Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,119 +21,157 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from qdb.dbbookmark     import DbBookmark
-from qdb.keys           import BOOKMARK
-from ui.bookmark        import UiBookmark
 from PySide6.QtCore     import Qt
-from PySide6.QtWidgets  import QInputDialog, QMessageBox, QDialog
+from PySide6.QtWidgets  import QInputDialog, QMessageBox
+
+from qdb.fields.bookmark import BookmarkField
+from qdb.dbbookmark     import DbBookmark
+from ui.bookmark        import UiBookmark
 
 class DilBookmark( DbBookmark):
-    def __init__(self, book:str=None):
+    """High level bookmark class, wraps DbBookmark
+
+    Args:
+        DbBookmark (class): database interface (basic)
+    """
+    def __init__(self, book: str | int=None):
         super().__init__()
+        self.bookmark = None
+        self.book_name = None
         self.open( book )
 
-    def open(self, book:str ):
-        self.bookmark = None
-        self.bookName = book
-        self.bookID   = self.lookup_book_id(book)
+    def open(self, book: str | int ):
+        """ Open bookmark for book """
+        self.close()
+        self.book_id   = self.lookup_book_id(book)
 
     def close(self):
+        """Close book. Name and bookmarks are deleted.
+        """
         self.bookmark = None
-        self.bookName = None
+        self.book_name = None
 
-    def isOpen( self )->bool:
-        return self.bookName is not None
-    
+    def is_open( self )->bool:
+        """return open status
+
+        Returns:
+            bool: True if book is open, false otherwise
+        """
+        return self.book_name is not None
+
     def count(self)->int:
-        return super().count( book=self.bookName )
+        """
+        Get number of pages
 
-    def getAll( self )->list:
+        Returns:
+            int: Number of pages in book
+        """
+        return super().get_count( book=self.book_name )
+
+    def all( self )->list:
         """
             get all bookmarks complete data
         """
-        return super().getAll( book=self.bookName )
+        return super().get_all( book=self.book_name )
 
-    def getList(self )->list:
+    def get_list(self )->list:
         """
             This returns just the names of bookmarks as a name list
             (Other bookmark fields are ignored )
         """
-        bmk = super().getAll( book=self.bookName )
-        return [ bookmark[ BOOKMARK.name ] for bookmark in bmk ]
+        bmk = super().get_all( book=self.book_name )
+        return [ bookmark[ BookmarkField.NAME ] for bookmark in bmk ]
 
-    def getBookmarkPage( self, page:int)->dict:
-        return super().getBookmarkForPage( book=self.bookName, page=page )
+    def lookup_bookmark( self, page:int)->dict:
+        """ Lookup bookmark for current book and page """
+        return super().get_bookmark_for_page( book=self.book_name, page=page )
 
     def first(self):
-        return super().first( book = self.bookName )
+        """ Return first bookmark for current book """
+        return super().get_first( book = self.book_name )
 
-    def getLast(self):
-        return super().getLast( book = self.bookName )
+    def last(self):
+        """ Return last bookmark for current book """
+        return super().get_last( book = self.book_name )
 
-    def getPrevious(self, page:int)->dict:
-        return super().getPreviousBookmarkForPage(book=self.bookName, page=page)
+    def get_previous(self, page:int)->dict:
+        """ Get previous boookmark from this page. return a dictionary with page/content """
+        return super().get_previous_bookmark_for_page(book=self.book_name, page=page)
 
-    def getNext(self, page:int)->dict:
-        return super().getNextBookmarkForPage(book=self.bookName, page=page )
+    def get_next(self, page:int)->dict:
+        """ Get next """
+        return super().get_next_bookmark_for_page(book=self.book_name, page=page )
 
-    def isLast( self, bookmark:dict )->bool:
+    def is_last( self, bookmark:dict )->bool:
         """
             Pass in the bookmark dictionary we returned and determine if this is the last
         """
-        nextBkm = super().getNextBookmarkForPage( book=self.bookName, page=bookmark[BOOKMARK.page ])
-        return( nextBkm is None or nextBkm[BOOKMARK.page] is None )
+        next_mark = super().get_next_bookmark_for_page(
+                    book=self.book_name,
+                    page=bookmark[BookmarkField.PAGE ])
+        return( next_mark is None or next_mark[BookmarkField.PAGE] is None )
 
-    def isFirst( self, bookmark:dict)->bool:
+    def is_first( self, bookmark:dict)->bool:
         """
             Pass in the bookmark dictionary we returned and determine if this is the first
         """
-        prevBkm = super().getPreviousBookmarkForPage( book=self.bookName, page=bookmark[BOOKMARK.page ])
-        return ( prevBkm is None or prevBkm[BOOKMARK.page] is  None)
+        prev = super().get_previous_bookmark_for_page(
+                        book=self.book_name,
+                        page=bookmark[BookmarkField.PAGE ])
+        return  prev is None or prev[BookmarkField.PAGE] is  None
 
-    def saveBookmark(self, bookmarkName:str=None, pageNumber:int=0, layout:str=None )->None:
+    def save(self, name:str=None, page:int=0, layout:str=None )->None:
         '''
-            Save a bookmark with name, page number and layout. 
+            Save a bookmark with name, page number and layout.
             pageNumer should be absolute in order to go to page properly.
             Layout is optional, but if passed it will be saved.
             If no name is passed, it will be 'Page-nnn' (nnn=pagenumber)
-            
-        '''
-        if bookmarkName is None:
-            bookmarkName = 'Page-{}'.format( pageNumber )
-        super().add( self.bookName, bookmarkName, pageNumber )
 
-    def thisBook(self , book:str, relativePage:int, absolutePage:int ):
-        prompt = "Name for bookmark at "
-        if relativePage != absolutePage :
-            prompt = prompt + "Book Page {:d} / Page Shown {:d}:".format( absolutePage, relativePage )
-        else:
-            prompt = prompt + "Book Page {:d}:".format( absolutePage )
-        windowFlag = Qt.FramelessWindowHint
+        '''
+        del layout
+        if name is None:
+            name = f'Page-{page}'
+        super().add( self.book_name, name, page )
+
+    def current_book(self , book:str, page_relative:int, page_absolute:int ):
+        """Prompt for current page number
+
+        Args:
+            book (str): Title of book
+            page_relative (int): Bookmark's relative page number
+            page_absolute (int): Bookmark's absolute page number
+        """
+        prompt = f"{book} bookmark at page {page_absolute}"
+        if page_relative != page_absolute :
+            prompt = prompt + f" (Shown {page_relative})"
 
         dlg = QInputDialog()
         dlg.setLabelText( prompt )
         dlg.setTextValue( "")
         dlg.setOption(QInputDialog.UsePlainTextEditForTextInput, False)
-        dlg.setWindowFlag( windowFlag )
+        dlg.setWindowFlag( Qt.FramelessWindowHint )
         if dlg.exec() :
-            self.saveBookmark( bookmarkName=dlg.textValue() , pageNumber=absolutePage)
-    
+            self.save( name=dlg.textValue() , page=page_absolute)
 
-    def delete_select( self , bookName:str , uiBookmark:UiBookmark )->dict:
-        uiBookmark.setBookmarkList( self.getBookmarkList() )
+
+    def delete_select( self , book_name:str , ui_bmk:UiBookmark )->dict:
+        """ Delete boomkarks with user prompt """
+        ui_bmk.setBookmarkList( self.all() )
         bookm = {}
-        rtn = uiBookmark.exec()
+        rtn = ui_bmk.exec()
         if rtn == QMessageBox.Accepted:
-            if uiBookmark.action == 'go':
-                newPage = uiBookmark.selectedPage
-                if newPage :
-                    bookm = super().getBookmarkForPage( book=self.bookName, page=newPage )
-                elif uiBookmark.selectedPage :
+            if ui_bmk.action_ == 'go':
+                new_page = ui_bmk.selected_page
+                if new_page :
+                    bookm = super().get_bookmark_for_page( book=self.book_name, page=new_page )
+                elif ui_bmk.selected_page :
+                    #pylint: disable=C0209
                     title = "{}:   {}\n{}:   {}\n{}:    {}\n{}:    {}".format(
-                        "Book", bookName, 
-                        "Bookmark", uiBookmark.selectedBookmark,
-                        "Page shown", uiBookmark.relativePage, 
-                        "Book page:", uiBookmark.selectedPage )
+                        "Book", book_name,
+                        "Bookmark", ui_bmk.selectedBookmark,
+                        "Page shown", ui_bmk.page_relative,
+                        "Book page:", ui_bmk.selected_page )
+                    #pylint: enable=C0209
                     qbox = QMessageBox()
                     qbox.setIcon(QMessageBox.Question)
                     qbox.setCheckBox(None)
@@ -138,17 +179,17 @@ class DilBookmark( DbBookmark):
                     qbox.addButton('Cancel', QMessageBox.RejectRole)
 
                     qbox.setText("Delete bookmark?")
-                    qbox.setInformativeText(uiBookmark.selectedBookmark)
+                    qbox.setInformativeText(ui_bmk.selectedBookmark)
                     qbox.setDetailedText(title)
                     if qbox.exec() == QMessageBox.AcceptRole:
-                        DbBookmark().delete( 
-                            book=bookName ,
-                            bookmark=uiBookmark.selectedBookmark )
+                        DbBookmark().delete(
+                            book=book_name ,
+                            bookmark=ui_bmk.selectedBookmark )
                     qbox.close()
                     del qbox
-        uiBookmark.close()
+        ui_bmk.close()
         return bookm
-    
+
     # def addBookmarkDialog( self, dlg ):
     #     try:
     #         self.addBookmarkDialogx( dlg )
@@ -157,13 +198,17 @@ class DilBookmark( DbBookmark):
 
     # def addBookmarkDialogx( self, dlg ):
     #     while dlg.exec() == QDialog.Accepted:
-    #         changes = dlg.getChanges()
+    #         changes = dlg.get_changes()
     #         dlg.clear()
-    #         currentBookmark = self.getNameForPage( self.bookName , page=changes[ BOOKMARK.page ] )
+    #         currentBookmark = self.get_name_for_page(
+    #               self.book_name ,
+    #               page=changes[ BookmarkField.PAGE ] )
     #         if currentBookmark :
-    #             dlg.setupFields( changes[BOOKMARK.name])
-    #             dlg.error("<b>Duplicate Bookmarked page {}:<br>{}</b>".format( changes[BOOKMARK.page ] , currentBookmark))
+    #             dlg.setup_fields( changes[BookmarkField.NAME])
+    #             dlg.error("<b>Duplicate Bookmarked page {}:<br>{}</b>".format(
+    #                   changes[BookmarkField.PAGE ] , currentBookmark))
     #         else:
-    #             self.saveBookmark( bookmarkName=changes[ BOOKMARK.name ],pageNumber=changes[ BOOKMARK.page ])
+    #             self.save( bookmark_name=changes[ BookmarkField.NAME ],
+    #                   page_number=changes[ BookmarkField.PAGE ])
     #             if dlg.buttonClicked == dlg.BtnSave: # One shot operation
     #                 break

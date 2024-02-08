@@ -1,77 +1,142 @@
+"""
+ Class Interface Definition : Display widget
+
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+ Note: A lot of pylint warnings have been shutoff for this
+ Its an interface, but
+"""
+import abc
 from PySide6.QtCore import QSize
 
-import abc
 class ISheetMusicDisplayWidget( metaclass=abc.ABCMeta):
-    """ Interface to define required methods for any low-level display widget 
+    """ Interface to define required methods for any low-level display widget
     """
-    def __init__( self, *args, **kwargs ):
-        super().__init__( )
 
     @classmethod
     def __subclasshook__(cls, subclass):
-        return (hasattr(subclass, 'clear') and callable(subclass.clear) and 
-                hasattr(subclass, 'content') and callable(subclass.content) and 
-                hasattr(subclass, 'copy') and callable(subclass.copy) and
-                hasattr(subclass, 'hide') and callable(subclass.hide) and
-                hasattr(subclass, 'isVisible') and callable(subclass.isVisible) and
-                hasattr(subclass, 'pageNumber') and callable(subclass.pageNumber) and
-                hasattr(subclass, 'resize') and callable(subclass.resize) and
-                hasattr(subclass, 'setContent') and callable(subclass.setContent) and
-                hasattr(subclass, 'setContentPage') and callable( subclass.setContentPage) and
-                hasattr(subclass, 'setKeepAspectRatio') and callable( subclass.setKeepAspectRatio) and 
-                hasattr(subclass, 'setPageNumber') and callable(subclass.setPage) and
-                hasattr(subclass, 'show') and callable(subclass.show) and
-                hasattr(subclass, 'widget') and callable(subclass.widget) or
+        """Determine if a sublass
+
+        Args:
+            subclass (object):  subclass to check
+
+        Returns:
+            bool: True or false
+        """
+        return (hasattr(subclass, 'clear') and
+                callable(subclass.clear) and
+                hasattr(subclass, 'content') and
+                callable(subclass.content) and
+                hasattr(subclass, 'copy') and
+                callable(subclass.copy) and
+                hasattr(subclass, 'hide') and
+                callable(subclass.hide) and
+                hasattr(subclass, 'is_visible') and
+                callable(subclass.is_visible) and
+                hasattr(subclass, 'page_number') and
+                callable(subclass.page_number) and
+                hasattr(subclass, 'resize') and
+                callable(subclass.resize) and
+                hasattr(subclass, 'setContent') and
+                callable(subclass.setContent) and
+                hasattr(subclass, 'set_content_page') and
+                callable( subclass.set_content_page) and
+                hasattr(subclass, 'keep_aspect_ratio') and
+                callable( subclass.keep_aspect_ratio) and
+                hasattr(subclass, 'set_pagenum') and
+                callable(subclass.setPage) and
+                hasattr(subclass, 'show') and
+                callable(subclass.show) and
+                hasattr(subclass, 'widget') and
+                callable(subclass.widget) or
                 NotImplemented)
-    
+
     @abc.abstractmethod
     def clear(self)->None:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def copy(self, source_object:object)->None:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def content(self )->object:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def hide(self)->None:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def isVisible(self)->bool:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def pageNumber(self )->int:
-        raise NotImplementedError
-    
-    @abc.abstractmethod
-    def resize(self, wide:int|QSize  , height:int )->None:
+        """ Clear the current dispaly widget """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def setContent(self, content:object )->bool:
+    def copy(self, source_object:object)->bool:
+        """ Copy content and values from source"""
         raise NotImplementedError
-    
+
     @abc.abstractmethod
-    def setContentPage(self, content:object, pageNumber:int)->bool:
+    def content(self )->object:
+        """ Return the widget contents """
         raise NotImplementedError
-    
+
     @abc.abstractmethod
-    def setKeepAspectRatio(self, keep:bool)->None:
+    def hide(self)->None:
+        """ Hide the current widget """
         raise NotImplementedError
-    
+
     @abc.abstractmethod
-    def setPageNumber(self, page_number:int)->None:
+    def is_visible(self)->bool:
+        """ Return true if widget is displayed """
         raise NotImplementedError
-    
+
     @abc.abstractmethod
-    def show(self, flag:bool)->None:
+    def page_number(self )->int:
+        """ return current page number """
         raise NotImplementedError
-    
+
     @abc.abstractmethod
-    def widget(self, flag:bool)->object:
+    def resize(self, wide:int|QSize  , height:int )->None:
+        """ Change the current widgets display """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set_content(self, content:object )->bool:
+        """ Set the widget's content """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set_content_page(self, content:object, page_number:int)->bool:
+        """ Set this page's content to 'content' """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def keep_aspect_ratio(self, keep:bool)->None:
+        """Maintain aspect ratio
+
+        Args:
+            keep (bool):
+            True to keep original aspect ratio
+
+        Raises:
+            NotImplementedError:
+                Abstract method must be implemented
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def set_pagenum(self, page_number:int)->bool:
+        """Set the current page number
+
+        Args:
+            page_number (int): page to go to
+
+        Raises:
+            NotImplementedError:
+                Abstract method must be implemented
+
+        Returns:
+            bool: True if changed page
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def show(self)->None:
+        """ Display widget contents """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def widget(self)->object:
+        """ Return the wrapped widget """
         raise NotImplementedError

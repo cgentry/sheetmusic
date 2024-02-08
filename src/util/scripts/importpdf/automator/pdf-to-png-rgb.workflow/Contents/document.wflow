@@ -8,10 +8,10 @@
 	<string>2.10</string>
 	<key>AMDocumentVersion</key>
 	<string>2</string>
-	<key>actions</key>
+	<key>action_s</key>
 	<array>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -53,7 +53,7 @@
 					</array>
 				</dict>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Run Shell Script.action</string>
+				<string>/System/Library/Automator/Run Shell Script.action_</string>
 				<key>ActionName</key>
 				<string>Run Shell Script</string>
 				<key>ActionParameters</key>
@@ -175,13 +175,13 @@ echo "${SOURCE_FILE}"</string>
 				<key>location</key>
 				<string>371.500000:184.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Run Shell Script.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -224,7 +224,7 @@ echo "${SOURCE_FILE}"</string>
 				<key>AMRequiredResources</key>
 				<array/>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Set Value of Variable.action</string>
+				<string>/System/Library/Automator/Set Value of Variable.action_</string>
 				<key>ActionName</key>
 				<string>Set Value of Variable</string>
 				<key>ActionParameters</key>
@@ -285,13 +285,13 @@ echo "${SOURCE_FILE}"</string>
 				<key>location</key>
 				<string>371.500000:287.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Set Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Set Value of Variable.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -333,7 +333,7 @@ echo "${SOURCE_FILE}"</string>
 					</array>
 				</dict>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Run Shell Script.action</string>
+				<string>/System/Library/Automator/Run Shell Script.action_</string>
 				<key>ActionName</key>
 				<string>Run Shell Script</string>
 				<key>ActionParameters</key>
@@ -456,13 +456,13 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:469.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Run Shell Script.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Run Shell Script.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -505,7 +505,7 @@ echo ${WRITE_TO}
 				<key>AMRequiredResources</key>
 				<array/>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Set Value of Variable.action</string>
+				<string>/System/Library/Automator/Set Value of Variable.action_</string>
 				<key>ActionName</key>
 				<string>Set Value of Variable</string>
 				<key>ActionParameters</key>
@@ -566,13 +566,13 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:572.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Set Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Set Value of Variable.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -615,7 +615,7 @@ echo ${WRITE_TO}
 				<key>AMRequiredResources</key>
 				<array/>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Get Value of Variable.action</string>
+				<string>/System/Library/Automator/Get Value of Variable.action_</string>
 				<key>ActionName</key>
 				<string>Get Value of Variable</string>
 				<key>ActionParameters</key>
@@ -676,13 +676,13 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:730.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Get Value of Variable.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Get Value of Variable.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -722,7 +722,7 @@ echo ${WRITE_TO}
 					</array>
 				</dict>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Render PDF Pages as Images.action</string>
+				<string>/System/Library/Automator/Render PDF Pages as Images.action_</string>
 				<key>ActionName</key>
 				<string>Render PDF Pages as Images</string>
 				<key>ActionParameters</key>
@@ -737,7 +737,7 @@ echo ${WRITE_TO}
 					<integer>200</integer>
 				</dict>
 				<key>BundleIdentifier</key>
-				<string>com.apple.action.imagepdf</string>
+				<string>com.apple.action_.imagepdf</string>
 				<key>CFBundleVersion</key>
 				<string>681</string>
 				<key>CanShowSelectedItemsWhenRun</key>
@@ -827,13 +827,13 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:928.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Render PDF Pages as Images.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Render PDF Pages as Images.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -926,7 +926,7 @@ echo ${WRITE_TO}
 					</array>
 				</dict>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Rename Finder Items.action</string>
+				<string>/System/Library/Automator/Rename Finder Items.action_</string>
 				<key>ActionName</key>
 				<string>Rename Finder Items: Make Sequential</string>
 				<key>ActionParameters</key>
@@ -1313,13 +1313,13 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:969.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Rename Finder Items.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Rename Finder Items.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>0</integer>
 		</dict>
 		<dict>
-			<key>action</key>
+			<key>action_</key>
 			<dict>
 				<key>AMAccepts</key>
 				<dict>
@@ -1364,7 +1364,7 @@ echo ${WRITE_TO}
 					</array>
 				</dict>
 				<key>ActionBundlePath</key>
-				<string>/System/Library/Automator/Move Finder Items.action</string>
+				<string>/System/Library/Automator/Move Finder Items.action_</string>
 				<key>ActionName</key>
 				<string>Move Finder Items</string>
 				<key>ActionParameters</key>
@@ -1439,7 +1439,7 @@ echo ${WRITE_TO}
 				<key>location</key>
 				<string>371.500000:1069.000000</string>
 				<key>nibPath</key>
-				<string>/System/Library/Automator/Move Finder Items.action/Contents/Resources/Base.lproj/main.nib</string>
+				<string>/System/Library/Automator/Move Finder Items.action_/Contents/Resources/Base.lproj/main.nib</string>
 			</dict>
 			<key>isViewVisible</key>
 			<integer>1</integer>

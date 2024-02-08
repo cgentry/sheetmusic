@@ -1,166 +1,204 @@
+"""
+Database interface: Generic DB Connector
 
-# This module is part of sheetmusic and uses QtSQL packages
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from PySide6.QtSql  import QSqlDatabase, QSqlQuery
-from qdb.keys       import DbKeys
+ This file is part of Sheetmusic.
+
+"""
+from dataclasses import dataclass
 import logging
+from PySide6.QtSql import QSqlDatabase, QSqlQuery
 
-_qdb_conn = None
-_qdb_name = None
-_qdb_path = None
+from qdb.keys import DbKeys
 
-class DummyConnection:
-    def commit(self):
-        print("Obsolete call to commit")
 
-    def close(self):
-        print("Obsolete call to close")
+@dataclass(init=False)
+class DbVars():
+    """ System-wide databse variables """
+    _qdb_conn = None
+    _qdb_name = None
+    _qdb_path = None
 
-class DbConn():
-    DB_NAME = 'sheetmusic'
 
-    @staticmethod
-    def clearLastName():
-        global _qdb_path, _qdb_name
-        _qdb_path = None
-        _qdb_name = None
+class DbConn(DbVars):
+    """ Low level Connection to Database connector"""
 
     @staticmethod
-    def isOpen()->bool:
-        global _qdb_name
-        return QSqlDatabase.database(_qdb_name,open=False).isOpen()
+    def open_db(dbpath: str = None,
+                dbname: str = DbKeys.VALUE_DEFAULT_DB_FILENAME,
+                trace: bool = False) -> QSqlDatabase:
+        """Open a database connector
 
-    @staticmethod
-    def isValid(open=False)->bool:
-        global _qdb_name
-        return QSqlDatabase.database( _qdb_name, open=open).isValid()
+        Args:
+            dbpath (str, optional): Path to database file.
+                If none passed, use previous path
+                Defaults to None.
+            dbname (str, optional): Name to give connection.
+                Defaults to DbKeys.VALUE_DEFAULT_DB_FILENAME.
+            trace (bool, optional): Future flag.
+                Defaults to False.
 
-    @staticmethod
-    def name()->str:
-        """ This will return the connection name, not the db name """
-        global _qdb_conn
-        return (QSqlDatabase.connectionName(_qdb_conn) if _qdb_conn is not None else None)
+        Raises:
+            ValueError: No path to database
 
-    @staticmethod
-    def dbname()->str:
-        """ This will return the db name ( VALUE_DEFAULT_DB_FILENAME ) """
-        global _qdb_conn
-        return (QSqlDatabase.databaseName(_qdb_conn) if _qdb_conn is not None else None)
+        Returns:
+            QSqlDatabase: Database connection
+        """
+        del trace  # Will need to reimplement.
 
-    @staticmethod
-    def getConnection( open=False)->QSqlDatabase:
-        global _qdb_name
-        rtn =  QSqlDatabase.database( _qdb_name, open=open)
-        return rtn if rtn.isValid() else None
-
-    @staticmethod
-    def openDB( databasePath:str=None, connectionName:str=DbKeys.VALUE_DEFAULT_DB_FILENAME, trace:bool=False )->QSqlDatabase:
-        global _qdb_conn, _qdb_name, _qdb_path
-        if _qdb_conn is None or not _qdb_conn.isValid():
-            if databasePath is None:
-                if _qdb_path is None:
+        if DbVars._qdb_conn is None or not DbVars._qdb_conn.isValid():
+            if dbpath is None:
+                if DbVars._qdb_path is None:
                     raise ValueError("\tNo library name passed")
-                else:
-                    return DbConn.reopenDB( )
-        else: # _qdb_conn is not none
-            _qdb_conn.open()
-            return _qdb_conn
 
-        _qdb_path = databasePath
-        _qdb_conn = QSqlDatabase.addDatabase("QSQLITE", connectionName=connectionName )
-        _qdb_conn.setDatabaseName( databasePath )
+                return DbConn.reopen_db()
+        else:  # DbVars._qdb_conn is not none
+            DbVars._qdb_conn.open()
+            return DbVars._qdb_conn
 
-        _qdb_name = QSqlDatabase.connectionName(_qdb_conn )
-        _qdb_conn.open()
-        return _qdb_conn
+        DbVars._qdb_path = dbpath
+        DbVars._qdb_conn = QSqlDatabase.addDatabase(
+            "QSQLITE", connectionName=dbname)
+        DbVars._qdb_conn.setDatabaseName(dbpath)
 
-    @staticmethod
-    def db()->QSqlDatabase:
-        return DbConn.reopenDB()
+        DbVars._qdb_name = QSqlDatabase.connectionName(DbVars._qdb_conn)
+        DbVars._qdb_conn.open()
+        return DbVars._qdb_conn
 
     @staticmethod
-    def closeDB():
-        global _qdb_conn
-        """ This will close the db but doesn't destroy the db entry """
-        if _qdb_conn is not None and _qdb_conn.isOpen():
-            _qdb_conn.commit()
-            _qdb_conn.close()
-        
-    @staticmethod
-    def destroyConnection():
-        global _qdb_conn, _qdb_name
-        """ Only call this if you are exiting the program """
-        DbConn.closeDB()
-        _qdb_conn = None
-        QSqlDatabase.removeDatabase( _qdb_name)
-        _qdb_name = None
-        
-    @staticmethod
-    def reopenDB()->QSqlDatabase:
-        global _qdb_name, _qdb_conn
-        _qdb_conn =  QSqlDatabase.database( _qdb_name , open=True )
-        if not _qdb_conn.isValid():
-            logging.critical( "DB Open error: {}".format(  _qdb_conn.lastError().text() ) )
-        return _qdb_conn
+    def reopen_db() -> QSqlDatabase:
+        """Reopen the current database connection
 
-    @staticmethod
-    def query()->QSqlQuery:
-        return QSqlQuery( DbConn.db() )
-
-    @staticmethod
-    def connection()->DummyConnection:
-        return DummyConnection()
-
-    @staticmethod
-    def handles():
-        """ OBSOLETE: This returns a fake connection and a valid query
-            this will be removed after code cleanup occurs
+        Returns:
+            QSqlDatabase: Database connection
         """
-        return (DbConn.connection() , DbConn.cursor() )
-
+        DbVars._qdb_conn = QSqlDatabase.database(DbVars._qdb_name, open=True)
+        if not DbVars._qdb_conn.isValid():
+            logging.critical("DB Open error: %s",
+                             DbVars._qdb_conn.lastError().text())
+        return DbVars._qdb_conn
 
     @staticmethod
-    def getColumnNames( table:str )->list:
-        global _qdb_conn
-        """ Retrieve a list of all column names from the database 
-            (Usefull when creating queries) 
+    def db() -> QSqlDatabase:
+        """Reopen the database connection
+        This is an alias for reopen_db()
+
+        Returns:
+            QSqlDatabase: Database connection
         """
-        if not _qdb_conn or _qdb_conn.isOpenError() :
-            raise RuntimeError( "Database is not open")
-        columns = []
-        record = _qdb_conn.record( table )
-        for index in range( 0 , record.count() ):
-            name = record.fieldName(index)
-            if name.__contains__(':'):
-                x = name.split(':')
-                columns.append( x[0] )
-            else:
-                columns.append( name )
-        return columns
+        return DbConn.reopen_db()
 
     @staticmethod
-    def commit()->bool:
-        global _qdb_conn
-        if _qdb_conn is not None and _qdb_conn.isOpen():
-            return  _qdb_conn.commit()
+    def is_open() -> bool:
+        """ Return true if the database connection is open """
+        if DbVars._qdb_name is not None:
+            return QSqlDatabase.database(DbVars._qdb_name, open=False).isOpen()
         return False
 
     @staticmethod
-    def cleanDB( ):
-        global _qdb_conn
-        query = QSqlQuery( _qdb_conn )
+    def close_db():
+        """ This will close the db but doesn't destroy the db entry """
+        if DbVars._qdb_conn is not None and DbVars._qdb_conn.isOpen():
+            DbVars._qdb_conn.commit()
+            DbVars._qdb_conn.close()
+
+    @staticmethod
+    def clear():
+        """Clear path and name variables
+        """
+        DbConn.close_db()
+        DbVars._qdb_path = None
+        DbVars._qdb_name = None
+
+    @staticmethod
+    def is_clear() -> bool:
+        """Determine if the path and name have been cleared
+
+        Returns:
+            bool: True if the path and name are empty
+        """
+        return DbVars._qdb_path is None and DbVars._qdb_name is None
+
+    @staticmethod
+    def destroy_connection():
+        """ Remove the database connection from Qt system
+        ONLY use this when exiting the program
+        """
+        DbConn.close_db()
+        DbVars._qdb_conn = None
+        QSqlDatabase.removeDatabase(DbVars._qdb_name)
+        DbConn.clear()
+
+    @staticmethod
+    def is_valid(opendb=False) -> bool:
+        """ This wil chek if the database is valid
+        If opendb=True, the database will be re-opened."""
+        return QSqlDatabase.database(DbVars._qdb_name, open=opendb).isValid()
+
+    @staticmethod
+    def name() -> str:
+        """ This will return the connection name, not the db name """
+        return (QSqlDatabase.connectionName(DbVars._qdb_conn)
+                if DbVars._qdb_conn is not None
+                else None)
+
+    @staticmethod
+    def dbname() -> str:
+        """ This will return the db name ( VALUE_DEFAULT_DB_FILENAME ) """
+        if DbVars._qdb_conn is not None:
+            return QSqlDatabase.databaseName(DbVars._qdb_conn)
+        return None
+
+    @staticmethod
+    def get_connection(opendb=False) -> QSqlDatabase:
+        """ Return a database connection """
+        rtn = QSqlDatabase.database(DbVars._qdb_name, open=opendb)
+        return rtn if rtn.isValid() else None
+
+    @staticmethod
+    def query() -> QSqlQuery:
+        """ Create an SQL Query connection """
+        return QSqlQuery(DbConn.db())
+
+    @staticmethod
+    def get_column_names(table: str) -> list:
+        """ Retrieve a list of all column names from the database
+            (Usefull when creating queries)
+        """
+        if not DbVars._qdb_conn or DbVars._qdb_conn.isOpenError():
+            raise RuntimeError("Database is not open")
+        columns = []
+        record = DbVars._qdb_conn.record(table)
+        for index in range(0, record.count()):
+            name = record.fieldName(index)
+            if ':' in name:
+                x = name.split(':')
+                columns.append(x[0])
+            else:
+                columns.append(name)
+        return columns
+
+    @staticmethod
+    def commit() -> bool:
+        """ write out all transactions in database """
+        if DbVars._qdb_conn is not None and DbVars._qdb_conn.isOpen():
+            return DbVars._qdb_conn.commit()
+        return False
+
+    @staticmethod
+    def clean_db() -> None:
+        """Issue a re-index on the database then vacuum
+
+        This will compact the database with clean indexes
+        """
+        query = QSqlQuery(DbVars._qdb_conn)
         for table in DbKeys().primaryKeys:
-            query.exec( "REINDEX {};".format( table ))
-    
+            query.exec(f"REINDEX {table};")
+
         query.exec("vacuum;")
         query.finish()
         del query
-
-    @staticmethod
-    def dump( filename:str ):
-        global _qdb_conn
-        # query = QSqlQuery( DbConn.db() )
-        # with open(filename, 'w') as f:
-        #     for line in con.iterdump():
-        #         f.write('%s\n' % line)
-        pass

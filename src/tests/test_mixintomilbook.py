@@ -1,96 +1,100 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Test frame: MixinTomlBook
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from qdb.keys import BOOK
+"""
+
+#pylint: disable=C0115
+#pylint: disable=C0116
+
 import unittest
 import tempfile
 import os
-from qdb.mixin.tomlbook import MixinTomlBook
 from datetime import datetime, date
+
+from qdb.mixin.tomlbook import MixinTomlBook
+from qdb.dbconn    import DbConn
+from qdb.fields.book import BookField
+from qdb.setup import Setup
+
 
 class TestMixinTomlBook(unittest.TestCase):
 
     def setUp(self):
+        DbConn().open_db( ':memory:')
+        s = Setup(":memory:")
+        s.drop_tables()
+        s.create_tables()
+        del s
         self.obj = MixinTomlBook()
 
     def test_simple_roundtrip( self ):
         data = {}
         for index , key in enumerate( MixinTomlBook.VALID_TOML_KEYS):
             data[ key ] = f"DATA{index}"
+
         with tempfile.TemporaryDirectory() as tmpdirname:
             fname = self.obj.write_toml_properties( data , tmpdirname , 'simple_output.cfg')
-            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist') 
-            with open(fname, "r") as f:
+            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist')
+
+            with open(fname, "r", encoding="utf-8" ) as f:
                 toml = f.read()
+                # check all the keys are there
                 self.assertGreater( len(toml), 0 , 'File too short' )
                 for index, key in enumerate( MixinTomlBook.VALID_TOML_KEYS ):
-                    self.assertTrue( toml.__contains__( key ), key )
+                    self.assertTrue( key in toml, key )
 
             toml2 = self.obj.read_toml_properties( fname )
-            self.assertEqual( len(data.keys()) , len(toml2.keys()))
-            for key, value in toml2.items():
-                self.assertTrue( key in data , f'Key {key} not found')
-                self.assertEqual( toml2[ key ], data[ key ])
+            # check all values are there
+            for key, value in data.items():
+                self.assertTrue( key in toml2 , f'Key "{key}" not in toml')
+                self.assertEqual( data[ key ], value, f'Value "{value}" is not in toml' )
 
     def test_different_types( self ):
         data = {}
-        data[ BOOK.numberStarts ] = datetime.now()
-        data[ BOOK.publisher ] = date.today()
-        data[ BOOK.title] = 'title'     # string
-        data[ BOOK.lastRead] = 1.5      # float
-        data[ BOOK.author]   = [ 'a','b','c']
-        data[ BOOK.composer ] = True
-                 
+        data[ BookField.NUMBER_STARTS ] = datetime.now()
+        data[ BookField.PUBLISHER ] = date.today()
+        data[ BookField.TITLE] = 'title'     # string
+        data[ BookField.LAST_READ] = 1.5      # float
+        data[ BookField.AUTHOR]   = [ 'a','b','c']
+        data[ BookField.COMPOSER ] = True
+
         with tempfile.TemporaryDirectory() as tmpdirname:
             fname = self.obj.write_toml_properties( data , tmpdirname , 'simple_output.cfg')
-            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist') 
-            with open(fname, "r") as f:
+            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist')
+            with open(fname, "r", encoding="utf-8" ) as f:
                 toml = f.read()
                 self.assertGreater( len(toml), 0 , 'File too short' )
-                for key in data.keys():
-                    self.assertTrue( toml.__contains__( key ), key )
+                for key in data:
+                    self.assertTrue( key in toml, key )
 
             toml2 = self.obj.read_toml_properties( fname )
             self.assertEqual( len(data.keys()) , len(toml2.keys()))
             for key, value in toml2.items():
                 self.assertTrue( key in data , f'Key {key} not found')
-                self.assertEqual( toml2[ key ], data[ key ])
-            self.assertIsInstance( data[ BOOK.title ], str )
+                self.assertEqual( value , data[ key ])
+            self.assertIsInstance( data[ BookField.TITLE ], str )
 
-            self.assertIsInstance( toml2[ BOOK.title ], str )
-            self.assertIsInstance( data[ BOOK.lastRead ], float )
+            self.assertIsInstance( toml2[ BookField.TITLE ], str )
+            self.assertIsInstance( data[ BookField.LAST_READ ], float )
 
-            self.assertIsInstance( toml2[ BOOK.author ], list )
-            self.assertIsInstance( data[ BOOK.author ], list )
-            self.assertEqual( len( toml2[BOOK.author] ) , 3 )
-            self.assertEqual( len( toml2[BOOK.author]  ), len( data[BOOK.author] ) )
+            self.assertIsInstance( toml2[ BookField.AUTHOR ], list )
+            self.assertIsInstance( data[ BookField.AUTHOR ], list )
+            self.assertEqual( len( toml2[BookField.AUTHOR] ) , 3 )
+            self.assertEqual( len( toml2[BookField.AUTHOR]  ), len( data[BookField.AUTHOR] ) )
 
-            self.assertIsInstance( toml2[ BOOK.composer ], bool )
-            self.assertIsInstance( data[ BOOK.composer ], bool )
+            self.assertIsInstance( toml2[ BookField.COMPOSER ], bool )
+            self.assertIsInstance( data[ BookField.COMPOSER ], bool )
 
-            self.assertIsInstance( toml2[ BOOK.numberStarts ], datetime )
-            self.assertIsInstance( data[ BOOK.numberStarts ], datetime )
+            self.assertIsInstance( toml2[ BookField.NUMBER_STARTS ], datetime )
+            self.assertIsInstance( data[ BookField.NUMBER_STARTS ], datetime )
 
-            self.assertIsInstance( toml2[ BOOK.publisher ], date )
-            self.assertIsInstance( data[ BOOK.publisher ], date )
+            self.assertIsInstance( toml2[ BookField.PUBLISHER ], date )
+            self.assertIsInstance( data[ BookField.PUBLISHER ], date )
 
     def test_filter( self ):
         data = {
@@ -100,24 +104,20 @@ class TestMixinTomlBook(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             fname = self.obj.write_toml_properties( data , tmpdirname , 'simple_output.cfg')
-            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist') 
-            with open(fname, "r") as f:
+            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist')
+            with open(fname, "r", encoding="utf-8" ) as f:
                 toml = f.read()
                 self.assertGreater( len(toml), 0 , 'File too short' )
-                
+
             toml2 = self.obj.read_toml_properties( fname )
             self.assertEqual( len( toml2 ),0)
-            
+
     def test_delete( self ):
         data = {}
         data[ 'alpha' ] = "DATA-alpha"
-    
+
         with tempfile.TemporaryDirectory() as tmpdirname:
             fname = self.obj.write_toml_properties( data , tmpdirname , 'simple_output.cfg')
-            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist') 
+            self.assertTrue( os.path.isfile( fname ), f'Filename {fname} doesnt exist')
             self.assertTrue( self.obj.delete_toml_properties( fname ))
-            self.assertFalse(os.path.isfile( fname ), f'Filename {fname} exists') 
-            
-        
-    
-        
+            self.assertFalse(os.path.isfile( fname ), f'Filename {fname} exists')

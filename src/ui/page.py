@@ -1,56 +1,44 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+ User interface : PageNumber Widget
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 import sys
-from util.convert import toInt
 
 from PySide6.QtWidgets import (
     QAbstractButton, QApplication, QCheckBox,
-    QComboBox, QDialog, QDialogButtonBox, 
-    QFileDialog, QGridLayout, QHBoxLayout, 
-    QLabel, QLineEdit, QMessageBox, 
-    QPushButton, QRadioButton, QTabWidget, 
-    QTextEdit, QVBoxLayout, QWidget )   
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QImageReader,QFont
+    QDialog, QDialogButtonBox,
+    QGridLayout,
+    QLabel, QLineEdit,
+    QVBoxLayout, QWidget )
 
+from util.convert import to_int
 class PageNumber(QDialog):
     """
         PageNumber will display a 'go to page' window, prompting the
         user to enter a page number (absolute or relative)
     """
     def __init__(self, page=None, relative=True, parent=None):
-        super(PageNumber, self).__init__(parent)
+        super().__init__(parent)
         self.setWindowTitle("Go To Page")
 
         layout = QVBoxLayout()
-        layout.addWidget( self._createGrid(page,relative) )
-        layout.addWidget( self.createButtons() )
+        layout.addWidget( self._create_grid(page,relative) )
+        layout.addWidget( self.create_buttons() )
         self.setLayout( layout )
 
         self.page = page
         self.relative = relative
 
 
-    def _createGrid( self, page:int, relative:bool) -> QGridLayout:
+    def _create_grid( self, page:int, relative:bool) -> QGridLayout:
         widg = QWidget()
         grid = QGridLayout()
 
@@ -58,18 +46,18 @@ class PageNumber(QDialog):
         lbl.setText("Page number")
         grid.addWidget(lbl, 0, 0)
 
-        self.pageNumber = QLineEdit()
+        self.page_number = QLineEdit()
         if page is not None:
-            self.pageNumber.setText( str(page))
-        grid.addWidget(self.pageNumber, 0,1)
+            self.page_number.setText( str(page))
+        grid.addWidget(self.page_number, 0,1)
 
-        self.pageMarker = QLabel()
-        grid.addWidget(self.pageMarker, 0, 2 )
+        self.page_marker = QLabel()
+        grid.addWidget(self.page_marker, 0, 2 )
 
-        self.relativePage = QCheckBox()
-        self.relativePage.setText("Use page numbering shown in book")
-        self.relativePage.setChecked(relative)
-        grid.addWidget( self.relativePage , 1,1)
+        self.page_relative = QCheckBox()
+        self.page_relative.setText("Use page numbering shown in book")
+        self.page_relative.setChecked(relative)
+        grid.addWidget( self.page_relative , 1,1)
 
         self.errorlabel = QLabel()
         grid.addWidget( self.errorlabel, 2,1)
@@ -79,30 +67,38 @@ class PageNumber(QDialog):
         return widg
 
     def verify( self ):
+        """Check the page number field that has been entered
+        """
         self.errorlabel.clear()
-        self.pageMarker.clear()
-        self.pageNumber.setText( self.pageNumber.text().strip() )
-        if self.pageNumber.text() == "" :
+        self.page_marker.clear()
+        self.page_number.setText( self.page_number.text().strip() )
+        if self.page_number.text() == "" :
             self.errorlabel.setText("<b>Page number cannot be blank</b>")
-        elif self.pageNumber.text().isnumeric() :
-                self.accept()
-                self.page = toInt( self.pageNumber.text(), self.page )
-                self.relative = self.relativePage.isChecked()
+        elif self.page_number.text().isnumeric() :
+            self.accept()
+            self.page = to_int( self.page_number.text(), self.page )
+            self.relative = self.page_relative.isChecked()
         else:
             self.errorlabel.setText("<b>Page number must be numeric</b>")
-        return
 
-    def actionButtonClicked(self, button:QAbstractButton ):
+    def action_button_clicked(self, button:QAbstractButton ):
+        """ A button has been clicked.
+            If it isn't cancel,  verify the field """
         if button.text() =='Cancel':
             self.reject()
         self.verify()
 
-    def createButtons(self) -> QDialogButtonBox:
+    def create_buttons(self) -> QDialogButtonBox:
+        """Create a buttonbox containing OK and Cancel
+
+        Returns:
+            QDialogButtonBox: QT Standard button box
+        """
         self.buttons = QDialogButtonBox()
         self.buttons.addButton( QDialogButtonBox.Cancel )
         self.buttons.addButton( QDialogButtonBox.Ok )
         #self.buttons.addButton( "Go", QDialogButtonBox.OkRole)
-        self.buttons.clicked.connect(self.actionButtonClicked)
+        self.buttons.clicked.connect(self.action_button_clicked)
 
         return self.buttons
 
@@ -110,6 +106,5 @@ if __name__ == "__main__":
     app = QApplication()
     window = PageNumber( )
     rtn = window.exec()
-    
-    print( "....rtn is", rtn )
+
     sys.exit(app.exec())

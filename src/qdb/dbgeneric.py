@@ -1,39 +1,32 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+ Database interface : Generic (base) interface class
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ DbGenericName - simple key/value table
 
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#####
-# dbgenerics are the base classes for simple database retrieval
-# there are:
-#   DbGenericName - a single key table
-#   DbGenericKeyValue - simple key/value table
+ This file is part of Sheetmusic.
+
+"""
+
+from PySide6.QtSql import QSqlQuery
 from qdb.log import DbLog
-from typing import Any
 from qdb.dbconn import DbConn
 from qdb.util import DbHelper
-from PySide6.QtSql import QSqlQuery
+
 
 
 class DbGenericName():
-    tableName = ""
-    fieldNames = ['name', 'value', 'id']
+    """
+        DbGenricName is a simple database class for tables
+        Table only contains id, name, and value columns
+    """
+    table_name = ""
+    table_fields = ['name', 'value', 'id']
+
     SQL_GET_LIKE = """
         SELECT name, value, id
         FROM :TABLE
@@ -42,74 +35,118 @@ class DbGenericName():
         """
     SQL_SELECT_ID = """SELECT id FROM :TABLE WHERE name=?"""
     SQL_SELECT_ALL = """
-        SELECT name 
-        FROM :TABLE 
+        SELECT name
+        FROM :TABLE
         ORDER BY name COLLATE NOCASE :sequence"""
     SQL_EDIT_NAME = """
-        UPDATE :TABLE  
-        SET name = :newValue 
-        WHERE name = :oldValue"""
+        UPDATE :TABLE
+        SET name = :new_value
+        WHERE name = :current_value"""
     SQL_GET_ID = "SELECT id FROM :TABLE WHERE name=?"
     SQL_INSERT = "INSERT INTO :TABLE (name) VALUES (?)"
 
     def __init__(self, table: str = None):
-        if table is not None:
-            self.tableName = table
+        self.logger = None
+        self.table_name = table
 
-    def setupLogger(self):
+    def setup_logger(self):
+        """ Initialise the logger for this class """
         self.logger =DbLog(self.__class__.__name__)
 
-    def getall(self, sequence='ASC') -> list:
+    def get_all(self, sequence='ASC') -> list:
         """ Fetch the 'name' field from the database and return it as a list (rather than a row) """
         query = QSqlQuery(DbConn.db())
-        if not query.exec(self.SQL_SELECT_ALL.replace(':sequence', sequence).replace(':TABLE', self.tableName)):
-            self.logger.critical("getall: {}".format(query.lastError().text()))
+        if not query.exec(self.SQL_SELECT_ALL.\
+                    replace(':sequence', sequence).\
+                    replace(':TABLE', self.table_name)):
+            self.logger.critical("getall: {query.lastError().text()}")
             return []
-        all = DbHelper.allList(query, 0)
+        all_records = DbHelper.all_list(query, 0)
         query.finish()
         del query
-        return all
+        return all_records
 
-    def getColumn(self, sql) -> list:
+    def get_column(self, sql:str) -> list:
+        """Pass an SQL query in and return a list of all results
+
+        Args:
+            sql (str): SQL query string that selects ONE column
+
+        Returns:
+            list: return single column list
+        """
         query = QSqlQuery(DbConn.db())
         if not query.exec(sql):
             self.logger.critical(
-                "getColumn: {}".format(query.lastError().text()))
+                f"getColumn: {query.lastError().text()}" )
             return []
-        all = DbHelper.allList(query, 0)
+        all_records = DbHelper.all_list(query, 0)
         query.finish()
         del query
-        return all
+        return all_records
 
-    def getID(self, name: str, create: bool = False) -> int:
-        """ This will lookup the record ID for 'name'.
-            If create is true, a new record will be created 
+    def get_id(self, name: str, create: bool = False) -> int:
+        """Retrieve the 'id' field for a record matching name
+
+        Args:
+            name (str): Name to lookup
+            create (bool, optional): Create the record if doesn't exist.
+                Defaults to False.
+
+        Returns:
+            int: Key if found or created
         """
-        sql = self.SQL_SELECT_ID.replace(':TABLE', self.tableName)
-        val = DbHelper.fetchone(sql, name)
+        sql = self.SQL_SELECT_ID.replace(':TABLE', self.table_name)
+        val = DbHelper.fetchone(sql, param=name)
         if val is None and create:
-            val = self.insertID(name)
+            val = self.insert_id(name)
         return val
 
-    def insertID(self, name: str) -> int:
-        sql = self.SQL_INSERT.replace(':TABLE', self.tableName)
+    def insert_id(self, name: str) -> int:
+        """Insert a key/value pair into the table and return the last ID
+        The value will be whatever is the default for the table.
+
+        Args:
+            name (str): Key to insert
+
+        Returns:
+            int: New record ID
+        """
+        sql = self.SQL_INSERT.replace(':TABLE', self.table_name)
         query = DbHelper.bind(DbHelper.prep(sql),  name)
         val = (query.lastInsertId() if query.exec() else None)
         query.finish()
         return val
 
-    def edit(self, oldValue: str, newValue: str, commit=True) -> int:
-        if oldValue is None or newValue is None:
+    def edit(self, current_value: str, new_value: str) -> int:
+        """Change the value of the name field
+
+        If the values are the same or if you pass None for either,
+        nothing is performed.
+
+        Args:
+            current_value (str): previous value
+            new_value (str): new value
+
+        Returns:
+            int: number of rows changed
+        """
+        if current_value is None or new_value is None or current_value == new_value:
             return 0
-        sql = self.SQL_EDIT_NAME.replace(':TABLE', self.tableName)
-        query = DbHelper.bind(DbHelper.pref(sql),
-                              {'newValue': newValue, 'oldValue': oldValue})
+        sql = self.SQL_EDIT_NAME.replace(':TABLE', self.table_name)
+        query = DbHelper.bind(DbHelper.prep(sql),
+                              {'new_value': new_value, 'current_value': current_value})
         rows = (query.numRowsAffected if query.exec() else 0)
         query.finish()
         return rows
 
     def has(self, name: str) -> bool:
+        """Check to see if table has the value
+
+        Args:
+            name (str): value to check for
+
+        Returns:
+            bool: True if exists, False otherwise
         """
-            return True if record exists, False otherwise
-        """
-        return (self.getID(name) is not None)
+        return self.get_id(name) is not None

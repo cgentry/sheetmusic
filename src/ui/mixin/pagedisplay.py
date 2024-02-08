@@ -1,23 +1,15 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+User Interface , mixin: Page display common routines
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
 
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 from util.pdfclass import PdfDimensions
 
@@ -25,59 +17,70 @@ class PageDisplayMixin:
     """
         The mixin holds values that are used to control the page displays.
 
-        This does not perform displays but acts more like a class or container."""
+        This does not perform displays but acts more like a class or container.
+    """
     PAGE_NONE = 0
     START_OF_BOOK = 0
 
     def __init__(self, name:str , dimension:PdfDimensions = None):
         self._identity = name
-        self._pageNumber =  PageDisplayMixin.PAGE_NONE 
+        self._page_number =  PageDisplayMixin.PAGE_NONE
         self._is_clear = True
         self._dimensions = dimension
 
     def identity(self)->str:
-        return self._identity 
-    
-    def set_identity(self, id:str)->str:
-        self._identity = id
+        """ Return the page identity"""
+        return self._identity
 
-    def setPageNumber(self, pgNumber: int = 0) -> None:
-        self._pageNumber = pgNumber
+    def set_identity(self, name:str)->str:
+        """ set the identity of this page """
+        self._identity = name
 
-    def pageNumber(self) -> int:
-        return self._pageNumber if self.isPage() else PageDisplayMixin.START_OF_BOOK
-    
-    def isPage(self)->bool:
+    def set_pagenum(self, page_number: int) -> bool:
+        """ Set the page number to display """
+        self._page_number = page_number
+        return True
+
+    def page_number(self) -> int:
+        """ Either return the current page number or
+        return the start of book"""
+        return self._page_number if self.ispage() else PageDisplayMixin.START_OF_BOOK
+
+    def ispage(self)->bool:
         """ Return True if page number has been set """
-        return ( self._pageNumber is not None and self._pageNumber != PageDisplayMixin.PAGE_NONE )
+        return ( self._page_number is not None and self._page_number != PageDisplayMixin.PAGE_NONE )
 
-    def setKeepAspectRatio(self, keep_ratio: bool) -> None:
-        self._keep_aspect_ratio = keep_ratio
-
-    def keepAspectRatio(self) -> bool:
+    @property
+    def keep_aspect_ratio(self) -> bool:
+        """ Return if this page's aspect ratio flag is set
+            if not, return true """
         if hasattr( self , '_keep_aspect_ratio'):
             return self._keep_aspect_ratio
         return True
 
-    def setClear(self, is_clear: bool) -> bool:
+    @keep_aspect_ratio.setter
+    def keep_aspect_ratio(self, keep_ratio: bool) -> None:
+        self._keep_aspect_ratio = keep_ratio
+
+    def set_clear(self, is_clear: bool) -> bool:
         """ Indicate no page or document is set """
         self._is_clear = is_clear
-        self._pageNumber = PageDisplayMixin.PAGE_NONE
+        self._page_number = PageDisplayMixin.PAGE_NONE
         return is_clear
 
-    def isClear(self) -> bool:
+    def is_clear(self) -> bool:
         """ Return the status of the page """
         return self._is_clear
-    
+
     @property
     def dimensions( self )->PdfDimensions:
         """ Return the PdfDimension class """
         if self._dimensions is None:
             self._dimensions = PdfDimensions()
-        return self._dimensions 
-    
+        return self._dimensions
+
     @dimensions.setter
     def dimensions( self, pdf_dimensions:PdfDimensions):
+        """ Set the dimensions for the PDF """
         if pdf_dimensions:
             self._dimensions = pdf_dimensions
-

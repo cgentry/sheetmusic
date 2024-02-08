@@ -1,195 +1,218 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+Database : Bookmark table interface
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-# image files should be in a single folder and end in '.png'
-# configuration for each book is located in
-# config.ini - See ConfigFile in configfile.py
-#
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from qdb.dbconn import DbConn
-from qdb.keys import BOOKMARK
-from qdb.util import DbHelper
-from qdb.dbbook import DbBook
-from qdb.mixin.bookid import MixinBookID
-from qdb.base import DbBase
+ This file is part of Sheetmusic.
+
+"""
+
 from PySide6.QtSql import QSqlQuery
 
+from qdb.dbconn import DbConn
+from qdb.fields.bookmark import BookmarkField
+from qdb.util import DbHelper
+from qdb.mixin.bookid import MixinBookID
+from qdb.base import DbBase
 
 class DbBookmark(MixinBookID, DbBase):
-    SQL_BOOKMARK_CHECK = """SELECT bookmark          FROM Bookmark WHERE book_id = ? AND page = ?"""
-    SQL_BOOKMARK_DELETE_ALL = """DELETE                   FROM Bookmark WHERE book_id = ?"""
-    SQL_BOOKMARK_DELETE_ID = """DELETE                   FROM Bookmark WHERE book_id = ? AND bookmark=?"""
-    SQL_BOOKMARK_GET_COUNT = """SELECT count(*) AS count FROM Bookmark WHERE book_id = ?"""
+    """
+        DbBookmark provides read/write access to the bookmark table.
 
-    SQL_SELECT_ALL_BY_ID = """SELECT * FROM BookmarkView WHERE book_id = ? ORDER BY :order ASC"""
-    SQL_BOOKMARK_FOR_ENDS = """SELECT * FROM BookmarkView WHERE book_id = ? ORDER BY page :order LIMIT 1"""
-    SQL_BOOKMARK_FOR_PAGE = """SELECT * FROM BookmarkView WHERE book_id = ? and page <= ? ORDER BY page DESC LIMIT 1"""
-    SQL_BOOKMARK_NEXT = """SELECT * FROM BookmarkView WHERE book_id = ? and page >  ? ORDER BY page ASC  LIMIT 1"""
-    SQL_BOOKMARK_PREVIOUS = """SELECT * 
-                                FROM BookmarkView 
-                                WHERE book_id = ? AND 
-                                      page <  ( 
-                                        SELECT page FROM BookmarkView 
-                                        WHERE book_id = ? AND page <= ? 
-                                        ORDER BY page DESC LIMIT 1) 
+        It uses MixinBookID for book id handling
+        DbBase for generic access to database functions
+    """
+    SQL_BOOKMARK_CHECK = """SELECT bookmark
+        FROM Bookmark WHERE book_id = ? AND page = ?"""
+    SQL_BOOKMARK_DELETE_ALL = """DELETE
+        FROM Bookmark WHERE book_id = ?"""
+    SQL_BOOKMARK_DELETE_ID = """DELETE
+        FROM Bookmark WHERE book_id = ? AND bookmark=?"""
+    SQL_BOOKMARK_GET_COUNT = """SELECT count(*) AS count
+        FROM Bookmark WHERE book_id = ?"""
+
+    SQL_SELECT_ALL_BY_ID = """SELECT * FROM BookmarkView
+        WHERE book_id = ? ORDER BY :order ASC"""
+    SQL_BOOKMARK_FOR_ENDS = """SELECT * FROM BookmarkView
+        WHERE book_id = ? ORDER BY page :order LIMIT 1"""
+    SQL_BOOKMARK_FOR_PAGE = """SELECT * FROM BookmarkView
+        WHERE book_id = ? and page <= ? ORDER BY page DESC LIMIT 1"""
+    SQL_BOOKMARK_NEXT = """SELECT * FROM BookmarkView
+        WHERE book_id = ? and page >  ? ORDER BY page ASC  LIMIT 1"""
+    SQL_BOOKMARK_PREVIOUS = """SELECT *
+                                FROM BookmarkView
+                                WHERE book_id = ? AND
+                                      page <  (
+                                        SELECT page FROM BookmarkView
+                                        WHERE book_id = ? AND page <= ?
+                                        ORDER BY page DESC LIMIT 1)
                             ORDER BY page DESC LIMIT 1"""
 
-    joinView = None
+    view_columns = []
 
     def __init__(self):
         super().__init__()
-        self.setupLogger()
+        self.setup_logger()
 
-        if DbBookmark.joinView is None:
-            DbBookmark.joinView = DbConn.getColumnNames('BookmarkView')
+        if not DbBookmark.view_columns:
+            DbBookmark.view_columns = DbConn.get_column_names('BookmarkView')
 
-        self.bookID = None
+        self.book_id = None
         self._book_id_type = None
         self._last_book_value = None
 
-    def _getBookmarkAtEnd(self, book: str | int, order='DESC') -> dict | None:
+    def _get_bookmark_at_end(self, book: str | int, order='DESC') -> dict | None:
+        """Get a bookmark at the end of the list
+        This can be used for getting the first or last bookmark entry
+
+        Args:
+            book (str | int): book identi
+            order (str, optional): How to order the lookup. Defaults to 'DESC'.
+
+        Returns:
+            dict | None: dictionary of names / pages
+        """
         sql = DbBookmark.SQL_BOOKMARK_FOR_ENDS.replace(':order', order)
-        id = self.lookup_book_id(book)
-        if id is None:
+        book_id = self.lookup_book_id(book)
+        if book_id is None:
             return None
         rtn = DbHelper.fetchrow(
-            sql, id, db_fields_to_return=DbBookmark.joinView)
+            sql, book_id, db_fields_to_return=DbBookmark.view_columns)
         return rtn
 
-    def first(self, book: str | int) -> dict | None:
-        """ Fetch the very first bookmark for a book """
-        return self._getBookmarkAtEnd(book=book, order='ASC')
+    def get_first(self, book: str | int) -> dict | None:
+        """ Use get_bookmark_at_end to fetch the first.
+        Use 'ASC' to get incrementing numbers for pages
+        """
+        return self._get_bookmark_at_end(book=book, order='ASC')
 
-    def last(self, book: str | int) -> dict | None:
-        """ Fetch the very last bookmark for a book"""
-        return self._getBookmarkAtEnd(book=book, order='DESC')
+    def get_last(self, book: str | int) -> dict | None:
+        """ Use get_bookmark_at_end to fetch the first.
+        Use 'DESC' to get incrementing numbers for pages
+        """
+        return self._get_bookmark_at_end(book=book, order='DESC')
 
-    def getNameForPage(self, book: str | int, page) -> str:
+    def get_name_for_page(self, book: str | int, page) -> str:
         """ Get the name for a bookmark at 'page'. If none, return None """
-        res = DbHelper.fetchone(self.SQL_BOOKMARK_CHECK, [
-                                self.lookup_book_id(book), page], default=None)
+        res = DbHelper.fetchone(self.SQL_BOOKMARK_CHECK,
+                    param =[self.lookup_book_id(book), page],
+                    default=None)
         return res
 
-    def isBookmark(self, book: str | int, page) -> bool:
-        name = self.getNameForPage(book, page)
-        return (name is not None)
+    def is_bookmark(self, book: str | int, page) -> bool:
+        """ Determine if there is a bookmark for book at page """
+        return self.get_name_for_page(book, page) is not None
 
-    def getBookmarkForPage(self, book: str | int, page: int) -> dict:
-        bookID = self.lookup_book_id(book)
+    def get_bookmark_for_page(self, book: str | int, page: int) -> dict:
+        """ Get a bookmark for page in book """
+        book_id = self.lookup_book_id(book)
         res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_FOR_PAGE, [
-                                bookID, page], DbBookmark.joinView)
+                                book_id, page], DbBookmark.view_columns)
         return res
 
-    def lastpage(self, book: str | int, page: int) -> int:
+    def last_page(self, book: str | int, page: int) -> int:
         """ Pass it the book and current page. It will return the last
             page for this bookmark
         """
-        bk = self.getNextBookmarkForPage(book=book, page=page)
-        if bk is not None and BOOKMARK.page in bk:
-            return bk[BOOKMARK.page] - 1
+        bk = self.get_next_bookmark_for_page(book=book, page=page)
+        if bk is not None and BookmarkField.PAGE in bk:
+            return bk[BookmarkField.PAGE] - 1
         return None
 
-    def getPreviousBookmarkForPage(self, book: str | int, page: int) -> dict:
+    def get_previous_bookmark_for_page(self, book: str | int, page: int) -> dict:
         """ Pass it the book and page number and it will find the previous bookmark """
-        id = self.lookup_book_id(book)
-        res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_PREVIOUS, [
-                                id, id, page], DbBookmark.joinView, debug=False)
-        return res
+        book_id = self.lookup_book_id(book)
+        return DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_PREVIOUS, [
+            book_id, book_id, page], DbBookmark.view_columns, debug=False)
 
-    def getNextBookmarkForPage(self, book: str | int, page: int) -> dict:
-        id = self.lookup_book_id(book)
-        res = DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_NEXT, [
-                                id, page], DbBookmark.joinView)
-        return res
+    def get_next_bookmark_for_page(self, book: str | int, page: int) -> dict:
+        """ Pass it the book and page number and it will get the next bookmark"""
+        return DbHelper.fetchrow(DbBookmark.SQL_BOOKMARK_NEXT, [
+            self.lookup_book_id(book), page], DbBookmark.view_columns)
 
     def add(self, book: str | int, bookmark: str, page: int) -> bool:
         """
-            Add a bookmark to the database. 
+            Add a bookmark to the database.
             This requires exact positional parms
         """
-        bookID = self.lookup_book_id(book)
+        book_id = self.lookup_book_id(book)
 
-        parms = {'book_id': bookID, 'bookmark': bookmark, 'page': page}
-        sql = self._formatInsertVariable('Bookmark', parms, replace=True)
+        parms = {'book_id': book_id, 'bookmark': bookmark, 'page': page}
+        sql = self._format_insert_variable('Bookmark', parms, replace=True)
         query = QSqlQuery(DbConn.db())
         query.prepare(sql)
         query = DbHelper.bind(query, list(parms.values()))
         query.exec()
-        self._checkError(query)
-        self.getReturnCode(query)
+        self._check_error(query)
+        self.get_rtn_code(query)
         query.finish()
         del query
-        return self.wasGood()
+        return self.was_good()
 
-    def delete(self, bookmark: str, book: str | int = None) -> bool:
-        """
-            Delete a bookmark from the database by bookmark
-            You should pass in named parameters rather than positional but 
+    def delete(self, bookmark: str, book: str | int ) -> bool:
+        """Delete a bookmark from the database by bookmark name
+            You should pass in named parameters rather than positional but
             positional are always strings.
+        Args:
+            bookmark (str): Name of the bookmark
+            book (str | int): Book.id (int) OR Book.name (str).
 
-            bookmark: name of the bookmark
-            book: Book.id (int) OR Book.name (str)
+        Returns:
+            bool: True if deleted
         """
-
         query = DbHelper.prep(DbBookmark.SQL_BOOKMARK_DELETE_ID)
         query = DbHelper.bind(query, [self.lookup_book_id(book), bookmark])
         query.exec()
-        self._checkError(query)
-        return self.getReturnCode(query)
+        self._check_error(query)
+        return self.get_rtn_code(query)
 
-    def delete_by_page(self, book: str | int, page: int):
-        row = self.getBookmarkForPage(book=book, page=page)
-        if row is not None and len(row) > 0 and BOOKMARK.name in row:
-            return self.delete(bookmark=row[BOOKMARK.name], book=row[BOOKMARK.book_id])
+    def delete_by_page(self, book: str | int, page: int)->bool:
+        """Delete a bookmark from the database by bookmark name
+
+        Args:
+            book (str | int): Book.id (int) or Book.name (str)
+            page (int): page number where bookmark is stored against
+
+        Returns:
+            bool: True if page was deleted, false if not
+        """
+        row = self.get_bookmark_for_page(book=book, page=page)
+        if row is not None and len(row) > 0 and BookmarkField.NAME in row:
+            return self.delete(bookmark=row[BookmarkField.NAME], book=row[BookmarkField.BOOK_ID])
         return False
 
     def delete_all(self, book: str | int) -> bool:
+        """ Delete all pages within a book """
         query = DbHelper.bind(DbHelper.prep(
             DbBookmark.SQL_BOOKMARK_DELETE_ALL), self.lookup_book_id(book))
         query.exec()
         rows = query.numRowsAffected()
-        self._checkError(query)
+        self._check_error(query)
         query.finish()
-        return self.wasGood() and rows > 0
+        return self.was_good() and rows > 0
 
-    def getAll(self, book: str | int, order: str = 'page') -> list:
+    def get_all(self, book: str | int | dict = None, order: str = 'page') -> list:
         """ Retrieve a list of all bookmarks by book name or ID """
         if book is None:
-            return []
-        order = (order if order in DbBookmark.joinView else 'page')
+            book = self.book_id
+        order = (order if order in DbBookmark.view_columns else 'page')
         sql = DbBookmark.SQL_SELECT_ALL_BY_ID.replace(':order', order)
         q = DbHelper.prep(sql)
         q = DbHelper.bind(q, self.lookup_book_id(book))
         q.exec()
-        return DbHelper.all(q, DbBookmark.joinView)
+        return DbHelper.all(q, DbBookmark.view_columns)
 
-    def getAllId(self, book: str | int, order: str = 'page') -> list:
-        """ Retrieve a list of all bookmarks by book ID 
-            DEPRECATED: Call getAll"""
-        return self.getAll( book, order=order )
-
-    def count(self, book: str | int) -> int:
+    def get_count(self, book: str | int) -> int:
         """
             Return how many bookmarks are in a book
         """
-        id = self.lookup_book_id(book)
-        if not id:
+        book_id = self.lookup_book_id(book)
+        if not book_id:
             return 0
-        return DbHelper.fetchone(DbBookmark.SQL_BOOKMARK_GET_COUNT, id, default=0)
+        return DbHelper.fetchone(
+            DbBookmark.SQL_BOOKMARK_GET_COUNT,
+            param=book_id,
+            default=0)

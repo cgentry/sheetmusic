@@ -1,14 +1,15 @@
-
-from util.utildir import get_scriptdir, get_user_scriptdir, get_os_class
+""" """
 from os import path, listdir
 
-from ui.runscript import UiScriptSetting, ScriptKeys
+from util.utildir import get_scriptdir, get_user_scriptdir, get_os_class
+from ui.runscript import ScriptKeys
+from ui.scripthelpers import UiScriptSetting
 
 
 class ToolScript():
-    """ 
-    ToolScript is like a 'struct': it holds the definitions for a script file found. 
-    
+    """
+    ToolScript is like a 'struct': it holds the definitions for a script file found.
+
     This is used to scan for scripts, include files, etc.
     """
     # Thse are keys within the dictionary
@@ -30,7 +31,7 @@ class ToolScript():
             ToolScript.Path: path,
             ToolScript.Simple: simple,
             ToolScript.Source: source,
-            ToolScript.Title: title,        
+            ToolScript.Title: title,
         }
 
     def formatMenuOption(self, label:str=None) -> str:
@@ -46,14 +47,14 @@ class ToolScript():
 
     def path(self) -> str:
         return self.tool[ToolScript.Path]
-    
+
     def comment(self)->str:
         return self.tool[ToolScript.Comment]
 
     def todict(self )->dict:
-        return self.tool 
-    
-    def __str__(self) -> str:
+        return self.tool
+
+    def __str_(self) -> str:
         return "Path: '{}'\nSource: '{}'\nTitle: '{}'\nDialog: '{}'\nComent: '{}'".format(
             self.tool[ToolScript.Path],
             self.tool[ToolScript.Source],
@@ -71,7 +72,7 @@ class GenerateListMixin():
     def filter_entry( self , script_parms:UiScriptSetting )->bool:
         """ OVERRIDE: change this to filter out entries based on contents of script_parms """
         return True
-    
+
     def _resetDictionary(self) -> None:
         self.toolDictionary = {}
 
@@ -82,15 +83,15 @@ class GenerateListMixin():
             if dir is not None and path.isdir(dir):
                 # Loop through all the files within this directory
                 for filename in listdir(dir):
-                    if filename[:1] != '_' and filename[:1] != '.': 
+                    if filename[:1] != '_' and filename[:1] != '.':
                         fullFilePath = path.join(dir, filename)
                         if path.isfile(fullFilePath):
                             self.addFile(source, fullFilePath, filename)
         return self.toolDictionary
 
     def addFile(self, source: str, script_path, filename) -> None:
-        """ 
-        Read the script file and pull title, comment, req and simple 
+        """
+        Read the script file and pull title, comment, req and simple
 
         Create a dictionary entry that points to a dictionary of:
             title:  Full title with 'type' added
@@ -99,7 +100,7 @@ class GenerateListMixin():
             source:   string of user or system
             os: What OS this is good for - see filter_entry
         """
-        
+
         with open(script_path) as fh:
             script = fh.read()
         self.script_parms = UiScriptSetting(script_path, script, True)
@@ -109,7 +110,7 @@ class GenerateListMixin():
         comment = "<p>{}</p><br/>".format(
             '<br/>'.join(self.script_parms.setting(ScriptKeys.COMMENT, '')))
         running_os = self.script_parms.flag( ScriptKeys.OS  )
-        if self.script_parms.is_set( ScriptKeys.OS ): 
+        if self.script_parms.is_set( ScriptKeys.OS ):
             if not self.filter_entry( self.script_parms ):
                 return
 
@@ -135,11 +136,11 @@ class GenerateListMixin():
             if toolDictionary[key][search_field].find(search) > -1:
                 return toolDictionary[key][ToolScript.Path]
         return None
-    
+
     def find_script(self, script_name: str) -> str:
         """ Find the full script path in the script list
-        
-        Override to provide different search methods as required 
+
+        Override to provide different search methods as required
         """
         return self._find_path(self.list(), script_name, ToolScript.Path)
 
@@ -197,7 +198,7 @@ class GenerateEditList(GenerateListMixin):
         self.scanDirectory()
         return self._editor_list
 
-  
+
 class GenerateImportList( GenerateListMixin ):
     def __init__(self):
         self.os = get_os_class()
@@ -207,7 +208,7 @@ class GenerateImportList( GenerateListMixin ):
         self.scanDirectory()
 
     def filter_entry(self, script_parms: UiScriptSetting) -> bool:
-        if ( script_parms.is_option( ScriptKeys.OS , self.os ) or 
+        if ( script_parms.is_option( ScriptKeys.OS , self.os ) or
             script_parms.is_option( ScriptKeys.OS , ScriptKeys.OS_ANY ) ):
             return True
         return False

@@ -9,7 +9,7 @@
         th {
             text-align: left;
             padding: 10px;
-        }   
+        }
     </style>
 </head>
 
@@ -21,11 +21,11 @@
 	</p>
 	<p>
 		Scripts allow a simple way to create utilities with GUI screens but run shell scripts. Each script must contain special flags
-        in order to allow interaction between the program and the script.
+        in order to allow interaction_ between the program and the script.
 	</p>
     <a id="script-location" />
     <h3>Location</h3>
-    <p>Scripts that come with SheetMusic will reside within the program directory and should not be changed. 
+    <p>Scripts that come with SheetMusic will reside within the program directory and should not be changed.
         Scripts can be added in a directory defined in a user-defined directory. (This can be set in the preferences settings, script.)<br/>
         The directory structure is:
         <ul>
@@ -34,7 +34,7 @@
         </ul>
     </p>
     <a id="script-passed-parms" />
-    <h3>Parameters passed to script</h3> 
+    <h3>Parameters passed to script</h3>
     <p>
         Parameters are passed to the script in a simple, standard format. A number of them are passed when flags are present, but some are always passed. Flags are passed in a way that UNIX/LINUX shell scripts can understand.
     <br/>
@@ -48,7 +48,7 @@
         <tr>
             <td>-D path</td>
             <td>DBFILE</td>
-            <td> - Path to database file</td> 
+            <td> - Path to database file</td>
             <td>#:system dbfile</td>
         </tr>
         <tr>
@@ -108,7 +108,7 @@
         <tr>
             <td>-X</td>
             <td>DEBUG</td>
-            <td>Debug flag</td> 
+            <td>Debug flag</td>
             <td>Added if checkbox on screen is set, or if #:system debug is included </td>
         </tr>
         <tr>
@@ -119,7 +119,7 @@
         </tr>
     </table>
     <br/>
-    The following are standard parameters that are passed when information is requsted through dialogs. 
+    The following are standard parameters that are passed when information is requsted through dialogs.
     The flags used can be overridden by including the 'tag' keyword. The value '_nn' represents the n'th
     keyword that was encountered.
     </th>
@@ -162,15 +162,15 @@
             <li></li>
         </ul>
     </p>
-        
+
     <a id="script-dialog" />
     <h3>Dialogs</h3>
     <p>
         While developing, it was determined that promping for files, directories, or multiple requests was difficult within a Mac.
-        (Requres for files and directories do not have dialog headers.) This made it confusing to use, so a way to generate 
+        (Requres for files and directories do not have dialog headers.) This made it confusing to use, so a way to generate
         very simple dialogs was made. This allows much easier, and better, ways to interact with the user. A series of special Tags
         was created. Each dialog tag must begin with #:dialog. The format of the dialog tag is:<br/>
-        <center>#:dialog 
+        <center>#:dialog
             type='<a href='#script-dialog-type'>type'</a>&nbsp;
             label='<a href='#script-dialog-label'>label'</a>&nbsp;
             tag='<a href='#script-dialog-tag'>name&nbsp;for&nbsp;script&nbsp;parameter'</a>&nbsp;
@@ -203,7 +203,7 @@
                 Optional:
                 <ul>
                     <li>
-                        <a href='#script-dialog-value'>value</a>='boolean'. Boolean values encoded as 'true', 'yes', '1' , 'check', 'checked', or 'ok' for a the box to be checked. 
+                        <a href='#script-dialog-value'>value</a>='boolean'. Boolean values encoded as 'true', 'yes', '1' , 'check', 'checked', or 'ok' for a the box to be checked.
                         Anything else will be considered 'false'. The default is 'false'.
                     </li>
                 </ul>

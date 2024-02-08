@@ -18,692 +18,73 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# runscript will run the system shell and pass it several variables
-# The first variable will be the shell script. Other variables can be
-# passed in a list. For example, if you have a file 'doit.sh' and you
-# you want to pass it two filenames (/dir/a.txt and /dir/b.txt) you would
-# call the runner as:
-# myrun = UiRunScript( 'doit.sh', [ '/dir/a.txt' , '/dir/b.txt'])
-# myrun.run()
+"""
+runscript will run the system shell and pass it several variables
+The first variable will be the shell script. Other variables can be
+passed in a list. For example, if you have a file 'doit.sh' and you
+you want to pass it two filenames (/dir/a.txt and /dir/b.txt) you would
+call the runner as:
+    myrun = UiRunScript( 'doit.sh', [ '/dir/a.txt' , '/dir/b.txt'])
+    myrun.run()
 ##
-# This will handle several tags within the script:
-# :title  Title of the script to put into the top label
-# (ignored for shell scripts at this point)
-# :comment This can be a multi-line comment. that will be
-# displayed in the box before it begins
-# :width  How WIDE to set the dialog. Max is 2048, min 500
-# :heigth Just how HIGH do you want the box. Max is 1024, min 500
-# :inc    file to include (for settings)
-# allows you to have global settings for flag, setting, etc.
-# File must be relative to the tool directory ( inc/file )
-# :flag   keywords that control how parameters are passed
-# example: #:flag file f prefix dash dir d version v
+This will handle several tags within the script:
+    :title  Title of the script to put into the top label
+        (ignored for shell scripts at this point)
+    :comment This can be a multi-line comment. that will be
+        displayed in the box before it begins
+    :width  How WIDE to set the dialog. Max is 2048, min 500
+    :heigth Just how HIGH do you want the box. Max is 1024, min 500
+    :inc    file to include (for settings)
+        allows you to have global settings for flag, setting, etc.
+        File must be relative to the tool directory ( inc/file )
+    :flag   keywords that control how parameters are passed
+        example: #:flag file f prefix dash dir d version v
+
+        prefix  - either 'dash' or 'blank'  default DASH
+        file    - tag used for passing file entry
+        dir     - tag used for passing directory entry
+        version - tag used for versioning
+        dbfile  - tag used for passing database file
 ##
-# prefix  - either 'dash' or 'blank'  default DASH
-# file    - tag used for passing file entry
-# dir     - tag used for passing directory entry
-# version - tag used for versioning
-# dbfile  - tag used for passing database file
+    :setting setting values
+        dbfile   where db is located (path)
+        version  current code version
 ##
-# :setting setting values
-# dbfile   where db is located (path)
-# version  current code version
+    :require what (optional) values must be entered
+        file    if there is a file-prompt, make file required
+    dir     if there is a dir-prompt,  make directory required
 ##
-# :require what (optional) values must be entered
-# file    if there is a file-prompt, make file required
-# dir     if there is a dir-prompt,  make directory required
-##
-# RESERVED WORDS FOR TAGS:
-# title, comment, width, height, inc, flag, prefix, file, dir, version, dbfile, setting
+RESERVED WORDS FOR TAGS:
+    title, comment, width, height, inc, flag, prefix, file, dir, version, dbfile, setting
+"""
 
 
-from os import path, chmod
-import re
-import tempfile
 import time
 
-from PySide6.QtCore import QProcess, Qt, QProcessEnvironment
+from os import path
+
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,   QDialog,        QDialogButtonBox,
-    QFileDialog, QHBoxLayout,    QLineEdit,
+    QFileDialog, QLineEdit,
     QMessageBox, QPlainTextEdit, QTabWidget,
     QVBoxLayout, QWidget,
 )
 
-from qdb.keys import DbKeys, ProgramConstants
-from qdil.preferences import DilPreferences, SystemPreferences
+from constants import ProgramConstants
 from ui.simpledialog import SimpleDialog, SDOption
+from ui.scripthelpers import (
+        ScriptKeys,
+        RunScriptBase, DialogSettings )
 from ui.file import Openfile
-from util.convert import toInt
-from util.simpleparse import SDEntry
-from util.utildir import get_scriptinc, get_user_scriptinc, get_scriptdir, get_user_scriptdir, get_os_class
-from qdb.log import DbLog
-
-
-class ScriptKeys:
-
-    # #:KEYWORD tags
-    COMMENT = 'comment'
-    DEBUG = 'debug'             # Within #:require - pass debug flag
-    DIALOG = 'dialog'           # use simpledialog
-    PICKER = 'picker'           # use OpenFile to pick a current book
-    DIR = 'dir'                 # Directory request
-    DIR_PROMPT = 'dir-prompt'   # ""
-    FILE = 'file'
-    FILE_FILTER = 'file-filter'
-    FILE_PROMPT = 'file-prompt'
-    FLAG = 'flag'
-    INCLUDE = 'inc'             # Include another file (future)
-    OPTIONS = 'options'         # See options, below
-    OS = 'os'                   # Free-form option list
-    PREFIX = 'prefix'           # set the flag prefix for the script (default is -)
-    REQUIRE = 'require'         # Fields required ( file / dir )
-    SYSTEM = 'system'           # See information, below.
-    TITLE = 'title'             # passed to script
-    VARS = 'vars'               # Reserved for intenal use
-
-    # 'INFORMATION' requests (after #:SYSTEM )
-    DEBUG = 'debug'
-
-    # DISPLAY CONTROL
-    HEIGHT = 'height'           # separate line #:height n
-    NOFRAME = 'noframe'         # Within #:require
-    ONTOP = 'ontop'             # Within #:require
-    SIMPLE = 'simple'           # Within #:require
-    WIDTH = 'width'             # separate line:  #:width n
-
-    # OS options
-    OS_ANY = 'any'
-    OS_LINUX = 'linux'
-    OS_UNIX  = 'unix'
-    OS_BSD   = 'bsd'
-    OS_MACOS = 'macos'
-    OS_WIN   = 'win'
-
-    # ENV SETTING
-    ENV_DBFILE = 'DBFILE'
-    ENV_DIR_SYS = 'SCRIPT_SYSTEM'
-    ENV_DIR_USER = 'SCRIPT_USER'
-    ENV_INC_SYS = 'INCLUDE_SYSTEM'
-    ENV_INC_USER = 'INCLUDE_USER'
-    ENV_MUSIC_DIR = 'MUSIC_DIR'
-    ENV_PYTHON_RUN = 'PYTHON_RUN'
-    ENV_PYTHON_VERSION = 'PYTHON_VERSION'
-    ENV_QT_VERSION = 'QT_VERSION'
-    ENV_SHEETMUSIC = 'SHEETMUSIC_VERSION'
-    ENV_SYSTEM_OS = 'SYSTEM_OS'
-    ENV_SYSTEM_CLASS = 'SYSTEM_CLASS'
-
-    # DB export information
-    ENV_IMG_RES = 'IMG_RES'
-    ENV_IMG_TYPE = 'IMG_TYPE'
-    ENV_LAST_BACKUP = 'LAST_BACKUP'
-    ENV_IMG_FORMAT = 'IMG_FORMAT'
-
-
-class UiScriptSetting():
-    """ This will parse a scriptfile for known keys, values, and options """
-
-    # SEARCH_TAGS looks for the tags formatted as:  #:<keyword> <options><end-of-line>
-    SEARCH_TAGS = '\s*#:([a-z-]+)\s+([^\n\r]*)'
-    # SEARCH_KEYWORDS looks for:  <blanks><text><blanks<text><blanks>
-    SEARCH_KEYWORDS = '\s*(\w+)\s*(\w+)\s*'
-
-    def __init__(self, filename: str, lines=None, deep: bool = True):
-        """ Setup and to parse either a file or text. 
-
-        filename: File to open and parse.
-        lines: parse lines already read and ignore filename
-        deep: (future) this will continue to scan any 'include' links
-        """
-
-        self._fname = filename
-        self.translate_tag_to_flag = {
-            ScriptKeys.DIR:       ['d'],
-            ScriptKeys.DEBUG:     ['X']}
-        if lines is None:
-            with open(filename) as f:
-                script = f.read()
-            self.parse(script, deep)
-        else:
-            self.parse(lines, deep)
-
-    def parse_option_line(self, line: str):
-        """ Parse one line for options."""
-        matches = re.findall(UiScriptSetting.SEARCH_KEYWORDS, line)
-        for match in matches:
-            self.set_flag(match[0], match[1])
-        if self.flag('prefix', 'dash') == 'dash':
-            self.set_flag('prefix', '-')
-        elif self.flag('prefix') == 'blank':
-            self.set_flag('prefix', '')
-
-    def parse_setting_line(self, line: str):
-        """ This parses lines made up of keyword keyword keyword"""
-        settings = line.split()
-        for setting in settings:
-            self.translate_tag_to_flag[setting] = [True]
-
-    def is_option(self, type: str, option) -> bool:
-        """ Determine if 'option' is within the 'type' line. 
-
-            Typically used for #:system or #:require settings
-        """
-        return self.setting_value(type).find(option) > -1
-
-    def get_options(self, key: str = ScriptKeys.VARS) -> list:
-        """ Return a list of options for a keyword. Can be used for #:system """
-        return self.setting_value(key).split()
-
-    def include(self, filename):
-        pass
-
-    def parse(self, lines, deep) -> None:
-        """ Parse will Parse all the lines and create a key/list entry"""
-        if isinstance(lines, list):
-            matches = re.findall(UiScriptSetting.SEARCH_TAGS, "\n".join(lines))
-        else:
-            matches = re.findall(UiScriptSetting.SEARCH_TAGS, lines)
-        if len(matches) > 0:
-            for match in matches:
-                if match[0] in self.translate_tag_to_flag:
-                    self.translate_tag_to_flag[match[0]].append(
-                        match[1].strip())
-                else:
-                    self.translate_tag_to_flag[match[0]] = [match[1].strip()]
-            if ScriptKeys.FLAG in self.translate_tag_to_flag:
-                for line in self.translate_tag_to_flag[ScriptKeys.FLAG]:
-                    self.parse_option_line(line)
-            if deep:
-                lines = self.setting(ScriptKeys.INCLUDE, [])
-
-
-    def flag(self, key: str, default=None) -> str:
-
-        if self.translate_tag_to_flag is not None and key in self.translate_tag_to_flag:
-            return self.translate_tag_to_flag[key][0]
-        return default
-
-    def set_flag(self, key, value) -> None:
-        self.translate_tag_to_flag[key] = [value.strip()]
-
-    def is_set(self, key: str) -> bool:
-        """ Determine if 'key' is within the dictionary """
-        return self.translate_tag_to_flag is not None and key in self.translate_tag_to_flag
-
-    def setting(self, key: str, default=[]) -> list:
-        """ Return the list that is entered for the dictionary 'key' """
-        if self.is_set(key):
-            return self.translate_tag_to_flag[key]
-        if isinstance(default, list):
-            return default
-        return [default]
-
-    def setting_value(self, key: str, default='') -> str:
-        return self.setting(key, default)[0]
-
-    def settings(self) -> dict:
-        return self.translate_tag_to_flag
-
-    def __str__(self)->str:
-        rtn = ""
-        for key, items in self.translate_tag_to_flag.items():
-            rtn = rtn + "Key: {}\n".format( key )
-            for item in items:
-                rtn = rtn +"\tValue: '{}'\n".format( item)
-        return rtn
-
-
-class RunScriptBase():
-    """
-    Contains the process functions for running shell scripts 
-
-    ATTRIBUTES:
-    ===========
-    _process : QProcess
-        Contains process object when script is running
-    script_file : str
-        full path to script to be run. Can be name of tempfile
-    script_parms : UiScriptSetting object
-        Created when script file is set. Use to pull parms from script
-    _shell : str
-        Contains shell program path for script execution
-    process_state : QProcess.ProcessState
-        Save the ProcessState when change is signalled
-    _temp_file  : tempfile.NamedTemporaryFile
-        Either None (no temp file) or temp file data for closure
-    vars  : list
-        List of parms to pass to shell script. For example: ['-D', '/where/is/dbfile' , '-X' ]
-
-    OVERRIDES:
-    ==========
-    output_message( msgText:str , override=None)->None
-        Output msgText to the user. Used during script execution
-    notify_start( )->None
-        Called when processing starts
-    notify_end()->None
-        Called when processing completes
-    notify_script_change( script_file:str )->None
-        When the script is changed, this is called. 
-    add_final_vars()->None
-        Derived class can add other parms to list (Prefer to end)
-    """
-
-    RETURN_CANCEL = False
-    RETURN_CONTINUE = True
-    OUT_PLAIN = 'plain'
-    OUT_STDOUT = 'stdout'
-    OUT_NONE = 'none'
-    transfer_from_db = {
-        ScriptKeys.ENV_IMG_RES: DbKeys.SETTING_FILE_RES,
-        ScriptKeys.ENV_IMG_TYPE: DbKeys.SETTING_FILE_TYPE,
-        ScriptKeys.ENV_LAST_BACKUP: DbKeys.SETTING_LAST_BACKUP,
-        ScriptKeys.ENV_IMG_FORMAT: DbKeys.SETTING_DEFAULT_IMGFORMAT,
-    }
-
-    def __init__(self):
-        """ Initialise all values used in program to None """
-        self._process = None
-        self.script_file = None
-        self.script_parms = None
-        self._shell = None
-        self._process_state = None
-        self._temp_file = None
-        self.macro_replace = {}
-        self._extra_env = {}
-        self._logger = DbLog('RunScript')
-
-    def __del__(self):
-        self._close_temporary_file()
-
-    def output_message(self, msgText: str, override=None, mode: str = 'stdout') -> None:
-        """ override - optional 
-            Outputs messages to the user as the program runs
-            All our message processing for output runs through here.
-        """
-        pass
-
-    def notify_start(self):
-        """ override - optional 
-            Call when the program is about to start
-        """
-        pass
-
-    def notify_end(self):
-        """ override 
-            Call when the program has completed
-        """
-        pass
-
-    def notify_script_change(self, script_name: str) -> None:
-        ''' override '''
-        pass
-
-    def processStatus(self, msg):
-        ''' override '''
-        pass
-
-    def add_final_vars(self):
-        """ override- optional Child class last chance to add more variables """
-        pass
-
-    def _close_temporary_file(self):
-        if self._temp_file is not None:
-            self._temp_file.close()
-            self._temp_file = None
-
-    def _create_temporary_file(self):
-        """ Generate a temporary file from the scriptText and set flag"""
-        try:
-            self._temp_file = tempfile.NamedTemporaryFile(mode="w+")
-            self._temp_file.write(self._scriptText)
-            self._temp_file.flush()
-            self.script_file = self._temp_file.name
-            chmod(self.script_file, 0o550)
-        except Exception as err:
-            QMessageBox.critical(None,
-                                 "",
-                                 "Error creating temporary file\n" + str(err),
-                                 QMessageBox.StandardButton.Cancel)
-            self._close_temporary_file()
-            return False
-        return True
-
-    def variable_flag(self, tag: str) -> str:
-        return "{}{}".format(
-            self.script_parms.setting_value(ScriptKeys.PREFIX, '-'),
-            self.script_parms.setting_value(tag, tag))
-
-    def add_variable_flag(self, tag: str, front=False) -> None:
-        """ 
-        Add just the tag to self.vars based on UiScriptSetting 
-
-        For example, if you want 'debug' and call it as:
-        add_variable_flag( ScriptKeys.DEBUG ) it will add ['-X']
-        """
-        if front:
-            self.vars.insert(0, self.variable_flag(tag))
-        else:
-            self.vars.append(self.variable_flag(tag))
-
-    def add_variable(self, tag: str, value: str, front=False) -> None:
-        """
-        Add the tag and value to the self.vars list based on UiScriptSetting values
-
-        An example: if you want to have the script file added, you waould call it as
-            add_variable( ScriptKeys.SCRIPT , self.script_file )
-        and it would add:
-            ['-Z' , '/script/file/path' ]
-        """
-        if front:
-            self.vars.insert(0, value)
-            self.add_variable_flag(0, tag)
-        else:
-            self.vars.append(self.variable_flag(tag))
-            self.vars.append(value)
-
-    def add_includes_to_vars(self):
-        pass
-
-    def add_system_to_vars(self):
-        """ Add to vars list based on '#:system' tag in script file """
-        if self.script_parms.is_set(ScriptKeys.SYSTEM):
-            for key in self.script_parms.get_options(ScriptKeys.SYSTEM):
-                if key == ScriptKeys.DEBUG:
-                    self.add_debug_to_vars()
-
-    def add_debug_to_vars(self, debug: bool = False):
-        if debug:
-            self.macro_replace['DEBUG'] = True
-            self.add_variable_flag(ScriptKeys.DEBUG, front=False)
-
-    def add_script_to_vars(self):
-        """ Add script to the very first position in the variables being passed """
-        self.vars.insert(0, self.script_file)
-
-    def save_script(self, script, isFile: bool = True) -> bool:
-        """ Save the script to file and setup script parameter class """
-        self.script_file = script
-        if isFile:
-            if not path.isfile(script):
-                QMessageBox.critical(None,
-                                     "",
-                                     "Script not found:\n" + script,
-                                     QMessageBox.StandardButton.Cancel)
-                return False
-            with open(self.script_file) as f:
-                self._scriptText = f.read()
-
-        self.script_parms = UiScriptSetting(
-            self.script_file, self._scriptText, isFile)
-        return True
-
-    def set_script(self, script: str, vars: list = None, env:dict=None, isFile: bool = True) -> bool:
-        """ 
-        Save the script and notify child we changes script status
-
-        This closes previous file, resets the variables passed to shell script
-        and will notify the child class of the script change.
-        """
-        self._close_temporary_file()
-        self.vars = vars if vars is not None else []
-        self._extra_env = env if env is not None else {}
-        if script is None or len(script) < 2:
-            QMessageBox.critical(None,
-                                 "",
-                                 "Empty script passed",
-                                 QMessageBox.StandardButton.Cancel)
-            return False
-
-        self.save_script(script, isFile)
-        self.add_includes_to_vars()
-        self.add_system_to_vars()
-        self.notify_script_change((script if isFile else None))
-        return True
-
-    def reset(self):
-        """ This clears the variables, resets the key ones from the script """
-        self.vars = []
-        self.add_includes_to_vars()
-        self.add_system_to_vars()
-
-    def wait_for_process(self):
-        if self._process is not None:
-            self._process.waitForFinished(-1)
-
-    def cancel_process(self):
-        if self._process is not None and self._process.state() == QProcess.ProcessState.Running:
-            self.btnList['Execute'].hide()
-            self.btnList['Close'].hide()
-            self.btnList['Cancel'].hide()
-            self._process.kill()
-            self._process.waitForFinished()
-            self.btnList['Close'].show()
-
-    def add_to_environment(self , env_dict:dict)->None:
-        self._extra_env = env_dict
-    
-    def _add_to_environment( self , env: QProcessEnvironment , extra:dict)->None:
-        self._remove_from_environment( env , extra )
-        for key, value in extra.items():
-            env.insert( key , value )
-
-    def _remove_from_environment( self ,env: QProcessEnvironment , extra:dict)->None:
-        for key in extra.keys():
-            env.remove( key  )
-
-    def setup_environment(self):
-        """ Add in environment variables that are standard for all runs """
-        import platform
-        import PySide6
-        import sys
-        pref = DilPreferences()
-
-        env = QProcessEnvironment.systemEnvironment()
-        
-        env.insert(ScriptKeys.ENV_INC_SYS, get_scriptinc())
-        env.insert(ScriptKeys.ENV_DIR_SYS, get_scriptdir())
-        env.insert(ScriptKeys.ENV_INC_USER, get_user_scriptinc())
-        env.insert(ScriptKeys.ENV_DIR_USER, get_user_scriptdir())
-
-        env.insert(ScriptKeys.ENV_MUSIC_DIR, pref.getDirectoryDB())
-        env.insert(ScriptKeys.ENV_DBFILE, pref.getPathDB())
-        env.insert(ScriptKeys.ENV_SYSTEM_OS, platform.platform(terse=True))
-        env.insert(ScriptKeys.ENV_SYSTEM_CLASS, get_os_class())
-
-        env.insert(ScriptKeys.ENV_QT_VERSION, PySide6.__version__)
-        env.insert(ScriptKeys.ENV_PYTHON_VERSION, platform.python_version())
-        env.insert(ScriptKeys.ENV_PYTHON_RUN, sys.executable)
-        env.insert(ScriptKeys.ENV_SHEETMUSIC, ProgramConstants.version)
-        keys = [ScriptKeys.ENV_INC_SYS, ScriptKeys.ENV_DIR_SYS, ScriptKeys.ENV_INC_USER, ScriptKeys.ENV_DIR_USER,
-                ScriptKeys.ENV_MUSIC_DIR, ScriptKeys.ENV_DBFILE, ScriptKeys.ENV_SYSTEM_OS, ScriptKeys.ENV_QT_VERSION,
-                ScriptKeys.ENV_PYTHON_VERSION, ScriptKeys.ENV_PYTHON_RUN, ScriptKeys.ENV_SHEETMUSIC,
-                ScriptKeys.ENV_SYSTEM_CLASS] + list( self._extra_env.keys() )
-
-        # Transfer default settings from database
-        for env_key, db_key in RunScriptBase.transfer_from_db.items():
-            env.insert(env_key, pref.getValue(db_key))
-            keys.append(env_key)
-
-        # This overrides any defaults we have set in the DB
-        self._add_to_environment( env, self._extra_env )
-        env.insert('SHEETMUSIC_ENV', ':'.join(keys))
-        
-        self._process.setProcessEnvironment(env)
-
-    def start_process(self):
-        """
-        start_process will setup and execute the shell script that is in the self._scriptfile.
-
-        Only one process can run at a time. self_process hold the QProcess state.
-        """
-
-        if self._process is None:  # No process running.
-            # Keep a reference to the QProcess (e.g. on self) while it's running.
-            self._process = QProcess()
-            self._process.readyReadStandardOutput.connect(self._process_stdout)
-            self._process.readyReadStandardError.connect(self._process_stderr)
-            self._process.stateChanged.connect(self._process_state)
-            self._process.errorOccurred.connect(self._process_error)
-            # Clean up once complete.
-            self._process.finished.connect(self._process_finished)
-
-            try:
-                self.setup_environment()
-                self.add_script_to_vars()
-                self.add_final_vars()
-                self.time_start = time.perf_counter()
-                self._process.setProgram(self.shell())
-                self._process.setArguments(self.vars)
-                self._process.start()
-                if not self._process.waitForStarted():
-                    self._logger.critical('Process did not start')
-            except Exception as err:
-                self._close_temporary_file()
-                raise err
-
-    def get_script(self):
-        """
-        Call this to get the current state of the process
-        """
-        if self._process_state is None:
-            return QProcess.NotRunning
-        return self._process_state
-
-    def _process_stderr(self) -> None:
-        data = self._process.readAllStandardError()
-        stderrMsg = "ERROR: " + bytes(data).decode("utf8", errors='ignore')
-        self.output_message(stderrMsg, mode='stderr')
-
-    def _process_stdout(self) -> None:
-        data = self._process.readAllStandardOutput()
-        stdoutMsg = bytes(data).decode("utf8").strip()
-        if stdoutMsg.__contains__('code>') or stdoutMsg.__contains__('pre>'):
-            self.output_message(stdoutMsg, override='html', mode='stdout')
-        else:
-            self.output_message(stdoutMsg, mode='stdout')
-
-    def _process_state(self, state) -> None:
-        self._process_state = state
-        if state == QProcess.Starting:
-            self.time_start = time.perf_counter()
-        if state == QProcess.Running:
-            self.notify_start()
-
-    def _process_finished(self) -> None:
-        totalTime = time.perf_counter() - self.time_start
-        min, sec = divmod(totalTime, 60)
-        hour, min = divmod(min, 60)
-        self.notify_end(
-            "Script done. Total time: {:2.0f}:{:02.0f}:{:02.0f}".format(hour, min, sec))
-        self._close_temporary_file()
-        self.time_start = None
-
-    def _process_error(self, error):
-        """
-        If a process error occurs then a popup message box will be shown
-        """
-        self._close_temporary_file()
-        match error:
-            case QProcess.FailedToStart:
-                msg = "Program didn't start. Check script for errors."
-            case QProcess.Crashed:
-                msg = "Process crashed."
-            case QProcess.Timedout:
-                msg = "While waitFor calls, timeout"
-            case QProcess.WriteError:
-                msg = "While writing from script"
-            case QProcess.ReadError:
-                mesg = "While reading from script"
-            case _:
-                msg = "General script error"
-                if isinstance(error, str):
-                    msg = "{}\n{}".format(msg, error)
-
-        QMessageBox.critical(None,
-                             "",
-                             "Error running script\n" + msg,
-                             QMessageBox.StandardButton.Cancel)
-
-    def set_shell(self, shellCommand) -> bool:
-        """ set_shell sets the command to anything passed and returns true if there was a value"""
-        self._shell = shellCommand
-        return (self._shell is not None and len(self._shell) > 0)
-
-    def set_shell_preferences(self) -> bool:
-        """ SetShell will set the shell command from the system preferences setting"""
-        self.pref = DilPreferences()
-        self._shell = self.pref.getValue(DbKeys.SETTING_DEFAULT_SCRIPT, None)
-        return (self._shell is not None and len(self._shell) > 0)
-
-    def set_system_shell(self) -> bool:
-        """ set_system_shell willl (eventually) look at the system type and fill in how to 
-            run the program. For now, it only works on UNIX systems that have a standard
-            shell program (like /bin/bash)
-        """
-        shlist = ['/bin/bash', '/bin/zsh', '/bin/sh',
-                  '/usr/local/bin/bash', '/usr/local/bin/zsh', '/usr/local/bin']
-        for i in range(0, len(shlist)):
-            if path.exists(shlist[i]):
-                self.set_shell(shlist[0])
-                return True
-        return False
-
-    def shell(self) -> str:
-        """ shell will retrieve the shell setting from whatever we have set 
-            If none has been set explicity, then get first the shell from preferences,
-            then a shell from the system list
-            IF none are found, 'None' is returend.
-        """
-        if self._shell is None:
-            if not self.set_shell_preferences() and not self.set_system_shell():
-                self._shell = None
-                QMessageBox.critical(None,
-                                     "Runtime Error",
-                                     "No shell program found to run script",
-                                     QMessageBox.StandardButton.Cancel)
-        return self._shell
-
-
-class DialogSettings():
-    """
-        Set either the window title or create space in the area of the buttons 
-    """
-
-    def __init__(self):
-        self._bottomText = None
-
-    def generate(self, script_parms: UiScriptSetting, buttons: QDialogButtonBox):
-        if script_parms.is_option(ScriptKeys.REQUIRE, ScriptKeys.NOFRAME):
-            self._bottomWidget = QWidget()
-            self._bottomText = QLineEdit()
-            self._bottomText.setReadOnly(True)
-
-            self._bottomLayout = QHBoxLayout()
-            self._bottomLayout.addWidget(self._bottomText)
-            self._bottomLayout.addWidget(buttons)
-            self._bottomWidget.setLayout(self._bottomLayout)
-            return self._bottomWidget
-        return buttons
-
-    def set(self, script_parms: UiScriptSetting, dlg: QDialog):
-        """ set will set the title, frame setting, and the ontop hint."""
-        title = script_parms.setting_value(ScriptKeys.TITLE, 'Script')
-        if self._bottomText is not None:
-            self._bottomText.setText(title)
-        else:
-            dlg.setWindowTitle(title)
-
-        dlg.setWindowFlag(Qt.FramelessWindowHint, script_parms.is_option(
-            ScriptKeys.REQUIRE, ScriptKeys.NOFRAME))
-        if script_parms.is_option(ScriptKeys.REQUIRE, ScriptKeys.ONTOP):
-            dlg.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+from util.convert import to_int
 
 
 class UiRunScript(RunScriptBase):
     """
-        Run a script based on values in the script file. This does not provide any prompting for files/dirs/etc.
+        Run a script based on values in the script file.
+        This does not provide any prompting for files/dirs/etc.
 
         Tags that are used
         ==================
@@ -715,66 +96,76 @@ class UiRunScript(RunScriptBase):
 
         Attributes (well, important ones)
         =================================
-        btnDebug : QCheckBox
+        btn_debug : QCheckBox
             Displayed if script '#:require' contains 'debug'
         text - QPlainTextEdit
             Set to read-only, contains output from program: title, comments, stdout and stderr
-        textScriptName  : QLineEdit
+        text_scriptname  : QLineEdit
             Set read-only, contains script name and final runtime status
-        textScript : QPlainTextEdit
+        text_script : QPlainTextEdit
             Contains contents of script
-        tabLayout : QTabWidget
+        tab_layout : QTabWidget
             Contains two tabs: Output and Script. Double click Script to show runtime variables
-        dlgW : int
+        dlg_w : int
             Width of dialog box
-        dlgH : int
+        dlg_h : int
             Height of dialog box
 
         """
 
-    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='plain') -> None:
+    def __init__(self,
+                 script: str,
+                 script_vars: list = None,
+                 env:dict=None,
+                 is_file=True,
+                 output_dest='plain') -> None:
         """
         Setup the runscript values
 
         script can be text of script to run or a file path.
         vars is  a aof options to pass as variables to script
-        isFile : true when passed a filename rather than a script
-        outputDestination must be a 'none', 'stdout' or 'plain'
+        is_file : true when passed a filename rather than a script
+        output_dest must be a 'none', 'stdout' or 'plain'
         """
         super().__init__()
-        self.btnList = None
+        self.btn_list = None
         self.debug_mode = False
+        self.tab_layout = None
+        self._script_save = None
+        self.btn_debug = None
+
+        self.titler = None
         self.create_text_fields()
-        if self.set_script(script, vars, env=env, isFile=isFile):
-            width = min(2048, toInt(self.script_parms.setting_value(
+        if self.set_script(script, script_vars, env=env, is_file=is_file):
+            width = min(2048, to_int(self.script_parms.setting_value(
                 ScriptKeys.WIDTH, '600'), 600))
-            height = min(1024, toInt(self.script_parms.setting_value(
+            height = min(1024, to_int(self.script_parms.setting_value(
                 ScriptKeys.HEIGHT, '700'), 700))
             self.set_size(width, height)
-            self.set_output(outputDestination)
-            self.status = self.RETURN_CONTINUE
+            self.set_output(output_dest)
+            self.status = ProgramConstants.RETURN_CONTINUE
         else:
-            self.status = self.RETURN_CANCEL
+            self.status = ProgramConstants.RETURN_CANCEL
 
     def notify_start(self):
         """ Clear the general text field when process starts """
         self.text.clear()
-        if self.btnList is not None:
-            self.btnList['Execute'].hide()
-            self.btnList['Close'].hide()
-            self.btnList['Cancel'].show()
+        if self.btn_list is not None:
+            self.btn_list['Execute'].hide()
+            self.btn_list['Close'].hide()
+            self.btn_list['Cancel'].show()
 
-    def notify_end(self, endMessage: str) -> None:
+    def notify_end(self, msg: str) -> None:
         """ Write the end message on the text file line and move cursor to top of output """
         self.output_message("Script complete.", mode='stdout')
-        self.textScriptName.setText(endMessage)
+        self.text_scriptname.setText(msg)
         self.text.moveCursor(QTextCursor.Start)
-        if self.btnList is not None:
-            self.btnList['Execute'].show()
-            self.btnList['Close'].show()
-            self.btnList['Cancel'].hide()
+        if self.btn_list is not None:
+            self.btn_list['Execute'].show()
+            self.btn_list['Close'].show()
+            self.btn_list['Cancel'].hide()
 
-    def output_message(self, msgText: str, override=None,  mode: str = 'stdout') -> None:
+    def output_message(self, msg: str, override=None,  mode: str = 'stdout') -> None:
         """ output_message will output the current state to the text in output tab
 
         It can either output to a plain or regular text edit box
@@ -782,120 +173,132 @@ class UiRunScript(RunScriptBase):
         """
         use = self.use if override is None else override
         if use == 'plain':
-            self.text.appendPlainText(msgText)
+            self.text.appendPlainText(msg)
         elif use == 'text':
-            self.text.appendPlainText(msgText)
+            self.text.appendPlainText(msg)
         elif use == 'html':
-            self.text.appendHtml(msgText)
+            self.text.appendHtml(msg)
         elif use == 'stdout':
-            print("Script: {}".format(msgText))
+            print(f"Script: {msg}")
 
     def notify_script_title_comment(self) -> bool:
         """ If the script has #:title / #:comment entries, display in output box """
         if self.script_parms.is_set(ScriptKeys.TITLE):
             title = self.script_parms.setting_value(ScriptKeys.TITLE)
             if len(title) > 0:
-                tl = len(title)
-                self.output_message('<b>{}<br/>&nbsp;{}<br/>{}</b>'.format(
-                    '='*tl, title, '='*tl), 'html')
+                sep = '='*len(title)
+                msg = f"<b>{sep}<br/>&nbsp;{title}<br/>{sep}</b>"
+                self.output_message(msg, 'html')
         if self.script_parms.is_set(ScriptKeys.COMMENT):
-            self.output_message("<br/><p>{}</p><br/>".format(
-                '<br/>'.join(self.script_parms.setting(ScriptKeys.COMMENT, ''))),
+            cmt = '<br/>'.join(self.script_parms.setting(ScriptKeys.COMMENT, ''))
+            self.output_message(
+                f"<br/><p>{cmt}</p><br/>"
                 'html')
         return True
 
     def notify_script_change(self, script_name: str) -> None:
-        self.textScript.setPlainText(self._scriptText)
+        """Add text name for script title change
+
+        Args:
+            script_name (str): Script text
+        """
+        self.text_script.setPlainText(self._script_text)
         if script_name is not None:
-            self.textScriptName.setText('Script: {}'.format(script_name))
+            self.text_scriptname.setText(f"Script: {script_name}")
         else:
-            self.textScriptName.setText(self.script_parms.setting_value(
+            self.text_scriptname.setText(self.script_parms.setting_value(
                 ScriptKeys.TITLE, 'Script passed by program'))
 
-    def set_output(self, outputDestination=None):
+    def set_output(self, output_dest:str=None):
+        """ Set the output destination
+        Can be one of 'plain', 'text', 'none'
+        """
         self.use = 'stdout'
-        if outputDestination in ['plain',  'text', 'none']:
-            self.use = outputDestination
+        if output_dest in ['plain',  'text', 'none']:
+            self.use = output_dest
 
-    def _get_button_list(self, btnBox: QDialogButtonBox):
-        btnList = {}
-        for button in btnBox.buttons():
-            btnList[button.text()] = button
-        return btnList
+    def _get_button_list(self, btn_box: QDialogButtonBox):
+        btn_list = {}
+        for button in btn_box.buttons():
+            btn_list[button.text()] = button
+        return btn_list
 
     def _run_buttons(self):
-        btnBox = QDialogButtonBox()
-        btnBox.addButton('Execute', QDialogButtonBox.AcceptRole)
-        btnBox.addButton(QDialogButtonBox.Close)
-        btnBox.addButton(QDialogButtonBox.Cancel)
-        self.btnList = self._get_button_list(btnBox)
-        self.btnList['Close'].hide()
-        return (btnBox, self.btnList)
+        btn_box = QDialogButtonBox()
+        btn_box.addButton('Execute', QDialogButtonBox.AcceptRole)
+        btn_box.addButton(QDialogButtonBox.Close)
+        btn_box.addButton(QDialogButtonBox.Cancel)
+        self.btn_list = self._get_button_list(btn_box)
+        self.btn_list['Close'].hide()
+        return (btn_box, self.btn_list)
 
     def _debug_buttons(self):
         """ Debug will be shown if there is a debug in the script, otherwise it will be hidden """
-        self.btnDebug = QCheckBox('Debug')  # Added later to display
-        self.btnDebug.setObjectName('Debug')
-        self.btnDebug.setCheckable(True)
-        self.btnDebug.setChecked(False)
-        self.btnDebug.setHidden(not self.script_parms.is_option(
+        self.btn_debug = QCheckBox('Debug')  # Added later to display
+        self.btn_debug.setObjectName('Debug')
+        self.btn_debug.setCheckable(True)
+        self.btn_debug.setChecked(False)
+        self.btn_debug.setHidden(not self.script_parms.is_option(
             ScriptKeys.REQUIRE, ScriptKeys.DEBUG))
-        return self.btnDebug
+        return self.btn_debug
 
     def _run_tab_layout(self):
-        tabLayout = QTabWidget()
+        tab_layout = QTabWidget()
         vlayout = QVBoxLayout()
-        vlayout.addWidget(self.textScriptName)
+        vlayout.addWidget(self.text_scriptname)
         vlayout.addWidget(self._debug_buttons())
         vlayout.addWidget(self.text)
         w = QWidget()
         w.setLayout(vlayout)
-        tabLayout.addTab(w, "Output")
-        tabLayout.setTabText(0, "Output")
+        tab_layout.addTab(w, "Output")
+        tab_layout.setTabText(0, "Output")
 
-        tabLayout.addTab(self.textScript, "Script")
-        tabLayout.setTabText(1, "Script")
+        tab_layout.addTab(self.text_script, "Script")
+        tab_layout.setTabText(1, "Script")
 
-        return tabLayout
+        return tab_layout
 
     def create_text_fields(self):
-        plainFont = QFont()
-        plainFont.setFixedPitch(True)
+        """create text input fields
+        """
+        plain_font = QFont()
+        plain_font.setFixedPitch(True)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
 
-        self.textScriptName = QLineEdit()
-        self.textScriptName.setReadOnly(True)
+        self.text_scriptname = QLineEdit()
+        self.text_scriptname.setReadOnly(True)
 
-        self.textScript = QPlainTextEdit()
-        self.textScript.setFont(plainFont)
+        self.text_script = QPlainTextEdit()
+        self.text_script.setFont(plain_font)
 
     def _action_single_click_tab(self, index) -> None:
-        if index != 1 and self.tabLayout.tabText(1) != 'Script':
+        if index != 1 and self.tab_layout.tabText(1) != 'Script':
             self._action_double_click_tab(1)
 
     def _action_double_click_tab(self, index) -> None:
         """ If the user double clicks on the script tab, it will show script parameters """
         if index == 1:
-            if self.tabLayout.tabText(index) == 'Script':
-                self._script_save = self.textScript.toPlainText()
-                self.tabLayout.setTabText(index, 'Runtime')
-                self.textScript.clear()
-                self.textScript.insertPlainText(
-                    "Shell command: {}\n".format(self.shell()))
-                self.textScript.insertPlainText(
-                    "Script file: {}\n\n".format(self.script_file))
-                self.textScript.insertPlainText(
+            if self.tab_layout.tabText(index) == 'Script':
+                self._script_save = self.text_script.toPlainText()
+                self.tab_layout.setTabText(index, 'Runtime')
+                self.text_script.clear()
+                self.text_script.insertPlainText(
+                    f"Shell command: {self.shell()}\n")
+                self.text_script.insertPlainText(
+                    f"Script file: {self.script_file}\n\n")
+                self.text_script.insertPlainText(
                     "Variables passed to shell by position:\n")
-                for i in range(0, len(self.vars)):
-                    self.textScript.insertPlainText(
-                        "   {}: '{}'\n".format(i+1, self.vars[i]))
+                for i, script_var in enumerate( self.vars):
+                    self.text_script.insertPlainText(
+                        f"   {i+1}: '{script_var}'\n")
             else:
-                self.tabLayout.setTabText(index, 'Script')
-                self.textScript.setPlainText(self._script_save)
+                self.tab_layout.setTabText(index, 'Script')
+                self.text_script.setPlainText(self._script_save)
                 del self._script_save
 
     def is_debug(self) -> bool:
+        """ Return True if we are in debug mode """
         return self.debug_mode
 
     def _prompt_for_file(self) -> bool:
@@ -916,7 +319,7 @@ class UiRunScript(RunScriptBase):
                     ScriptKeys.DIALOG), self.macro_replace)
                 if QMessageBox.Rejected == sd.exec():
                     return False
-            except Exception as err:
+            except (ValueError, RuntimeError) as err:
                 QMessageBox.critical(None,
                                      "Script error",
                                      "Script has a dialog error and cannot run:\n" +
@@ -931,12 +334,14 @@ class UiRunScript(RunScriptBase):
             self.add_variable(entry[SDOption.KEY_TAG],
                               entry[SDOption.KEY_VALUE])
 
-    def run(self, startMsg: str = "Hit Execute button to run program", no_dialog:bool=False) -> bool:
+    def run(self,
+            start_msg: str = "Hit Execute button to run program",
+            no_dialog:bool=False) -> bool:
         """
         run is the interface between the dialog box displaying information and the
         actual process that will be executed.
 
-        It will run dialog interactions unless you set no_dialog
+        It will run dialog interaction_s unless you set no_dialog
 
         It returns True to continue, False to Cancel
         """
@@ -944,9 +349,9 @@ class UiRunScript(RunScriptBase):
         def button_clicked(button):
             match button.text().strip():
                 case 'Execute':
-                    self.status = self.RETURN_CONTINUE
-                    btnList['Execute'].setDisabled(True)
-                    self.debug_mode = self.btnDebug.isChecked()
+                    self.status = ProgramConstants.RETURN_CONTINUE
+                    btn_list['Execute'].setDisabled(True)
+                    self.debug_mode = self.btn_debug.isChecked()
                     self.add_debug_to_vars(self.debug_mode)
                     self.text.clear()
                     self.start_process()
@@ -955,46 +360,47 @@ class UiRunScript(RunScriptBase):
 
                 case 'Cancel':
                     self.cancel_process()
-                    self.status = self.RETURN_CANCEL
-                    dlgRun.reject()
+                    self.status = ProgramConstants.RETURN_CANCEL
+                    dlg_run.reject()
 
                 case _:
-                    self.status = self.RETURN_CONTINUE
-                    dlgRun.accept()
+                    self.status = ProgramConstants.RETURN_CONTINUE
+                    dlg_run.accept()
 
-        if self.status == self.RETURN_CONTINUE:
+        if self.status == ProgramConstants.RETURN_CONTINUE:
             if not self._prompt_for_file() or not self._user_dialog(no_dialog):
-                self.status = self.RETURN_CANCEL
-                return self.RETURN_CANCEL
+                self.status = ProgramConstants.RETURN_CANCEL
+                return ProgramConstants.RETURN_CANCEL
 
-            self.tabLayout = self._run_tab_layout()
-            self.tabLayout.tabBarDoubleClicked.connect(
+            self.tab_layout = self._run_tab_layout()
+            self.tab_layout.tabBarDoubleClicked.connect(
                 self._action_double_click_tab)
-            self.tabLayout.tabBarClicked.connect(self._action_single_click_tab)
-            (btnBox, btnList) = self._run_buttons()
-            btnBox.clicked.connect(button_clicked)
+            self.tab_layout.tabBarClicked.connect(self._action_single_click_tab)
+            (btn_box, btn_list) = self._run_buttons()
+            btn_box.clicked.connect(button_clicked)
 
             self.titler = DialogSettings()
-            runLayout = QVBoxLayout()
-            runLayout.addWidget(self.tabLayout)
-            runLayout.addWidget(self.titler.generate(
-                self.script_parms, btnBox))
+            run_layout = QVBoxLayout()
+            run_layout.addWidget(self.tab_layout)
+            run_layout.addWidget(self.titler.generate(
+                self.script_parms, btn_box))
 
-            dlgRun = QDialog()
-            dlgRun.setLayout(runLayout)
-            dlgRun.setMinimumHeight(500)
-            dlgRun.setMinimumWidth(500)
-            self.titler.set(self.script_parms, dlgRun)
-            dlgRun.resize(self.dlgW, self.dlgH)
+            dlg_run = QDialog()
+            dlg_run.setLayout(run_layout)
+            dlg_run.setMinimumHeight(500)
+            dlg_run.setMinimumWidth(500)
+            self.titler.set(self.script_parms, dlg_run)
+            dlg_run.resize(self.dlg_w, self.dlg_h)
             self.notify_script_title_comment()
-            self.output_message(startMsg)
-            dlgRun.exec()
+            self.output_message(start_msg)
+            dlg_run.exec()
 
         return self.status
 
     def set_size(self, w: int, h: int) -> None:
-        self.dlgW = w
-        self.dlgH = h
+        """ Set the width and height of the dialog box"""
+        self.dlg_w = w
+        self.dlg_h = h
 
 
 class UiRunScriptFile(UiRunScript):
@@ -1014,35 +420,42 @@ class UiRunScriptFile(UiRunScript):
     If no require, the files are considered optional
     """
 
-    def __init__(self, script: str, vars: list = None, isFile: bool = True, outputDestination='plain') -> None:
-        super().__init__(script, vars, isFile, outputDestination)
-
+    def __init__(self,
+                 script: str,
+                 script_vars: list = None,
+                 is_file: bool = True,
+                 output_dest='plain') -> None:
+        super().__init__(script, script_vars, is_file, output_dest)
+        self._float_text = None
         if self.status:
             self.create_float_window()
             self.prompt_file_dir()
             self.float_hide()
 
     def __del__(self):
-        if ProgramConstants.ismacos and hasattr(self, '_floatText'):
-            del self._floatText
+        if ProgramConstants.ISMACOS and hasattr(self, '_float_text'):
+            del self._float_text
         super().__del__()
 
     def create_float_window(self):
-        if ProgramConstants.ismacos:
-            self._floatText = QPlainTextEdit()
-            self._floatText.setWindowFlag(Qt.FramelessWindowHint, True)
-            self._floatText.setWindowFlag(Qt.WindowStaysOnTopHint, True)
-            self._floatText.setPlainText("")
-            self._floatText.setGeometry(10, 10, 200, 75)
+        """ Create a floating text window for status"""
+        if ProgramConstants.ISMACOS:
+            self._float_text = QPlainTextEdit()
+            self._float_text.setWindowFlag(Qt.FramelessWindowHint, True)
+            self._float_text.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+            self._float_text.setPlainText("")
+            self._float_text.setGeometry(10, 10, 200, 75)
 
     def float_text(self, txt: str) -> None:
-        if ProgramConstants.ismacos:
-            self._floatText.setPlainText(txt)
-            self._floatText.show()
+        """ Set text for floating text box"""
+        if ProgramConstants.ISMACOS:
+            self._float_text.setPlainText(txt)
+            self._float_text.show()
 
     def float_hide(self) -> None:
-        if ProgramConstants.ismacos:
-            self._floatText.hide()
+        """Hide floating text box"""
+        if ProgramConstants.ISMACOS:
+            self._float_text.hide()
 
     def required_field_error(self, msg: str) -> bool:
         """ Prompt with an error giving them another chance
@@ -1052,32 +465,32 @@ class UiRunScriptFile(UiRunScript):
 
         self.status = QMessageBox.question(None,
                                            "Tool Script",
-                                           "Script '{}'\n{}".format(
-                                               title, msg),
+                                           f"Script '{title}'\n{msg}",
                                            QMessageBox.Retry, QMessageBox.Cancel)
         self.status = self.status == QMessageBox.Retry
         return self.status
 
     def prompt_file_dir(self):
-        while (not self.promptFile()):
+        """ Prompt for missing file dirs """
+        while not self.prompt_file():
             if not self.required_field_error('File is required.'):
                 return
 
-        while (not self.prompt_dir()):
+        while not self.prompt_dir():
             if not self.required_field_error('Directory is required.'):
                 return
 
-        return self.status
 
-    def promptFile(self) -> bool:
+    def prompt_file(self) -> bool:
+        """ Prompt for file """
         prompt = self.script_parms.setting_value(ScriptKeys.FILE_PROMPT, '')
-        filter = self.script_parms.setting_value(ScriptKeys.FILE_FILTER, '')
+        pfilter = self.script_parms.setting_value(ScriptKeys.FILE_FILTER, '')
         required = self.script_parms.is_option(ScriptKeys.REQUIRE, 'file')
 
         if prompt == '':
             return not required
 
-        dlg = QFileDialog(caption=prompt, filter=filter)
+        dlg = QFileDialog(caption=prompt, filter=pfilter)
         dlg.setFileMode(QFileDialog.ExistingFile)
         self.float_text(prompt)
         if dlg.exec():
@@ -1086,13 +499,14 @@ class UiRunScriptFile(UiRunScript):
                 filename = filenames[0]
                 if not path.isfile(filename):
                     return not required
-                self.output_message("{}: {}".format(prompt, filename))
+                self.output_message(f"{prompt}: {filename}")
                 self.add_variable(ScriptKeys.FILE, filename, front=False)
                 return True
-        self.output_message("{}: (none)".format(prompt))
+        self.output_message(f"{prompt}: (none)")
         return not required
 
     def prompt_dir(self) -> bool:
+        """ Prompt for directory """
         prompt = self.script_parms.setting_value(ScriptKeys.DIR_PROMPT, '')
         required = self.script_parms.is_option(ScriptKeys.REQUIRE, 'dir')
 
@@ -1105,10 +519,10 @@ class UiRunScriptFile(UiRunScript):
         if new_directory_name:
             if not path.isdir(new_directory_name):
                 return not required
-            self.output_message("{}: {}".format(prompt, new_directory_name))
+            self.output_message(f"{prompt}: {new_directory_name}")
             self.add_variable(ScriptKeys.DIR, new_directory_name, front=False)
             return True
-        self.output_message("{}: (none)".format(prompt))
+        self.output_message(f"{prompt}: (none)")
         return not required
 
 
@@ -1126,39 +540,44 @@ class UiRunSimpleNote(RunScriptBase):
 
     """
 
-    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='text') -> None:
+    def __init__(self, script: str,
+                script_vars:
+                list = None,
+                env:dict=None,
+                is_file=True,
+                output_dest='text') -> None:
         """
         Setup the runscript values
 
         script can be text of script to run or a file path.
         vars is  a aof options to pass as variables to script
-        isFile : true when passed a filename rather than a script
-        outputDestination must be a 'none', 'stdout' or 'plain'
+        is_file : true when passed a filename rather than a script
+        output_dest must be a 'none', 'stdout' or 'plain'
         """
         super().__init__()
 
-        if self.set_script(script, vars, env=env, isFile=isFile):
-            width = min(2048, toInt(self.script_parms.setting_value(
+        if self.set_script(script, script_vars, env=env, is_file=is_file):
+            width = min(2048, to_int(self.script_parms.setting_value(
                 ScriptKeys.WIDTH, '600'), 600))
-            height = min(1024, toInt(self.script_parms.setting_value(
+            height = min(1024, to_int(self.script_parms.setting_value(
                 ScriptKeys.HEIGHT, '700'), 700))
             self.set_size(width, height)
-            self.set_output(outputDestination)
+            self.set_output(output_dest)
             self.create_output_fields()
-            self.status = self.RETURN_CONTINUE
+            self.status = ProgramConstants.RETURN_CONTINUE
         else:
-            self.status = self.RETURN_CANCEL
+            self.status = ProgramConstants.RETURN_CANCEL
 
     def notify_start(self):
         """ Clear the general text field when process starts """
         self.text.clear()
 
-    def notify_end(self, endMessage: str) -> None:
+    def notify_end(self, msg: str) -> None:
         """ Move cursor to top of output """
         self.output_message("Script complete.")
         self.text.moveCursor(QTextCursor.Start)
 
-    def output_message(self, msgText: str, override=None, mode: str = 'stdout') -> None:
+    def output_message(self, msg: str, override=None, mode: str = 'stdout') -> None:
         """ output_message will output the current state to the text in output tab
 
         It can either output to a plain or regular text edit box
@@ -1166,105 +585,123 @@ class UiRunSimpleNote(RunScriptBase):
         """
         use = self.use if override is None else override
         if use == 'plain':
-            self.text.insertPlainText(msgText)
+            self.text.insertPlainText(msg)
         elif use == 'text':
-            self.text.appendPlainText(msgText)
+            self.text.appendPlainText(msg)
         elif use == 'html':
-            self.text.appendHtml(msgText)
+            self.text.appendHtml(msg)
         elif use == 'stdout':
-            print("Script: {}".format(msgText))
+            print(f"Script: {msg}")
 
-    def set_output(self, outputDestination=None):
+    def set_output(self, output_dest='stdout'):
+        """Set where output will occur
+
+        Args:
+            output_dest (str, optional): Where to output strings. Defaults to stdout.
+        """
         self.use = 'stdout'
-        if outputDestination in ['plain',  'text', 'none']:
-            self.use = outputDestination
+        if output_dest in ['plain',  'text', 'none']:
+            self.use = output_dest
 
     def create_output_fields(self) -> bool:
+        """ Initialise all of the output fields for the dialog"""
         self.titler = DialogSettings()
-        plainFont = QFont()
-        plainFont.setFixedPitch(True)
+        plain_font = QFont()
+        plain_font.setFixedPitch(True)
         self.text = QPlainTextEdit()
         self.text.setReadOnly(True)
-        self.text.setFont(plainFont)
+        self.text.setFont(plain_font)
 
-        self.btnBox = QDialogButtonBox()
-        self.btnBox.addButton(QDialogButtonBox.Close)
+        self.btn_box = QDialogButtonBox()
+        self.btn_box.addButton(QDialogButtonBox.Close)
 
         self._dialog_layout = QVBoxLayout()
         self._dialog_layout.addWidget(self.text)
         self._dialog_layout.addWidget(
-            self.titler.generate(self.script_parms, self.btnBox))
+            self.titler.generate(self.script_parms, self.btn_box))
 
         return True
 
     def _create_output_dialog(self) -> QDialog:
-        dlgRun = QDialog()
-        dlgRun.setLayout(self._dialog_layout)
-        dlgRun.setMinimumHeight(500)
-        dlgRun.setMinimumWidth(500)
-        dlgRun.resize(self.dlgW, self.dlgH)
-        self.titler.set(self.script_parms, dlgRun)
+        """ Create a runtime dialog """
+        dlg_run = QDialog()
+        dlg_run.setLayout(self._dialog_layout)
+        dlg_run.setMinimumHeight(500)
+        dlg_run.setMinimumWidth(500)
+        dlg_run.resize(self.dlg_w, self.dlg_h)
+        self.titler.set(self.script_parms, dlg_run)
         self.text.clear()
-        return dlgRun
+        return dlg_run
 
-    def run(self, startMsg: str = "Hit Execute button to run program") -> bool:
+    def run(self, msg: str = "Hit Execute button to run program") -> bool:
         """
         run is the interface between the dialog box displaying information and the
         actual process that will be executed.
 
         It returns True to continue, False to Cancel
         """
+        del msg
         def button_clicked(button):
-            self.status = self.RETURN_CONTINUE
-            dlgRun.accept()
+            del button
+            self.status = ProgramConstants.RETURN_CONTINUE
+            dlg_run.accept()
 
-        self.btnBox.clicked.connect(button_clicked)
-        if self.status == self.RETURN_CONTINUE:
-            dlgRun = self._create_output_dialog()
+        self.btn_box.clicked.connect(button_clicked)
+        if self.status == ProgramConstants.RETURN_CONTINUE:
+            dlg_run = self._create_output_dialog()
             self.start_process()
 
-            dlgRun.exec()
+            dlg_run.exec()
 
         return self.status
 
     def set_size(self, w: int, h: int) -> None:
-        self.dlgW = w
-        self.dlgH = h
+        """ Set dialog dimensions"""
+        self.dlg_w = w
+        self.dlg_h = h
 
 
 class RunSilentRunDeep(UiRunSimpleNote):
     """ Run a script with no output box UNLESS we have an error occur """
 
-    def __init__(self, script: str, vars: list = None, env:dict=None, isFile=True, outputDestination='text'):
-        super().__init__(script, vars, env=env, isFile=isFile, outputDestination=outputDestination)
+    def __init__(self, script: str,
+                 script_vars: list = None,
+                 env:dict=None,
+                 is_file=True,
+                 output_dest='text'):
+        super().__init__(script, script_vars,
+                         env=env, is_file=is_file,
+                         output_dest=output_dest)
         self.text.hide()
 
-    def output_message(self, msgText: str, override=None, mode: str = 'stdout') -> None:
-        super().output_message(msgText, override, mode)
+    def output_message(self, msg: str, override=None, mode: str = 'stdout') -> None:
+        super().output_message(msg, override, mode)
         if mode == 'stderr':
             self.text.show()
 
-    def run(self, startMsg: str = "Hit Execute button to run program") -> bool:
+    def run(self, msg: str = "Hit Execute button to run program") -> bool:
         """
         run is the interface between the dialog box displaying information and the
         actual process that will be executed.
 
         It returns True to continue, False to Cancel
         """
+        del msg
         def button_clicked(button):
-            self.status = self.RETURN_CONTINUE
-            dlgRun.accept()
+            del button
+            self.status = ProgramConstants.RETURN_CONTINUE
+            dlg_run.accept()
 
-        self.btnBox.clicked.connect(button_clicked)
+        self.btn_box.clicked.connect(button_clicked)
 
-        if self.status == self.RETURN_CONTINUE:
-            dlgRun = self._create_output_dialog()
+        if self.status == ProgramConstants.RETURN_CONTINUE:
+            dlg_run = self._create_output_dialog()
             self.start_process()
             time.sleep(3)
             self.wait_for_process()
             if not self.text.isHidden():
-                dlgRun.exec()
+                dlg_run.exec()
             else:
-                dlgRun = None
+                dlg_run = None
 
         return self.status

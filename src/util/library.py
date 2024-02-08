@@ -1,58 +1,58 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+Utility : Book library methods
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 import os
 import fnmatch
+from qdb.fields.book import BookField
 from qdb.dbbook import DbBook
-from qdb.keys import BOOK, DbKeys
+from qdb.keys import DbKeys
 from qdil.preferences import DilPreferences
 
-
 class Library():
-
+    """This provides book library functions
+    """
     @staticmethod
     def books() -> list:
-        """ Get all books from the library """
-        library = DilPreferences().getDirectoryDB()
-        dbbook = DbBook()
-        return dbbook.getAll(order=BOOK.location)
+        """Get all books from the library
+
+        Returns:
+            list: list of dictionary entries of all books
+        """
+        return DbBook().get_all(order=BookField.LOCATION)
 
     @staticmethod
     def books_not_in_library() -> list:
         """ Get all books where the the location is not in the sheetmusic folder """
-        return (Library.books_locations()[1])
+        return Library.books_locations()[1]
 
     @staticmethod
     def books_in_library() -> list:
         """ Get all the books where the location is in the sheetmusic folder"""
-        return (Library.books_locations[0])
+        return Library.books_locations()[0]
 
     @staticmethod
     def books_locations():
+        """Return two lists, books in library, books not in library
+
+        Returns:
+            tuple: lists of libraries
+        """
         all_books = Library.books()
-        library = DilPreferences().getDirectoryDB()
+        library = DilPreferences().dbdirectory
         in_lib = []
         not_in_lib = []
         for book in all_books:
-            if book[BOOK.location].startswith(library):
+            if book[BookField.LOCATION].startswith(library):
                 in_lib.append(book)
             else:
                 not_in_lib.append(book)
@@ -61,7 +61,7 @@ class Library():
     @staticmethod
     def folders() -> list:
         """ Generate a list of folders that contain PNG files """
-        library = DilPreferences().getDirectoryDB()
+        library = DilPreferences().dbdirectory
         liblist = []
         page_suffix = Library.page_suffix()
         with os.scandir(library) as libdir:
@@ -72,15 +72,17 @@ class Library():
         return liblist
 
     @staticmethod
-    def is_valid_book_directory(bookDir: str, page_suffix: str = None) -> bool:
+    def is_valid_book_directory(book_dir: str, page_suffix: str = None) -> bool:
         """
             Check if a directory exists for a book, check for pages that exist in directory
         """
         if page_suffix is None:
             page_suffix = Library.page_suffix()
-        return (os.path.isdir(bookDir) and len(fnmatch.filter(os.listdir(bookDir), '*.' + page_suffix)) > 0)
+        return (os.path.isdir(book_dir)
+                and len(fnmatch.filter(os.listdir(book_dir), '*.' + page_suffix)) > 0)
 
     @staticmethod
     def page_suffix() -> str:
-        return DilPreferences().getValue(
+        """ Return the page suffix used (e.g. 'png')"""
+        return DilPreferences().get_value(
             DbKeys.SETTING_FILE_TYPE, default=DbKeys.VALUE_FILE_TYPE)

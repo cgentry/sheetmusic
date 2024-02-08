@@ -1,24 +1,15 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Test frame: DilPreferences
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
 
+#pylint: disable=C0115
+#pylint: disable=C0116
 import unittest
 
 from qdb.dbconn import DbConn
@@ -28,16 +19,16 @@ from qdil.preferences import DilPreferences
 
 class TestSystem( unittest.TestCase):
     def setUp(self):
-        DbConn.openDB(':memory:')
+        DbConn.open_db(':memory:')
         self.setup = Setup(":memory:")
-        self.setup.dropTables()
-        self.setup.createTables()
-        self.setup.initData()
+        self.setup.drop_tables()
+        self.setup.create_tables()
+        self.setup.init_data()
         self.obj = DilPreferences()
-        
-    def tearDown(self):
-        self.setup.dropTables()
 
-    def test_getValue( self ):
-        val = self.obj.getValue( DbKeys.SETTING_DEFAULT_SCRIPT)
+    def tearDown(self):
+        self.setup.drop_tables()
+
+    def test_get_value( self ):
+        val = self.obj.get_value( DbKeys.SETTING_DEFAULT_SCRIPT)
         self.assertIsNotNone( val )

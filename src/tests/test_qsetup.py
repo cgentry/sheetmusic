@@ -1,43 +1,36 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+Test frame: Setup
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
+#pylint: disable=C0115
+#pylint: disable=C0116
 import unittest
 import os.path
 
+from PySide6.QtSql import QSqlQuery
+
 from qdb.dbconn import DbConn
 from qdb.setup import Setup
-from qdb.dbsystem import DbSystem
 from qdb.keys import DbKeys
-from PySide6.QtSql import QSqlQuery
+
 
 
 class TestSetup(unittest.TestCase):
     sql_get_tablenames = """
             SELECT count(*)
             FROM sqlite_schema
-            WHERE type ='table' 
+            WHERE type ='table'
             AND name NOT LIKE 'sqlite_%';"""
     sql_get_viewnames = """
             SELECT count(*)
             FROM sqlite_schema
-            WHERE type ='view' 
+            WHERE type ='view'
             AND name NOT LIKE 'sqlite_%';"""
 
     sql_get_genre = """
@@ -59,12 +52,12 @@ class TestSetup(unittest.TestCase):
         """
 
     def setUp(self):
-        db = DbConn().openDB(':memory:')
+        db = DbConn().open_db(':memory:')
         self.setup = Setup(":memory:")
-        self.setup.dropTables()
+        self.setup.drop_tables()
         self.query = QSqlQuery(db)
 
-    def test_createTables(self):
+    def test_create_tables(self):
         self.assertTrue(self.query.exec(self.sql_get_tablenames))
         self.assertTrue(self.query.next())
         self.assertEqual(0, self.query.value(0))
@@ -75,7 +68,7 @@ class TestSetup(unittest.TestCase):
         self.assertEqual(0, self.query.value(0))
         self.query.finish()
 
-        self.setup.createTables()
+        self.setup.create_tables()
 
         self.assertTrue(self.query.exec(self.sql_get_viewnames))
         self.query.next()
@@ -87,9 +80,9 @@ class TestSetup(unittest.TestCase):
         self.assertEqual(8, self.query.value(0))
         self.query.finish()
 
-    def test_dropTables(self):
-        self.setup.createTables()
-        self.setup.dropTables()
+    def test_drop_tables(self):
+        self.setup.create_tables()
+        self.setup.drop_tables()
 
         self.assertTrue(self.query.exec(self.sql_get_tablenames))
         self.assertTrue(self.query.next())
@@ -101,9 +94,9 @@ class TestSetup(unittest.TestCase):
         self.assertEqual(0, self.query.value(0), 'Number of views')
         self.query.finish()
 
-    def test_initGenre(self):
-        self.setup.createTables()
-        self.assertTrue(self.setup.initGenre())
+    def test_init_genre(self):
+        self.setup.create_tables()
+        self.assertTrue(self.setup.init_genre())
         self.assertTrue(self.query.exec(self.sql_get_genre))
 
         self.assertTrue(self.query.next())
@@ -120,15 +113,15 @@ class TestSetup(unittest.TestCase):
 
         self.query.finish()
 
-        self.assertFalse(self.setup.initGenre())
+        self.assertFalse(self.setup.init_genre())
 
-    def test_initComposers(self):
-        self.setup.createTables()
-        self.assertTrue(self.setup.initComposer())
+    def test_init_composers(self):
+        self.setup.create_tables()
+        self.assertTrue(self.setup.init_composer())
 
         self.assertTrue(self.query.exec(self.sql_count_composer))
         self.assertTrue(self.query.next())
-        self.assertGreaterEqual(40, self.query.value(0))
+        self.assertGreaterEqual(self.query.value(0),40)
         self.query.finish()
 
         self.assertTrue(self.query.exec(self.sql_get_composer))
@@ -146,11 +139,11 @@ class TestSetup(unittest.TestCase):
 
         self.query.finish()
 
-        self.assertFalse(self.setup.initComposer())
+        self.assertFalse(self.setup.init_composer())
 
-    def test_initData(self):
-        self.setup.createTables()
-        self.setup.initData()
+    def test_init_data(self):
+        self.setup.create_tables()
+        self.setup.init_data()
 
         self.assertTrue(self.query.exec(self.sql_get_system))
         rows = {}

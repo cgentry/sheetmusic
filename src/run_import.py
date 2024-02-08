@@ -1,13 +1,17 @@
-from ui.simpledialog import SimpleDialog
-from util.toollist import GenerateImportList
+""" Simple program that for running scriptfiles.
+
+Not meant for general usage, but more for testing
+
+"""
+
 from PySide6.QtWidgets  import ( QApplication )
-import sys
+from util.toollist import GenerateImportList
 
 if __name__ == "__main__":
     app = QApplication([])
 
     gel = GenerateImportList()
     for key, tool in gel.list().items():
-        print( 'Title: {}'.format( key ) )
+        print( 'Title: {key}'  )
         for tool_key , entry in tool.todict().items():
-            print( '\tID: {:15s} Value: {}'.format( tool_key , entry))
+            print( f'\tID: {tool_key:15s} Value: {entry}')

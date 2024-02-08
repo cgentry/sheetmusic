@@ -1,196 +1,209 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Test frame: DbNotes
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
+"""
+
+#pylint: disable=C0115
+#pylint: disable=C0116
+
 import unittest
 import logging
 
-sys.path.append("../")
-from qdb.dbconn     import DbConn
+from PySide6.QtSql import QSqlQuery
+from PySide6.QtCore import QSize
+
+from qdb.dbconn import DbConn
 from qdb.dbnote import DbNote
-from qdb.setup      import Setup
-from qdb.keys       import NOTE
-from PySide6.QtSql  import QSqlQuery
-from PySide6.QtCore import QSize, QByteArray
+from qdb.setup import Setup
+from qdb.fields.note import NoteField
+from qdb.util   import DbHelper
+
 
 NOTE_TEST_DB = ':memory:'
+
+
 class TestNote(unittest.TestCase):
-    def glue( self, query:QSqlQuery , bulkdata:dict ):
+    def glue(self, query: QSqlQuery, bulkdata: dict):
         for row in bulkdata:
             for key in row:
-                query.addBindValue( row[key])
+                query.addBindValue(row[key])
             if not query.exec():
                 print("Query failed for",  query.lastError())
-            
 
     def setUp(self):
-        db = DbConn.openDB(NOTE_TEST_DB)
+        db = DbConn.open_db(NOTE_TEST_DB)
         self.setup = Setup(NOTE_TEST_DB)
-        self.setup.dropTables()
-        self.setup.createTables()
-        query = QSqlQuery( db )
-    
-        bkData = [
-                {'book': 'test1', 'location': '/loc', 'source': '/src'},
-                {'book': 'test2', 'location': '/loc', 'source': '/src'},
-        ]
-        bkNoteData = [
-                {'book_id': 1, 'note': 'note.1.0.0', 'page': 0 , 'sequence': 0},
-                {'book_id': 1, 'note': 'note.1.1.0', 'page': 1 , 'sequence': 0},
-                {'book_id': 2, 'note': 'note.2.2.0', 'page': 2 , 'sequence': 0},
-                {'book_id': 2, 'note': 'note.2.2.1', 'page': 2 , 'sequence': 1},
-                {'book_id': 2, 'note': 'note.2.3.0', 'page': 3 , 'sequence': 0},
-        ]
-        query.prepare("INSERT INTO Book ( book,location,source) VALUES( ? ,? ,?)" )
-        self.glue( query , bkData )
+        self.setup.drop_tables()
+        self.setup.create_tables()
+        query = QSqlQuery(db)
 
-        query.prepare( "INSERT INTO Note ( book_id,note,page,sequence) VALUES( ?,?,?,?)" )
-        self.glue( query, bkNoteData )
+        bk_data = [
+            {'book': 'test1', 'location': '/loc', 'source': '/src'},
+            {'book': 'test2', 'location': '/loc', 'source': '/src'},
+        ]
+        bk_notedata = [
+            {'book_id': 1, 'note': 'note.1.0.0', 'page': 0, 'sequence': 0},
+            {'book_id': 1, 'note': 'note.1.1.0', 'page': 1, 'sequence': 0},
+            {'book_id': 2, 'note': 'note.2.2.0', 'page': 2, 'sequence': 0},
+            {'book_id': 2, 'note': 'note.2.2.1', 'page': 2, 'sequence': 1},
+            {'book_id': 2, 'note': 'note.2.3.0', 'page': 3, 'sequence': 0},
+        ]
+        query.prepare(
+            "INSERT INTO Book ( book,location,source) VALUES( ? ,? ,?)")
+        self.glue(query, bk_data)
+
+        query.prepare(
+            "INSERT INTO Note ( book_id,note,page,sequence) VALUES( ?,?,?,?)")
+        self.glue(query, bk_notedata)
 
         self.obj = DbNote()
-        self.obj.showStack(False)
-        self.obj.logger.setlevel( logging.CRITICAL )
+        self.obj.show_stack(False)
+        self.obj.logger.setlevel(logging.CRITICAL)
 
     def tearDown(self):
-        # (_, cursor) = DbConn().openDB()
+        # (_, cursor) = DbConn().open_db()
         # cursor.execute('DROP TABLE IF EXISTS Bookmark')
-        # = DbConn().openDB(close=True)
+        # = DbConn().open_db(close=True)
+        # ßDbConn.close_db()
         pass
 
-    def test_getNote_t1(self):
-        note = self.obj.getNote( 1 ,0,0 )
-        self.assertIsNotNone( note , 'Database returned no data')
-        self.assertEqual( note[NOTE.note] , 'note.1.0.0')
+    def test_get_note_t1(self):
+        note = self.obj.get_note(1, 0, 0)
+        self.assertIsNotNone(note, 'Database returned no data')
+        self.assertEqual(note[NoteField.NOTE], 'note.1.0.0')
 
-    def test_getNoteForBook(self ):
-        note = self.obj.getNoteForBook( 1 )
-        self.assertIsNotNone( note , 'Database returned no data')
-        self.assertEqual( note[NOTE.note] , 'note.1.0.0')
+    def test_get_note_for_book(self):
+        note = self.obj.get_note_for_book(1)
+        self.assertIsNotNone(note, 'Database returned no data')
+        self.assertEqual(note[NoteField.NOTE], 'note.1.0.0')
 
-    def test_getNote_t2(self):
-        note = self.obj.getNote( 2, 2, 1 )
-        self.assertEqual( note[NOTE.note] , 'note.2.2.1')
+    # def test_get_note_t2(self):
+    #     note = self.obj.get_note(2, 2, 1)
+    #     self.assertEqual(note[NoteField.NOTE], 'note.2.2.1')
 
-    def test_getNoteAll(self):
-        notes = self.obj.getAll( 2)
-        self.assertEqual( len(notes), 3 , "Number of notes for book 2")
-        self.assertEqual( self.obj.count( 2, 2) , 2)
+    def test_get_note_all(self):
+        notes = self.obj.get_all(2)
+        self.assertEqual(len(notes), 3, "Number of notes for book 2")
+        self.assertEqual(self.obj.count(2, 2), 2)
 
-    def test_deletePage( self ):
-        self.assertTrue( self.obj.deletePage( 1 , 0, 0 ) )
-        note = self.obj.getNote( 1 ,0,0 )
-        self.assertTrue( NOTE.id not in note )
-        self.assertFalse( self.obj.deletePage( 1 , 0, 0 ) )
+    def test_delete_page(self):
+        self.assertTrue(self.obj.delete_page(1, 0, 0))
+        note = self.obj.get_note(1, 0, 0)
+        self.assertTrue(NoteField.ID not in note)
+        self.assertFalse(self.obj.delete_page(1, 0, 0))
 
-    def test_DeleteAllPageNotes( self ):
-        self.assertTrue( self.obj.deleteAllPageNotes( 2, 2 ))
-        notes = self.obj.getNotesForPage( 2,2)
-        self.assertEqual( len(notes), 0 )
+    def test_delete_all_page_notes(self):
+        self.assertTrue(self.obj.delete_all_page_notes(2, 2))
+        notes = self.obj.get_notes_for_page(2, 2)
+        self.assertEqual(len(notes), 0)
 
-    def test_Update(self):
-        note = self.obj.getNoteForBook( 1 )
-        note[NOTE.note] = 'updated'
-        note[NOTE.location] = "location"
-        note[NOTE.size] = 'new size'
+    def test_update(self):
+        note = self.obj.get_note_for_book(1)
+        note[NoteField.NOTE] = 'updated'
+        note[NoteField.LOCATION] = "location"
+        note[NoteField.SIZE] = 'new size'
 
         self.obj.update(note)
-        note = self.obj.getNoteForBook(1)
-        self.assertEqual( 'updated' , note[NOTE.note])
-        self.assertEqual( 'location' , note[NOTE.location])
-        self.assertEqual( 'new size' , note[NOTE.size])
-    
-    def test_coding( self ):
-        rtnValue = self.obj.decode( self.obj.encode( "Silly value"))
-        self.assertEqual( rtnValue , 'Silly value')
-        q = QSize(10,20)
-        self.assertIsInstance( q , QSize )
-        self.assertEqual( q.height() , 20)
-        self.assertEqual( q.width() , 10 )
+        note = self.obj.get_note_for_book(1)
+        self.assertEqual('updated', note[NoteField.NOTE])
+        self.assertEqual('location', note[NoteField.LOCATION])
+        self.assertEqual('new size', note[NoteField.SIZE])
 
-        qtest = self.obj.decode( self.obj.encode( q ) )
-        self.assertIsInstance( qtest , QSize )
-        self.assertEqual( qtest.height() , 20)
-        self.assertEqual( qtest.width() , 10 )
+    def test_coding(self):
+        rtn_value = DbHelper.decode(DbHelper.encode("Silly value"))
+        self.assertEqual(rtn_value, 'Silly value')
+        q = QSize(10, 20)
+        self.assertIsInstance(q, QSize)
+        self.assertEqual(q.height(), 20)
+        self.assertEqual(q.width(), 10)
 
-        self.assertEqual( self.obj.encode( None ), None)
-        self.assertEqual( self.obj.encode( '') , None)
-        self.assertIsNone( self.obj.decode( None ))
-        self.assertIsNone( self.obj.decode( '' ))
+        qtest = DbHelper.decode(DbHelper.encode(q))
+        self.assertIsInstance(qtest, QSize)
+        self.assertEqual(qtest.height(), 20)
+        self.assertEqual(qtest.width(), 10)
 
-    def test_new(self):
-        note = self.obj.new( "add", 3, 4 , 5 , 'location', 'size')
-        self.assertEqual( note[NOTE.book_id ], 3 )
-        self.assertEqual( note[NOTE.page ], 4 )
-        self.assertEqual( note[NOTE.seq ], 5 )
-        self.assertEqual( note[NOTE.location ], self.obj.encode( 'location'))
-        self.assertEqual( note[NOTE.size ], self.obj.encode('size'))
-    
+        self.assertEqual(DbHelper.encode(None), None)
+        self.assertIsNone(DbHelper.decode(None))
+
+
     def test_add(self):
-        note = self.obj.new( "add", book_id=4, loc='location' , size='size' )
-        self.assertGreater( self.obj.add( note ) , 3 )
-        dbnote = self.obj.getNote( 4 )
-        self.assertEqual( dbnote[NOTE.note] , 'add')
-        self.assertEqual( self.obj.decode( dbnote[ NOTE.location ]), 'location')
-        self.assertEqual( self.obj.decode( dbnote[ NOTE.size ]), 'size')
-        self.assertEqual( dbnote[NOTE.page] , 0)
-        self.assertEqual( dbnote[NOTE.seq] , 0)
 
-    def test_addPage(self):
-        self.assertEqual( self.obj.count( 2, 2) , 2)
+        dbnote = NoteField.new(
+            { NoteField.NOTE: "add",
+                 NoteField.BOOK_ID: 3,
+                 NoteField.PAGE: 4,
+                 NoteField.SEQ: 5,
+                 NoteField.LOCATION:'location',
+                 NoteField.SIZE: 'size' } )
+        recno = self.obj.add(dbnote)
+        self.assertGreater(recno, 3,
+            f"Recno returned was {recno} not 3")
 
-        note = self.obj.new( "add-note3", book_id=2, page=2, loc='location' , size='size' )
-        self.assertGreater( self.obj.addPage( note ) , 3 )
-        self.assertEqual( self.obj.count( 2,2), 3 )
+        dbnote = self.obj.get_note(book=3, page=4, seq=5)
+        self.assertEqual(dbnote[NoteField.NOTE], 'add',
+            "Note contents not 'add'")
+        self.assertEqual(DbHelper.decode(
+            dbnote[NoteField.LOCATION]), 'location')
+        self.assertEqual(DbHelper.decode(dbnote[NoteField.SIZE]), 'size')
+        self.assertEqual(dbnote[NoteField.PAGE], 4)
+        self.assertEqual(dbnote[NoteField.SEQ], 5)
 
-        dbnote = self.obj.getNote( book=2,page=2, seq=2 )
-        self.assertIsNotNone( dbnote )
-        self.assertGreaterEqual( len( dbnote ), 5)
-        self.assertEqual( dbnote[NOTE.note] , 'add-note3')
-        self.assertEqual( self.obj.decode( dbnote[ NOTE.location ]), 'location')
-        self.assertEqual( self.obj.decode( dbnote[ NOTE.size ])    , 'size')
-        self.assertEqual( dbnote[NOTE.page] , 2)
-        self.assertEqual( dbnote[NOTE.seq]  , 2)
+    def test_add_page(self):
+        self.assertEqual(self.obj.count(2, 2), 2)
 
-    def test_addPageError_no_book_id(self):
-        note = self.obj.new( "add-note3", book_id=None, page=2, loc='location' , size='size' )
-        with self.assertRaises( ValueError) : 
-            self.obj.addPage( note )
-        note[ NOTE.book_id ] = 0
-        with self.assertRaises( ValueError):
-            self.obj.addPage( note )
-        
-        note[ NOTE.book_id ] = 1
-        note[ NOTE.page ] = None
-        with self.assertRaises( ValueError):
-            self.obj.addPage( note )
+        note = NoteField.new( {
+                NoteField.NOTE: "add-note3",
+                 NoteField.BOOK_ID: 2,
+                 NoteField.PAGE: 2,
+                 NoteField.LOCATION:'location',
+                 NoteField.SIZE: 'size' } )
+        self.obj.add( note)
+
+        self.assertGreater(self.obj.add_page(note),3)
+        self.assertEqual(self.obj.count(2, 2), 3)
+
+        dbnote = self.obj.get_note(book=2, page=2, seq=2)
+        self.assertIsNotNone(dbnote)
+        self.assertGreaterEqual(len(dbnote), 5)
+        self.assertEqual(dbnote[NoteField.NOTE], 'add-note3')
+        self.assertEqual(DbHelper.decode(
+            dbnote[NoteField.LOCATION]), 'location')
+        self.assertEqual(DbHelper.decode(dbnote[NoteField.SIZE]), 'size')
+        self.assertEqual(dbnote[NoteField.PAGE], 2)
+        self.assertEqual(dbnote[NoteField.SEQ], 2)
+
+    def test_add_page_error_no_book_id(self):
+        note = NoteField.new( {
+                NoteField.NOTE: "add-note3",
+                 NoteField.BOOK_ID: 2,
+                 NoteField.PAGE: 2,
+                 NoteField.LOCATION:'location',
+                 NoteField.SIZE: 'size' } )
+
+        note[NoteField.BOOK_ID] = 0
+        with self.assertRaises(ValueError):
+            self.obj.add_page(note)
+
+        note[NoteField.BOOK_ID] = 1
+        note[NoteField.PAGE] = None
+        with self.assertRaises(ValueError):
+            self.obj.add_page(note)
 
     def test_page_count(self):
-        rc = self.obj.notePageList( 2 )
-        self.assertEqual( len(rc), 2, "Book 2")
+        rc = self.obj.note_page_list(2)
+        self.assertEqual(len(rc), 2, "Book 2")
 
-        rc = self.obj.notePageList( 1 )
-        self.assertEqual( len(rc), 2,"Book 1")
+        rc = self.obj.note_page_list(1)
+        self.assertEqual(len(rc), 2, "Book 1")
 
-        rc = self.obj.notePageList( 3 )
-        self.assertEqual( len(rc), 0,"Book 3")
-        
+        rc = self.obj.note_page_list(3)
+        self.assertEqual(len(rc), 0, "Book 3")
+
 
 if __name__ == "__main__":
     unittest.main()

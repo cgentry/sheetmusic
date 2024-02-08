@@ -1,54 +1,45 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Test frame: DbGeneric
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+
+#pylint: disable=C0115
+#pylint: disable=C0116
 
 import unittest
 import logging
 
 from qdb.dbconn     import DbConn
 from qdb.setup      import Setup
-from qdb.dbsystem   import DbSystem
 from qdb.dbgeneric  import DbGenericName
 
 class DummyData( DbGenericName ):
     def __init__(self):
         super().__init__(table='Genre')
-        self.tableName = 'Genre'
-        self.setupLogger()
+        self.table_name = 'Genre'
+        self.setup_logger()
 
 class TestDbGeneric( unittest.TestCase ):
     def setUp(self):
-        DbConn().openDB(':memory:')
+        DbConn().open_db(':memory:')
         self.sys = Setup(":memory:")
-        self.sys.dropTables()
-        self.sys.createTables()
-        self.sys.initGenre()
+        self.sys.drop_tables()
+        self.sys.create_tables()
+        self.sys.init_genre()
         self.dummy = DummyData()
         self.dummy.logger.setlevel( logging.CRITICAL )
 
     def tearDown(self):
-        #self.sys.dropTables()
+        #self.sys.drop_tables()
         pass
 
     def test_getall_good_list( self ):
-        rtn = self.dummy.getall()
+        rtn = self.dummy.get_all()
         self.assertEqual( len(rtn), 30)
         self.assertEqual( rtn[0], 'Alternative')
         self.assertEqual( rtn[1], 'Blues')
@@ -59,5 +50,5 @@ class TestDbGeneric( unittest.TestCase ):
         self.assertTrue( self.dummy.has( 'Blues') )
 
     def test_getid( self ):
-        self.assertEqual( self.dummy.getID( 'Blues'),  5 )
-        self.assertEqual( self.dummy.getID( 'Choral'), 7 )
+        self.assertEqual( self.dummy.get_id( 'Blues'),  5 )
+        self.assertEqual( self.dummy.get_id( 'Choral'), 7 )

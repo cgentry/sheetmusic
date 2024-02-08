@@ -1,7 +1,21 @@
-# Simple utility to get script and util full paths
+"""
+Utilties : File utilties
+
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 from os import path
 import platform
+
+from qdil.preferences import DilPreferences
+from qdb.keys import DbKeys
 
 def get_utildir()->str:
     """ Return the path of the utility directory"""
@@ -13,10 +27,14 @@ def get_scriptdir()->str:
 
 def get_user_scriptdir()->str:
     """ Return the full path of user scripts or system if directory doesn't exist """
-    from qdil.preferences import DilPreferences
-    from qdb.keys import DbKeys
+
     pref = DilPreferences()
-    uscripts =  path.realpath( pref.getValue( DbKeys.SETTING_PATH_USER_SCRIPT , DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR))
+    uscripts =  path.realpath(
+                    pref.get_value(
+                               DbKeys.SETTING_PATH_USER_SCRIPT ,
+                               DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR
+                    )
+                )
     return uscripts if path.isdir( uscripts ) else get_scriptdir()
 
 def get_scriptinc()->str:
@@ -36,10 +54,10 @@ def get_os_class( )->str:
     os = platform.platform(terse=True).lower()
     if os.startswith( 'macos'):
         return 'macos'
-    if os.__contains__( 'bsd'):
+    if 'bsl' in os:
         return 'bsd'
-    if os.__contains__('linux'):
+    if 'linux' in os:
         return 'linux'
-    if os.__contains__('win'):
+    if 'win' in os:
         return 'win'
     return os

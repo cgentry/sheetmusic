@@ -1,9 +1,10 @@
+""" Database Mixin Module for SheetMusic """
 # vim: ts=8:sts=8:sw=8:noexpandtab
 #
 # This file is part of SheetMusic
 # Copyright: 2022,2023 by Chrles Gentry
 #
-# This file is part of Sheetmusic. 
+# This file is part of Sheetmusic.
 
 # Sheetmusic is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +24,7 @@
 # config.ini - See ConfigFile in configfile.py
 #
 from qdb.util   import DbHelper
-from qdb.keys   import BOOK
+from qdb.fields.book import BookField
 
 class MixinBookID:
     """ This mixin handles looking up book IDs
@@ -38,33 +39,51 @@ class MixinBookID:
         self._current_book_id = None
         self._current_book_name = None
 
-    def lookup_book_id(self, book: str | int) -> int|None:
-        """ Fetch the book ID and cache it for future access. If none found, return None"""
-        self._current_book_name = None
+    def lookup_book_id(self, book: str | int | dict) -> int|None:
+        """Pass in either a book name, a book id, or a dictionary
+        The dictionary should have a key 'BookField.ID'
+
+        This is a general purpose 'lookup' routine that acts to
+        cache the ID (if an int or dict) or lookup should it be
+        a string that differs from the current.
+
+        Args:
+            book (str | int | dict): Book identifier
+
+        Raises:
+            RuntimeError: Invalid book type passed
+
+        Returns:
+            int|None: book_id from database or None
+        """
+
         if book is not None:
+            self._current_book_name = None
             if isinstance(book, str):
                 if self._current_book_name != book or self._current_book_id is None:
                     self._current_book_name = book
-                    self._current_book_id = DbHelper.fetchone(MixinBookID.SQL_MX_LOOKUP_BY_NAME, book, default=None)
+                    self._current_book_id = DbHelper.fetchone(
+                        MixinBookID.SQL_MX_LOOKUP_BY_NAME,
+                        param=book,
+                        default=None)
                     if self._current_book_id :
                         self._current_book_id = int( self._current_book_id )
             elif isinstance( book, dict ):
-                self._current_book_id = book[ BOOK.id ]
+                self._current_book_id = book[ BookField.ID ]
             elif isinstance( book, int ):
                 self._current_book_id = book
             else:
                 raise RuntimeError( f'Invalid book parameter passed {type( book )}')
-            
+
         return self._current_book_id
-    
+
     def lookup_books_by_column( self, column:str, value:str )->list[int]:
         """ Find book IDs by any column. This will return a list """
         sql = MixinBookID.SQL_MX_LOOKUP_BY_COLUMN.replace( '::column', column )
-        all_rows =  DbHelper.fetchrows( sql , [value], [ BOOK.id ])
-        return [ row[ BOOK.id ] for row in all_rows ]
-        
+        all_rows =  DbHelper.fetchrows( sql , [value], [ BookField.ID ])
+        return [ row[ BookField.ID ] for row in all_rows ]
+
     def lookup_book_by_column(self, column:str, value:str )->int|None:
         """ Find a single book by a column query. If more than one exists, return None"""
-        all = self.lookup_books_by_column( column, value )
-        return None if all is None or len(all)>1 else int( all[0])
-        
+        all_rows = self.lookup_books_by_column( column, value )
+        return None if all_rows is None or len(all_rows)>1 else int( all_rows[0])

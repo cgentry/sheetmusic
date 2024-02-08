@@ -1,51 +1,41 @@
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+Database : Note table interface
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from qdb.dbconn import DbConn
-from qdb.util   import DbHelper
+ This file is part of Sheetmusic.
+
+"""
+
+
 from qdb.base   import DbBase
-from qdb.keys   import NOTE, BOOK
-import logging
-from PySide6.QtCore import QByteArray
+from qdb.dbconn import DbConn
+from qdb.fields.note import NoteField
+from qdb.util   import DbHelper
 
 class DbNote(DbBase):
     """
         You should have already opened the database.
-        You can improve performance by instantiating this once 
+        You can improve performance by instantiating this once
         and all the statments get prepared. Makes it much faster
     """
 
-    SQL_GET_ONE            = """SELECT * 
+    SQL_GET_ONE            = """SELECT *
                                 From Note
                                 WHERE book_id= ?
                                 AND   page=?
                                 AND   sequence=?
-                            """ 
-    SQL_GET_ONE_BY_NAME    = """SELECT * FROM Note 
+                            """
+    SQL_GET_ONE_BY_NAME    = """SELECT * FROM Note
                                 JOIN Book ON Book.id=Note.book_id
                                 WHERE Book.book = ?
                                 AND   Note.page = ?
                                 AND   Note.sequence = ?
                             """
-    SQL_GET_PAGE_NOTES     = """SELECT * 
+    SQL_GET_PAGE_NOTES     = """SELECT *
                                 From Note
                                 WHERE book_id= ?
                                 AND   page=?
@@ -56,13 +46,13 @@ class DbNote(DbBase):
                                WHERE book_id = ?
                                ORDER BY page, sequence
                             """
-    SQL_DELETE             = """DELETE FROM Note 
+    SQL_DELETE             = """DELETE FROM Note
                                 WHERE book_id= ?
                                 AND   page=?
                                 AND   sequence=?
                             """
 
-    SQL_DELETE_PAGE_NOTES  = """DELETE FROM Note 
+    SQL_DELETE_PAGE_NOTES  = """DELETE FROM Note
                                 WHERE book_id= ?
                                 AND   page=?
                             """
@@ -77,129 +67,277 @@ class DbNote(DbBase):
                                 GROUP BY page
                                 ORDER BY page
                             """
-    columnNames = None
-    columnNames    = None
+    column_names = None
+    column_names    = None
 
     SQL_IS_EXPANDED=False
-    
+
     def __init__(self):
         super().__init__()
-        if DbNote.columnNames is None or len( DbNote.columnNames) == 0 :
-            DbNote.columnNames = DbConn.getColumnNames( 'Note')
-        self.setupLogger()
+        if DbNote.column_names is None or len( DbNote.column_names) == 0 :
+            DbNote.column_names = DbConn.get_column_names( 'Note')
+        self.setup_logger()
 
-    def getNote( self, book, page:int=0, seq:int=0 ,new=True)->dict:
-        """ Get a note for a book's page and the sequence"""
+    def _check_note( self, note:dict )->dict:
+        """Check three key fields in note: book_id, page, seq
+        If book_id is empty, throw error
+        if page is empty, set to zero
+        if seq is empty, set to zero
+
+        Args:
+            note (dict): Note dictionary
+
+        Returns:
+            dict: Checked, and repaired, note
+        """
+        if not NoteField.BOOK_ID in note or \
+            note[NoteField.BOOK_ID] is None or \
+                note[NoteField.BOOK_ID] < 1:
+            raise ValueError( "Note must have book id")
+
+        if not NoteField.PAGE in note or \
+            note[NoteField.PAGE ] is None:
+            note[NoteField.PAGE] = 0
+        if not NoteField.SEQ in note or \
+            note[NoteField.SEQ ] is None:
+            note[NoteField.SEQ ] = 0
+
+        return note
+
+    def get_note( self, book:str|int, page:int=0, seq:int=0 ,new=True)->dict:
+        """Get a note for a page
+        This will fetch a note and a sequence
+        Optionally, return a new, blank note
+
+        Args:
+            book (str|int): Book ID or name
+            page (int, optional): Book's page number
+                Defaults to 0.
+            seq (int, optional): Note page number.
+                Defaults to 0 (first)
+            new (bool, optional): If true, create a new note.
+                Defaults to True.
+
+        Returns:
+            dict: Note's data in dictionary form
+        """
+
         if isinstance( book, str ):
-            rec =  DbHelper.fetchrow( DbNote.SQL_GET_ONE_BY_NAME , [book,page,seq] , DbNote.columnNames, endquery=self._checkError )
+            rec =  DbHelper.fetchrow(
+                        DbNote.SQL_GET_ONE_BY_NAME ,
+                        [book,page,seq] ,
+                        DbNote.column_names,
+                        endquery=self._check_error )
         else:
-            rec =  DbHelper.fetchrow( DbNote.SQL_GET_ONE , [book,page,seq] , DbNote.columnNames, endquery=self._checkError )
-        if rec is None and new and isinstance( book , int ):
-            rec = self.new( '', book, page, seq )
-        return rec
-        
-    def getNotesForPage(self, book_id:int, page:int)->list:
-        """ Get All notes for a page in order of sequence """
-        return  DbHelper.fetchrows( DbNote.SQL_GET_PAGE_NOTES , [book_id,page] , DbNote.columnNames, endquery=self._checkError )
-    
-    def getNoteForBook( self, book )->str:
-        """ Get the Book's main note (general, not for a page ) """
-        return self.getNote( book ,0,0 )
+            rec =  DbHelper.fetchrow(
+                        DbNote.SQL_GET_ONE ,
+                        [book,page,seq] ,
+                        DbNote.column_names,
+                        endquery=self._check_error )
 
-    def getAll( self, book_id:int )->list:
-        """ Get all notes for this book (includes all pages) """
-        return  DbHelper.fetchrows( DbNote.SQL_GET_ALL_NOTES , [book_id] , DbNote.columnNames, endquery=self._checkError )
-    
-    def deletePage( self, book, page:int=0, seq:int=0)->bool:
+        if rec is None and new and isinstance( book , int ):
+            return NoteField.new( {
+                NoteField.BOOK_ID: book ,
+                NoteField.PAGE: page,
+                NoteField.SEQ: seq
+            })
+        return rec
+
+    def get_notes_for_page(self, book_id:int, page:int)->list:
+        """Get all notes for a page
+
+        Args:
+            book_id (int): DB Book's ID
+            page (int): Book's page number
+
+        Returns:
+            list: list of notes [ {}, .... {} ]
+        """
+        return  DbHelper.fetchrows(
+                        DbNote.SQL_GET_PAGE_NOTES ,
+                        [book_id,page] ,
+                        DbNote.column_names,
+                        endquery=self._check_error )
+
+    def get_note_for_book( self, book:str|int )->dict:
+        """Get the first note for a book (page zero)
+
+        Args:
+            book (str | int): Book ID or name
+
+        Returns:
+            dict: Note's data in dictionary form
+        """
+        return self.get_note( book ,0,0 )
+
+    def get_all( self, book_id:int )->list:
+        """Get all notes for a book, including page zero
+
+        Args:
+            book_id (int): DB Book ID
+
+        Returns:
+            list: List of dictionary of notes
+        """
+        return  DbHelper.fetchrows(
+                        DbNote.SQL_GET_ALL_NOTES ,
+                        [book_id] ,
+                        DbNote.column_names,
+                        endquery=self._check_error )
+
+    def delete_page( self, book:int, page:int=0, seq:int=0)->bool:
+        """Delete a single note page
+
+        Args:
+            book (int): DB Book ID
+            page (int, optional): Book's page number
+                Defaults to 0. (Note for book)
+            seq (int, optional): Note Sequence for page.
+                Defaults to 0 (first note)
+
+        Returns:
+            bool: True if deleted
+        """
         query = DbHelper.prep( DbNote.SQL_DELETE )
         query = DbHelper.bind( query , [ book, page, seq] )
         query.exec()
-        self._checkError( query )
-        return self.getReturnCode( query )
+        self._check_error( query )
+        return self.get_rtn_code( query )
 
-    def deleteNote( self, note:dict)->bool:
+    def delete_note( self, note:dict)->bool:
+        """Delete a note, given a note's dictionary
+
+        Args:
+            note (dict): Note dictionary
+                Must contain Book_id, page and seq
+
+        Raises:
+            ValueError: If note is not a dictionary
+
+        Returns:
+            bool: True if page deleted
+        """
         if isinstance( note , dict ):
-            return self.deletePage( note[NOTE.book_id], note[NOTE.page], note[NOTE.seq])
+            return self.delete_page( \
+                note[NoteField.BOOK_ID], \
+                note[NoteField.PAGE], \
+                note[NoteField.SEQ])
         raise ValueError( "deleteNote requires a dictionary")
 
-    def deleteAllPageNotes( self, book, page:int ):
+    def delete_all_page_notes( self, book:int, page:int ):
+        """Delete all notes for a single page
+
+        Args:
+            book (int): DB Book ID
+            page (int): Book's page number
+
+        Returns:
+            _type_: True if deleted
+        """
         query = DbHelper.prep( DbNote.SQL_DELETE_PAGE_NOTES )
         query = DbHelper.bind( query , [ book, page] )
         query.exec()
-        self._checkError( query )
-        return self.getReturnCode( query )
+        self._check_error( query )
+        return self.get_rtn_code( query )
 
     def count( self, book:int, page:int )->int:
-        return  int( DbHelper.fetchone( DbNote.SQL_COUNT_PAGE_NOTES ,  [book,page]) )
+        """Count number of notes for a page
 
-    def add( self, note:dict ):
-        """ Add a note to a book. page and sequence default to zero 
-            If the record ID is greater than zero, we do an update 
-            To add for a non-zero page, call addPage
+        Args:
+            book (int): DB Book ID
+            page (int): Page number
+
+        Returns:
+            int: Number of notes
         """
-        if NOTE.id in note :
+        return  int( DbHelper.fetchone( DbNote.SQL_COUNT_PAGE_NOTES ,  param=[book,page]) )
+
+    def add( self, note:dict )->int:
+        """Add a note to a book. page and sequence default to zero
+            If the record ID is greater than zero, we do an update
+            To add for a non-zero page, call addPage
+
+        Args:
+            note (dict): Dictionary for note
+
+        Raises:
+            ValueError: No book id
+
+        Returns:
+            int: Record number of note
+        """
+        if not isinstance( note, dict ) or not note :
+            raise ValueError( "Note passed is not dictionary")
+        if NoteField.ID in note and note[NoteField.ID] is not None :
             return self.update( note )
-        if not NOTE.book_id in note or note[NOTE.book_id] is None or note[NOTE.book_id] < 1:
-            raise ValueError( "Note must have book id")
-        sql = self._formatInsertVariable( 'Note',note )
+
+        note = self._check_note( note )
+        sql = self._format_insert_variable(
+                        table_name='Note',
+                        field_value_dict=note )
         query = DbHelper.prep( sql )
         DbHelper.bind( query, list( note.values() ))
-        id = ( query.lastInsertId() if query.exec() else -1 )
-        self._checkError( query )
+        note_id = ( query.lastInsertId() if query.exec() else -1 )
+        self._check_error( query )
         query.finish()
-        return id
-    
-    def addPage( self, note:dict ):
-        """ Note: this will increment the sequence number for you """
-        if not NOTE.page in note or note[NOTE.page] is None: 
+        return note_id
+
+    def add_page( self, note:dict )->int:
+        """this will increment the sequence number for you
+
+        Args:
+            note (dict): Dictonary of note contents
+
+        Raises:
+            ValueError: No page number, No record ID
+
+        Returns:
+            int: Record number of new note
+        """
+        if not isinstance( note, dict ):
+            raise ValueError( "Note passed must be a dictionary")
+        if not NoteField.PAGE in note or note[NoteField.PAGE] is None:
             raise ValueError( "Note must have page number")
 
-        note[ NOTE.seq] = self.count( note[ NOTE.book_id ] , note[ NOTE.page ]) 
+        note[ NoteField.SEQ] = self.count( note[ NoteField.BOOK_ID ] , note[ NoteField.PAGE ])
         return self.add( note )
 
-     
-    def update( self, note:dict ):
-        """ update will take a list of key/value pairs and update all the fields for this record """
-        note_id = note.pop( NOTE.id )
+    def update( self, note:dict )->int:
+        """update will take a list of key/value pairs
+        update all the fields for this record
+
+        Args:
+            note (dict): Note ID
+
+        Raises:
+            ValueError: No record number
+
+        Returns:
+            int: int of record or -1 if nothing found
+        """
+        note_id = note.pop( NoteField.ID )
         if note_id is None:
             raise ValueError( "Note must have record ID. Did you mean to add?")
-        sql = self._formatUpdateVariable( 'Note', NOTE.id, note)
+        sql = self._format_update_variable( 'Note', NoteField.ID, note)
         query = DbHelper.prep( sql )
-        values = list( note.values() ) 
+        values = list( note.values() )
         values.append( note_id )
         query = DbHelper.bind( query, values )
         if query.exec() :
             return id
         return -1
 
-    def new(self, note:str, book_id:int , page:int=0, seq:int=0, loc=None,size=None)->dict:
-        newNote = {
-            NOTE.note:      note.strip(),
-            NOTE.book_id:   book_id,
-            NOTE.page:      page,
-            NOTE.seq:       seq,
-            NOTE.location:  None,
-            NOTE.size:      None,
-        }
-        if size is not None:
-            newNote[ NOTE.size ]     = self.encode( size )
-        if loc is not None:
-            newNote[ NOTE.location ] = self.encode(loc )
-        return newNote
+    def note_page_list(self,book_id:int)->dict:
+        """Retrieve a dictionary of all pages and note count
 
-    def notePageList(self,book_id)->dict:
+        Args:
+            book_id (int): DB id for book
+
+        Returns:
+            dict: [ page# : note-count]
+        """
         page_count_dict = {}
-        rows = DbHelper.fetchrows( DbNote.SQL_COUNT_PAGES ,[book_id] , [NOTE.page, 'count'])
+        rows = DbHelper.fetchrows( DbNote.SQL_COUNT_PAGES ,[book_id] , [NoteField.PAGE, 'count'])
         for row in rows:
-            page_count_dict[ row[ NOTE.page]] = row[ 'count' ]
+            page_count_dict[ row[ NoteField.PAGE]] = row[ 'count' ]
         return page_count_dict
-
-
-    def decode( self , encoded_value:str):
-        return None if encoded_value == '' or encoded_value is None else DbHelper.decode( encoded_value )
-    
-    def encode( self, value )->str:
-        if value is None or ( isinstance( value , str ) and len(value) == 0 ):
-            return None
-        return DbHelper.encode( value )
-

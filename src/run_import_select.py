@@ -1,18 +1,18 @@
-from ui.simpledialog import SimpleDialog
-from util.toollist import GenerateImportList
-from util.toolconvert import UiImportSetting
+""" Just a program to test functions"""
+
 from PySide6.QtWidgets  import ( QApplication )
 
+from util.toolconvert import UiImportSetting
 from qdb.dbconn import DbConn
 from qdil.preferences import SystemPreferences
 
 if __name__ == "__main__":
-    sy = SystemPreferences()
-    dbLocation = sy.getPathDB()          # Fetch the system settings
-    mainDirectory = sy.getDirectory()       # Get directory
+    syspref = SystemPreferences()
+    dbLocation = syspref.dbpath          # Fetch the system settings
+    mainDirectory = syspref.dbdir       # Get directory
 
     app = QApplication([])
-    DbConn.openDB(dbLocation)
+    DbConn.open_db(dbLocation)
 
     tst = UiImportSetting()
     tst.pick_import()

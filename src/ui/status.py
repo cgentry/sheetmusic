@@ -1,92 +1,113 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+User Interface : Status
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 from PySide6.QtWidgets import (
-    QPushButton, QDialog, QGridLayout, QVBoxLayout, QLayout, QDialogButtonBox, QApplication, QLabel, QProgressBar)
+    QPushButton, QDialog, QGridLayout, QLayout,
+    QDialogButtonBox, QApplication, QLabel, QProgressBar)
 from PySide6.QtCore import Qt
 
 
 class UiStatus(QDialog):
+    """Simple wrapper on QDialog that lets us
+    create simple, standard 'status' box to display information
+    Used in toolconvert, simplifies and standardises output
+
+    Contains these main elements:
+        Heading
+        Information
+        Progress bar
+        Cancel button
+
+    Args:
+        QDialog (object): QT Dialog box
+    """
     def __init__(self):
         super().__init__()
         self.setMinimumHeight(75)
         self.setMinimumWidth(500)
         self._cancel = False
+        self._dlg = None
 
-        mainLayout = QGridLayout()
-        self._create_widgets(mainLayout)
-        self._create_buttons(mainLayout)
+        main_layout = QGridLayout()
+        self.lbl_heading = QLabel()
+        self.lbl_information = QLabel()
+        self.progress = QProgressBar()
+        self.buttons = QDialogButtonBox()
 
-        self.setLayout(mainLayout)
+        self._create_widgets(main_layout)
+        self._create_buttons(main_layout)
+
+        self.setLayout(main_layout)
         self.modal = True
         self.show()
 
     def _create_widgets(self, layout: QLayout):
-        self.lblHeading = QLabel()
-        self.lblHeading.setStyleSheet(
+        """ Create standard widgets for the dialog box """
+        self.lbl_heading.setStyleSheet(
             'font-weight: bolder;text-align: center;')
-        self.lblHeading.setTextFormat(Qt.TextFormat.PlainText)
-        self.lblInformation = QLabel()
-        self.lblInformation.setStyleSheet(
-            'font-weight: bolder;text-align: center;')
-        self.lblInformation.setTextFormat(Qt.TextFormat.PlainText)
-        self.progress = QProgressBar()
-        self.progress.setMinimum(0)
-        self.progress.setValue(0)
+        self.lbl_heading.setTextFormat(Qt.TextFormat.PlainText)
 
-        layout.addWidget(self.lblHeading)
-        layout.addWidget(self.lblInformation)
+        self.lbl_information.setStyleSheet(
+            'font-weight: bolder;text-align: center;')
+        self.lbl_information.setTextFormat(Qt.TextFormat.PlainText)
+
+        self.progress.setMinimum(0)
+        self.progress.set_value(0)
+
+        layout.addWidget(self.lbl_heading)
+        layout.addWidget(self.lbl_information)
         layout.addWidget(self.progress)
 
     def _create_buttons(self, layout: QLayout) -> None:
-        self.buttons = QDialogButtonBox()
         self.button = QPushButton('Cancel' )
-        self.buttons.addButton(self.button, QDialogButtonBox.RejectRole) 
+        self.buttons.addButton(self.button, QDialogButtonBox.RejectRole)
         self.buttons.clicked.connect(self._close)
         layout.addWidget(self.buttons)
 
     @property
     def title(self) -> str:
-        return self.lblHeading.text()
+        """ Return the header """
+        return self.lbl_heading.text()
 
     @title.setter
     def title(self, title: str) -> None:
-        self.lblHeading.setText(title)
+        """ Set dialog heading for dialog box """
+        self.lbl_heading.setText(title)
         QApplication.processEvents()
 
     @property
     def information(self) -> str:
-        self.lblInformation.text()
+        """ Return current information """
+        self.lbl_information.text()
 
     @information.setter
     def information(self, information: str) -> None:
-        self.lblInformation.setText(information)
+        """ Set the information text """
+        self.lbl_information.setText(information)
         QApplication.processEvents()
 
     @property
     def minimum(self) -> int:
+        """ Return the minimum value for the progress bar"""
         return self.progress.minimum()
 
     @property
     def maximum(self) -> int:
+        """Return the maximum value for the progress bar
+
+        Returns:
+            int: max of progress
+        """
         return self.progress.maximum
 
     @minimum.setter
@@ -96,52 +117,73 @@ class UiStatus(QDialog):
 
     @maximum.setter
     def maximum(self, maximum: int) -> None:
-        maximum = maximum if self.progress.minimum() <= maximum else self.progress.minimum()
+        maximum = maximum \
+            if self.progress.minimum() <= maximum \
+                else self.progress.minimum()
         self.progress.setMaximum(maximum)
         QApplication.processEvents()
 
     @property
-    def buttonText(self) -> str:
+    def button_text(self) -> str:
+        """Return the button text value
+
+        Returns:
+            str: Text value - default is 'Cancel'
+        """
         return self.button.text()
 
-    @buttonText.setter
-    def buttonText(self, text: str):
+    @button_text.setter
+    def button_text(self, text: str):
+        """Override default 'Cancel' for button
+
+        Args:
+            text (str): New text to display
+        """
         self.button.setText(text)
 
-    def setRange(self, minimum: int, maximum: int) -> None:
+    def set_range(self, minimum: int, maximum: int) -> None:
+        """Set the minimum and max for the progress bar
+        This is a convienence function and simply calls
+        minimum() and maximum() setters
+
+        Args:
+            minimum (int): Lowest value (zero or more)
+            maximum (int): Maximum value (greater than mnimum)
+        """
         self.progress.setMinimum(minimum)
         self.progress.setMaximum(maximum)
 
-    def setValue(self, value: int) -> None:
-        self.progress.setValue(value)
+    def set_value(self, value: int) -> None:
+        """Set the progress bar position
+
+        Args:
+            value (int): Should be between min and max
+        """
+        self.progress.set_value(value)
 
     def clear(self) -> None:
-        self.lblHeading.clear()
-        self.lblInformation.clear()
-        self.progress.setValue(0)
+        """ Clear the heading, information and set progress to zero"""
+        self.lbl_heading.clear()
+        self.lbl_information.clear()
+        self.progress.set_value(0)
         QApplication.processEvents()
 
-    def wasCanceled(self) -> bool:
+    def was_canceled(self) -> bool:
+        """Was the cancel button pressed?
+
+        Returns:
+            bool: True if button pressed
+        """
         return self._cancel
 
     def _close(self, button):
+        """Flag the button was pressed.
+        If the button text is 'Close', close the dialog
+
+        Args:
+            button (object): Button object ignored
+        """
+        del button
         self._cancel = True
         if self.button.text() == 'Close':
-            self.rejected
             self.close()
-
-
-class UsingStatusDialog:
-    def __init__(self, title='Import Books', maxfiles: int = 0):
-        self.title = title
-        self.maxfiles = 0
-
-    def __enter__(self):
-        self._dlg = UiStatus()
-        self._dlg.title = self.title
-        self._dlg.maximum = self.maxfiles
-        self._dlg.show()
-        return self._dlg
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self._dlg.close()

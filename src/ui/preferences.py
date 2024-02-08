@@ -1,50 +1,187 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic.
+"""
+ User interface : Preferences Dialog box
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#
-# This will display MusicSettings and allow them to be changed. It does not
-# open, or save, settings. The caller can get the information by calling
-# getChanges() which will return either None or a dictionary/list of changes
-#
-# 22-Sep-2022: Convert to use database
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import sys
-from os.path import expanduser
-from qdil.preferences import DilPreferences
-from qdb.dbbook import DbGenre
-from qdb.keys import DbKeys, ImportNameSetting, LOG
+ This file is part of Sheetmusic.
+
+ This will display MusicSettings and allow them to be changed. It does not
+ open, or save, settings. The caller can get the information by calling
+ get_changes() which will return either None or a dictionary/list of changes
+
+ 22-Sep-2022: Convert to use database
+"""
+
+from dataclasses import dataclass
+
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QImageReader, QFont, QIntValidator
+from PySide6.QtGui import QImageReader, QFont
 from PySide6.QtWidgets import (
-    QAbstractButton, QButtonGroup,  QCheckBox,
-    QComboBox,    QDialog,       QDialogButtonBox,
-    QFileDialog,  QGridLayout,   QHBoxLayout,
-    QLabel,       QLineEdit,     QMessageBox,
-    QPushButton, QRadioButton,
-    QTabWidget,   QTextEdit,     QVBoxLayout,
+    QButtonGroup,  QCheckBox,
+    QComboBox,    QDialog,      QDialogButtonBox,
+    QGridLayout,  QLabel,       QLineEdit,
+    QPushButton, QRadioButton,  QHBoxLayout,
+    QTabWidget,   QTextEdit,    QVBoxLayout,
     QWidget
 )
-from ui.editItem import UiGenericCombo
+from keymodifiers import KeyModifiers
+from qdil.preferences import DilPreferences
+from qdb.dbbook import DbGenre
+from qdb.keys import DbKeys, ImportNameSetting
+from qdb.log import LOG
+from ui.edititem import UiGenericCombo
+from ui.simpleui import (
+    UiTrackEntry, UiTrackChange, UiDirButton, UiReset, UiSimpleBase
+)
 from util.toollist import GenerateEditList
-from util.toollist import ToolScript
+from util.convert import decode
 
+
+@dataclass
+class LayoutPage():
+    """ LayoutPage defines layouts for preferences """
+    ONE_PAGE = 0
+    TWO_PAGE = 1
+    THREE_PAGE=2
+    TWO_STACK = 3
+    THREE_STACK = 4
+
+    #Translate Text to index
+    XLATE = {
+        DbKeys.VALUE_PAGES_SINGLE: ONE_PAGE,
+        DbKeys.VALUE_PAGES_SIDE_2: TWO_PAGE,
+        DbKeys.VALUE_PAGES_STACK_2: TWO_STACK,
+        DbKeys.VALUE_PAGES_SIDE_3: THREE_PAGE,
+        DbKeys.VALUE_PAGES_STACK_3: THREE_STACK
+    }
+
+    def __init__(self):
+        self.buttons = [
+            QRadioButton() , QRadioButton(),
+            QRadioButton() , QRadioButton(),
+            QRadioButton()
+        ]
+        self.btn_box = QButtonGroup()
+        self.btn_layout = QGridLayout()
+
+        self._setup_buttons()
+        self._setup_btn_box()
+        self._setup_layout()
+
+    def _setup_buttons(self)->None:
+        self.buttons[ self.ONE_PAGE ].setText("1 page")
+        self.buttons[ self.ONE_PAGE ].setObjectName(DbKeys.VALUE_PAGES_SINGLE)
+
+        self.buttons[ self.TWO_PAGE ].setText("2 pages, side-by-side")
+        self.buttons[ self.TWO_PAGE ].setObjectName(DbKeys.VALUE_PAGES_SIDE_2)
+
+        self.buttons[ self.TWO_STACK ].setText("2 pages, stacked")
+        self.buttons[ self.TWO_STACK ].setObjectName(DbKeys.VALUE_PAGES_STACK_2)
+
+        self.buttons[ self.THREE_PAGE ].setText("3 pages, side-by-side")
+        self.buttons[ self.THREE_PAGE ].setObjectName(DbKeys.VALUE_PAGES_SIDE_3)
+
+        self.buttons[ self.THREE_STACK ].setText("3 pages, stacked")
+        self.buttons[ self.THREE_STACK ].setObjectName(DbKeys.VALUE_PAGES_STACK_3)
+
+    def _setup_btn_box(self)->None:
+        for btn in self.XLATE.values():
+            self.btn_box.addButton(self.buttons[ btn ])
+        self.btn_box.setExclusive(True)
+
+    def _setup_layout(self)->None:
+        self.btn_layout.addWidget(
+            self.buttons[self.ONE_PAGE],
+            0, 0)
+        self.btn_layout.addWidget(
+            self.buttons[self.TWO_PAGE],
+            1, 0)
+        self.btn_layout.addWidget(
+            self.buttons[self.TWO_STACK],
+            1, 1)
+        self.btn_layout.addWidget(
+            self.buttons[self.THREE_PAGE],
+            2, 0)
+        self.btn_layout.addWidget(
+            self.buttons[self.THREE_STACK],
+            2, 1)
+
+    def setbutton( self , page_layout:str )->None:
+        """Translate what page layout is to a button check value
+
+        Args:
+            page_layout (str): text from preference store
+        """
+        if page_layout in self.XLATE :
+            self.buttons[ self.XLATE[ page_layout ] ].setChecked(True )
+        else:
+            self.buttons[ self.ONE_PAGE ].setChecked( True )
+
+
+class PreferenceCheckbox( UiSimpleBase ):
+    """ Generate a checkbox for Preference Options
+        This will have a lookup key in preferences,
+        and a default value"""
+
+    def __init__(self ,
+                 objname:str,
+                 label:str,
+                 lookup:str=None,
+                 default:bool=False) -> None:
+        """Create the checkbox object
+
+        This is based on UiSimpleBase which will do the callbacks
+
+
+        Args:
+            objname (str): Object name returned on change
+            label (str): Label to display for checkbox
+            lookup (str): Preference db key
+                Default: None, use objname for key
+            default (bool): what is the default value
+                Default: False, not checked
+        """
+        super().__init__( objname )
+        self.checkbox =  QCheckBox()
+        self.checkbox.setObjectName(objname)
+        self.checkbox.setText(label)
+        self.checkbox.setCheckable(True)
+        if lookup is None:
+            lookup = objname
+        if lookup is not None:
+            self.checkbox.setChecked(decode(self.dilpref.get_value(
+                lookup),
+                code=DbKeys.ENCODE_BOOL,
+                default=default))
+        self.checkbox.stateChanged.connect(self._action_changed )
+
+    def _action_changed( self ):
+        """Set the changed flag and perform callback
+        """
+        self._changed = True
+        self.callback( self.checkbox.isChecked() )
+
+    @property
+    def widget(self)->QCheckBox:
+        """Get the underlying widget
+
+        Returns:
+            QCheckBox: Qt Checkbox Widget
+        """
+        return self.checkbox
+
+    @property
+    def checked(self)->bool:
+        """ Return current checkbox state"""
+        return self.checkbox.isChecked()
+
+    @checked.setter
+    def checked( self, newstate:bool )->None:
+        """ Set the state of the checkbox """
+        self.checkbox.setChecked( newstate )
 
 class UiPreferences(QDialog):
     '''
@@ -75,92 +212,133 @@ class UiPreferences(QDialog):
     }
 
     def __init__(self, parent=None):
-        super(UiPreferences, self).__init__(parent)
+        super().__init__(parent)
+
+        self.dilpref = DilPreferences()
+        self.layoutpg = LayoutPage()
+
+        self.btn_use_label_viewer = None
+        self.btn_use_pdf_viewer = None
+
+        self.btn_box = QButtonGroup()
+        self.cmb_device = None
+        self.gcmb_editor = None
+        self.cmb_genre = None
+        self.gcmb_logging = None
+        self.gcmb_name_import = None
+        self.cmb_next_bookmark = None
+        self.gcmb_page_back = None
+        self.gcmb_page_forward = None
+        self.gcmb_previous_bookmark = None
+        self.gcmb_recent_files = None
+        self.cmb_res = None
+        self.cmb_type = None
+        self.gcmb_first_page_shown = None
+        self.gcmb_last_page_shown = None
+
+        self.layout_book = None
+        self.layout_file = None
+        self.layout_keyboard = None
+        self.layout_shellscript = None
+
+        self.txt_script_shell = None
+        self.txt_script_vars = None
+        self.widget_book = None
+        self.widget_file = None
+        self.widget_keyboard = None
+        self.widget_shellscript = None
+
+        self._flag_changed = False
+
         self._device_settings['tiff'] = self._device_settings['tif']
         self._device_settings['jpeg'] = self._device_settings['jpg']
         self._typeDesc["jpeg"] = self._typeDesc["jpg"]
         self._typeDesc["tiff"] = self._typeDesc["tif"]
 
         self.setWindowTitle("Sheetmusic Preferences")
-        self.settings = DilPreferences()
-        mainLayout = QVBoxLayout()
 
-        self.fixedFont = QFont()
-        self.fixedFont.setFixedPitch(True)
-        self.fixedFont.setStyleHint(QFont.TypeWriter)
-        self.fixedFont.setFamily("Courier New")
+        main_layout = QVBoxLayout()
 
-        self.createTabLayout()
-        self.createMainButtons()
+        self.fixed_font = QFont()
+        self.fixed_font.setFixedPitch(True)
+        self.fixed_font.setStyleHint(QFont.TypeWriter)
+        self.fixed_font.setFamily("Courier New")
 
-        mainLayout.addWidget(self.tabLayout)
-        mainLayout.addWidget(self.buttons)
-        self.setLayout(mainLayout)
+        self._create_tab_layout()
+        self._create_main_buttons()
+
+        main_layout.addWidget(self.tab_layout)
+        main_layout.addWidget(self.buttons)
+        self.setLayout(main_layout)
         self.clear()
+        self.change_list = UiTrackChange()
 
     def clear(self):
         '''
         Setup and clear any variables used by modules
         '''
-        self.flagChanged = False
+        self._flag_changed = False
         self.states = {}
 
-    def _checkTextChange(self, linefield: QLineEdit, key):
-        if linefield.text() != self.settings.getValue(key):
+    def _check_text_change(self, linefield: QLineEdit, key):
+        if linefield.text() != self.dilpref.get_value(key):
             self.states[key] = linefield.text()
 
-    def _checkComboChange(self, combobox: QComboBox, key: str):
+    def _check_combo_change(self, combobox: QComboBox, key: str):
         if key not in self.states or combobox.currentData() != self.states[key]:
             self.states[key] = combobox.currentData()
 
-    def getChanges(self):
-        self._checkTextChange(self.txtScriptShell,
-                              DbKeys.SETTING_DEFAULT_SCRIPT)
-        self._checkTextChange(self.txtScriptVars,
-                              DbKeys.SETTING_DEFAULT_SCRIPT_VAR)
+    def get_changes(self) -> dict:
+        """Check all the fields on the form for changes
+        If there is a change, the dictionary self.states
+        will have a key/value set.
 
-        self._checkComboChange(self.cmbPageBack,
-                               DbKeys.SETTING_PAGE_PREVIOUS)
-        self._checkComboChange(self.cmbPageForward,
-                               DbKeys.SETTING_PAGE_NEXT)
-        self._checkComboChange(self.cmbPreviousBookmark,
-                               DbKeys.SETTING_BOOKMARK_PREVIOUS)
-        self._checkComboChange(self.cmbNextBookmark,
-                               DbKeys.SETTING_BOOKMARK_NEXT)
-        self._checkComboChange(self.cmbFirstPageShown,
-                               DbKeys.SETTING_FIRST_PAGE_SHOWN)
-        self._checkComboChange(self.cmbLastPageShown,
-                               DbKeys.SETTING_LAST_PAGE_SHOWN)
+        Returns:
+            dict: Key (DbKeys) : value entered
+        """
+        self.states |= self.change_list.changes()
 
+        self._check_combo_change(self.gcmb_page_back,
+                                 DbKeys.SETTING_PAGE_PREVIOUS)
+        self._check_combo_change(self.gcmb_page_forward,
+                                 DbKeys.SETTING_PAGE_NEXT)
+        self._check_combo_change(self.gcmb_previous_bookmark,
+                                 DbKeys.SETTING_BOOKMARK_PREVIOUS)
+        self._check_combo_change(self.cmb_next_bookmark,
+                                 DbKeys.SETTING_BOOKMARK_NEXT)
+        self._check_combo_change(self.gcmb_first_page_shown,
+                                 DbKeys.SETTING_FIRST_PAGE_SHOWN)
+        self._check_combo_change(self.gcmb_last_page_shown,
+                                 DbKeys.SETTING_LAST_PAGE_SHOWN)
         return self.states
 
-    def setKeys(self):
-        self.cmbPageBack.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_PAGE_PREVIOUS))
-        self.cmbPageForward.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_PAGE_NEXT))
-        self.cmbPreviousBookmark.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_BOOKMARK_PREVIOUS))
-        self.cmbNextBookmark.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_BOOKMARK_NEXT))
-        self.cmbFirstPageShown.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_FIRST_PAGE_SHOWN))
-        self.cmbLastPageShown.setCurrentItem(
-            self.settings.getValue(DbKeys.SETTING_LAST_PAGE_SHOWN))
+    def _set_keys(self):
+        self.gcmb_page_back.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_PAGE_PREVIOUS))
+        self.gcmb_page_forward.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_PAGE_NEXT))
+        self.gcmb_previous_bookmark.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_BOOKMARK_PREVIOUS))
+        self.cmb_next_bookmark.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_BOOKMARK_NEXT))
+        self.gcmb_first_page_shown.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_FIRST_PAGE_SHOWN))
+        self.gcmb_last_page_shown.set_current_item(
+            self.dilpref.get_value(DbKeys.SETTING_LAST_PAGE_SHOWN))
 
-    def createTabLayout(self):
-        self.tabLayout = QTabWidget()
+    def _create_tab_layout(self):
+        self.tab_layout = QTabWidget()
 
-        self.tabLayout.addTab(self.createFileLayout(), "File Settings")
-        self.tabLayout.addTab(self.createBookSettings(), "Book settings")
-        self.tabLayout.addTab(self.createKeyboardLayout(), "Key Modifiers")
-        # self.tabLayout.addTab(self.createConvertPdfLayout(), "Script")
-        self.tabLayout.addTab(
-            self.createShellScriptLayout(), "Script Settings")
+        self.tab_layout.addTab(self._create_file_layout(), "File Settings")
+        self.tab_layout.addTab(self._create_book_settings(), "Book settings")
+        self.tab_layout.addTab(self._create_keyboard_layout(), "Key Modifiers")
+        # self.tab_layout.addTab(self.createConvertPdfLayout(), "Script")
+        self.tab_layout.addTab(
+            self._create_shellscript_layout(), "Script Settings")
 
-        return self.tabLayout
+        return self.tab_layout
 
-    def labelGrid(self, grid: QGridLayout, labels: list):
+    def _label_grid(self, grid: QGridLayout, labels: list):
         for i, label in enumerate(labels, 0):
             if label is None:
                 lbl = QLabel()
@@ -168,443 +346,413 @@ class UiPreferences(QDialog):
                 grid.addWidget(lbl, i, 0)
             elif len(label) > 0:
                 lbl = QLabel()
-                lbl.setText("<b>{}</b>:".format(label))
+                lbl.setText(f"<b>{label}</b>:")
                 lbl.setTextFormat(Qt.RichText)
                 grid.addWidget(lbl, i, 0)
 
-    def createFileLayout(self) -> QWidget:
-        labels = ['Sheetmusic directory', 
-                  'Library Directory (database)', 
+    def _create_file_layout(self) -> QWidget:
+        labels = ['Sheetmusic directory',
+                  'Library Directory (database)',
                   'User Script Directory',
-                  "Number of recent files", 
-                  "", 
-                  "Editor", 
-                  "Log Level", 
+                  "Number of recent files",
+                  "",
+                  "Editor",
+                  "Log Level",
                   None]
-        self.widgetFile = QWidget()
-        self.layoutFile = QGridLayout()
-        self.labelGrid(self.layoutFile, labels)
-        self.widgetFile.setLayout(self.layoutFile)
-        return self.widgetFile
+        self.widget_file = QWidget()
+        self.layout_file = QGridLayout()
+        self.layout_file.setObjectName('layout_file')
+        self._label_grid(self.layout_file, labels)
+        self.widget_file.setLayout(self.layout_file)
+        return self.widget_file
 
-    def createBookSettings(self) -> QWidget:
-        labels = ["Book page import to format<br/>(Does not apply to PDF documents)", 
+    def _create_book_settings(self) -> QWidget:
+        labels = ["Book page import to format<br/>(Does not apply to PDF documents)",
                   "Configuration",
                   'Default Genre',
-                  "Page layout", 
-                  "Page controls", 
-                  None, 
+                  "Page layout",
+                  "Page controls",
+                  None,
                   None]
-        self.widgetBook = QWidget()
-        self.layoutBook = QGridLayout()
-        self.labelGrid(self.layoutBook, labels)
-        self.widgetBook.setLayout(self.layoutBook)
-        return self.widgetBook
+        self.widget_book = QWidget()
+        self.layout_book = QGridLayout()
+        self._label_grid(self.layout_book, labels)
+        self.widget_book.setLayout(self.layout_book)
+        return self.widget_book
 
-    def createShellScriptLayout(self) -> QWidget:
+    def _create_shellscript_layout(self) -> QWidget:
         labels = ["Command to run", "Command line options", None,
                   "Conversion type", "Resolution", "Import name settings", None]
-        self.widgetShellScript = QWidget()
-        self.layoutShellScript = QGridLayout()
-        self.labelGrid(self.layoutShellScript, labels)
-        self.widgetShellScript.setLayout(self.layoutShellScript)
-        return self.widgetShellScript
+        self.widget_shellscript = QWidget()
+        self.layout_shellscript = QGridLayout()
+        self._label_grid(self.layout_shellscript, labels)
+        self.widget_shellscript.setLayout(self.layout_shellscript)
+        return self.widget_shellscript
 
-    def createKeyboardLayout(self) -> QWidget:
+    def _create_keyboard_layout(self) -> QWidget:
         labels = [
-            "", "Previous Page", "Next Page", "First Page", "Last Page", "", "Previous Bookmark", "Next Bookmark"
+            "",
+            "Previous Page",
+            "Next Page",
+            "First Page",
+            "Last Page",
+            "",
+            "Previous Bookmark",
+            "Next Bookmark"
         ]
-        self.widgetKeyboard = QWidget()
-        self.layoutKeyboard = QGridLayout()
-        self.labelGrid(self.layoutKeyboard, labels)
-        self.widgetKeyboard.setLayout(self.layoutKeyboard)
-        return self.widgetKeyboard
+        self.widget_keyboard = QWidget()
+        self.layout_keyboard = QGridLayout()
+        self._label_grid(self.layout_keyboard, labels)
+        self.widget_keyboard.setLayout(self.layout_keyboard)
+        return self.widget_keyboard
 
-    def formatDirectory(self, layout: QGridLayout, row: int) -> int:
+    def _dir_line( self, objname:str, defaultdir:str )->QHBoxLayout:
+
+        def callback( objname , value ):
+            lbl.setText( value )
+            self.change_list.addtrack( objname, value )
+
+        dirlayout = QHBoxLayout()
+
+        dirbtn = UiDirButton(
+                    objname=objname,
+                    dirname=defaultdir )
+        dirbtn.callback.connect( callback)
+
+        rstbtn = UiReset(
+            objname=objname,
+            resetvalue=defaultdir )
+        rstbtn.callback.connect( callback )
+
+        lbl = QLabel()
+        lbl.setText( defaultdir )
+
+        dirlayout.addWidget( lbl , alignment=Qt.AlignLeft, stretch=1)
+        dirlayout.addWidget( dirbtn )
+        dirlayout.addWidget( rstbtn )
+        return dirlayout
+
+    def _format_sheetmusic_dir(self, layout: QGridLayout, row: int) -> int:
         '''
             Location of where to store music files
-
         '''
-        # Create and add Default path to music options
-        self.lblSheetmusicDir = QLabel(self.settings.getValue(
-            DbKeys.SETTING_DEFAULT_PATH_MUSIC, DbKeys.VALUE_DEFAULT_DIR))
-        self.lblSheetmusicDir.setObjectName(DbKeys.SETTING_DEFAULT_PATH_MUSIC)
-        self.btn_change_sheetmusic_dir = QPushButton("Change...")
-        self.btn_reset_sheetmusic_dir = QPushButton("Restore Defaults")
+        defaultdir = self.dilpref.get_value(
+                    DbKeys.SETTING_DEFAULT_PATH_MUSIC,
+                    DbKeys.VALUE_DEFAULT_DIR)
 
-        self.btn_change_sheetmusic_dir.pressed.connect(
-            self.action_change_sheetmusic_dir)
-        self.btn_reset_sheetmusic_dir.pressed.connect(
-            self.action_reset_sheetmusic_dir)
+        layout.addLayout(self._dir_line(
+                                DbKeys.SETTING_DEFAULT_PATH_MUSIC,
+                                defaultdir),
+                        row, 1, alignment=Qt.AlignLeft)
+        return row+1
 
-        hlayout = QHBoxLayout()
-        hlayout.addWidget(self.lblSheetmusicDir)
-        hlayout.addWidget(self.btn_change_sheetmusic_dir)
-        hlayout.addWidget(self.btn_reset_sheetmusic_dir)
+    def _format_user_scriptdir(self, layout: QGridLayout, row: int) -> int:
+        '''
+            Location of where to store script files
+        '''
+        defaultdir = self.dilpref.get_value(
+            DbKeys.SETTING_PATH_USER_SCRIPT,
+            DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR)
 
-        layout.addLayout(hlayout, row, 1, alignment=Qt.AlignLeft)
-        row += 1
-        return row
+        layout.addLayout(self._dir_line(
+                                DbKeys.SETTING_PATH_USER_SCRIPT,
+                                defaultdir),
+                        row, 1, alignment=Qt.AlignLeft)
+        return row+1
 
-    def formatUserScriptDir(self, layout: QGridLayout, row: int) -> int:
+    def _format_db_dir(self, layout: QGridLayout, row: int) -> int:
+        # dbdir = UiDir(
+        #         DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB,
+        #         self.dilpref.dbdirectory)
+        # dbdir.callback( self.change_list.addtrack)
+        # layout.addLayout(dbdir.layout, row, 1, alignment=Qt.AlignLeft)
 
-        # create and add User Script path to music options
-        self.label_user_script_dir = QLabel(self.settings.getValue(
-            DbKeys.SETTING_PATH_USER_SCRIPT, DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR))
-        self.label_user_script_dir.setObjectName(
-            DbKeys.SETTING_DEFAULT_PATH_MUSIC)
-        self.btn_change_user_script_dir = QPushButton("Change...")
-        self.btn_reset_user_script_dir = QPushButton("Restore Defaults")
+        layout.addLayout(self._dir_line(
+                                DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB,
+                                self.dilpref.dbdirectory ),
+                        row, 1, alignment=Qt.AlignLeft)
+        return row+1
 
-        self.btn_change_user_script_dir.pressed.connect(
-            self.action_change_user_script_dir)
-        self.btn_reset_user_script_dir.pressed.connect(
-            self.action_reset_user_script_dir)
-
-        hlayout = QHBoxLayout()
-        hlayout.addWidget(self.label_user_script_dir)
-        hlayout.addWidget(self.btn_change_user_script_dir)
-        hlayout.addWidget(self.btn_reset_user_script_dir)
-
-        layout.addLayout(hlayout, row, 1, alignment=Qt.AlignLeft)
-        row += 1
-        return row
-
-    def formatDatabaseDir(self, layout: QGridLayout, row: int) -> int:
-        hlayout = QHBoxLayout()
-
-        self.lbl_database_dir = QLabel(self.settings.getDirectoryDB())
-        self.lbl_database_dir.setObjectName(
-            DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB)
-        self.btn_change_database_dir = QPushButton("Change...")
-        self.btn_reset_database_dir = QPushButton("Restore Defaults")
-
-        hlayout.addWidget(self.lbl_database_dir)
-        hlayout.addWidget(self.btn_change_database_dir)
-        hlayout.addWidget(self.btn_reset_database_dir)
-
-        self.btn_change_database_dir.pressed.connect(
-            self.action_change_database_dir)
-        self.btn_reset_database_dir.pressed.connect(
-            self.action_reset_database_dir)
-
-        layout.addLayout(hlayout, row, 1, alignment=Qt.AlignLeft)
-        row += 1
-        return row
-
-    def formatRecentFiles(self, layout: QGridLayout, row: int) -> int:
+    def _format_recent_files(self, layout: QGridLayout, row: int) -> int:
         values = [str(x) for x in range(
             DbKeys.VALUE_RECENT_SIZE_MIN, DbKeys.VALUE_RECENT_SIZE_MAX+1)]
-        current = self.settings.getValue(
+        current = self.dilpref.get_value(
             DbKeys.SETTING_MAX_RECENT_SIZE, DbKeys.VALUE_RECENT_SIZE_DEFAULT)
-        self.cmbRecentFiles = UiGenericCombo(
-            isEditable=False, fill=values, currentValue=current, name=DbKeys.SETTING_MAX_RECENT_SIZE)
-        self.cmbRecentFiles.currentTextChanged.connect(
-            self.action_recent_files)
-        layout.addWidget(self.cmbRecentFiles, row, 1)
-        row += 1
-        return row
-    
-    def formatShowFilepath( self, layout: QGridLayout, row: int )->int:
+        self.gcmb_recent_files = UiGenericCombo(
+                isEditable=False,
+                fill=values,
+                current_value=current,
+                name=DbKeys.SETTING_MAX_RECENT_SIZE
+            )
+        layout.addWidget(self.gcmb_recent_files, row, 1)
+        self.change_list.add( UiTrackEntry(  self.gcmb_recent_files  ) )
+        return row+1
+
+    def _format_show_filepath(self, layout: QGridLayout, row: int) -> int:
         """Checkbox that determines if we are going to show the filepath with the title"""
-        self.checkShowFilepath = QCheckBox()
-        self.checkShowFilepath.setObjectName(DbKeys.SETTING_SHOW_FILEPATH)
-        self.checkShowFilepath.setText("Show book's directory path with title.")
-        self.checkShowFilepath.setCheckable(True)
+        checkbox = PreferenceCheckbox(
+            objname=DbKeys.SETTING_SHOW_FILEPATH,
+            label="Show book's directory path with title",
+            default=DbKeys.VALUE_SHOW_FILEPATH)
+        checkbox.callback(self.change_list.addtrack )
 
-        self.checkShowFilepath.setChecked(self.settings.getValueBool(
-            DbKeys.SETTING_SHOW_FILEPATH, DbKeys.VALUE_SHOW_FILEPATH))
-        layout.addWidget(self.checkShowFilepath, row, 1)
-        self.checkShowFilepath.stateChanged.connect(self.action_show_filepath)
-        row += 1
-        return row
+        layout.addWidget(checkbox.widget, row, 1)
+        return row+1
 
-    def formatEditor(self, layout: QGridLayout, row: int) -> int:
+    def _format_editor(self, layout: QGridLayout, row: int) -> int:
         edlist = GenerateEditList()
         values = edlist.list()
         fill_list = {"None": ""}
         for key, value in values.items():
             fill_list[key] = value.path()
 
-        current = self.settings.getValue(DbKeys.SETTING_PAGE_EDITOR, "None")
+        current = self.dilpref.get_value(
+            DbKeys.SETTING_PAGE_EDITOR, default="None")
 
-        self.cmbEditor = UiGenericCombo(
-            isEditable=False, fill=fill_list, currentValue=current, name=DbKeys.SETTING_PAGE_EDITOR)
-        self.cmbEditor.currentIndexChanged.connect(self.action_editor_changed)
-        layout.addWidget(self.cmbEditor, row, 1)
+        self.gcmb_editor = UiGenericCombo(
+            isEditable=False,
+            fill=fill_list,
+            current_value=current,
+            name=DbKeys.SETTING_PAGE_EDITOR)
+        self.gcmb_editor.currentIndexChanged.connect(
+            self._action_editor_changed)
+        layout.addWidget(self.gcmb_editor, row, 1)
+        return row+1
 
-        row += 1
-        return row
-    
-    def formatLogLevel( self, layout: QGridLayout, row: int ) ->int:
-        fill_list = { 'Disabled': LOG.disabled, 'Debug': LOG.debug , 'Information': LOG.info , 'Warnings': LOG.warning, 'Critical': LOG.critical }
+    def _format_log_level(self, layout: QGridLayout, row: int) -> int:
+        fill_list = {
+            'Disabled': LOG.disabled,
+            'Debug': LOG.debug,
+            'Information': LOG.info,
+            'Warnings': LOG.warning,
+            'Critical': LOG.critical}
 
-        current = self.settings.getValueInt( DbKeys.SETTING_LOGGING_ENABLED, 0 )
-        self.cmbLogging = UiGenericCombo(
-            isEditable=False, fill=fill_list, currentValue=current, name=DbKeys.SETTING_LOGGING_ENABLED)
-        self.cmbLogging.currentIndexChanged.connect(self.action_log_changed)
-        layout.addWidget(self.cmbLogging, row, 1)
+        current = decode(
+            code=DbKeys.ENCODE_INT,
+            value=self.dilpref.get_value(
+                DbKeys.SETTING_LOGGING_ENABLED,
+                default=0)
+        )
+        self.gcmb_logging = UiGenericCombo(
+            isEditable=False, fill=fill_list,
+            current_value=current,
+            name=DbKeys.SETTING_LOGGING_ENABLED)
+        layout.addWidget(self.gcmb_logging, row, 1)
+        self.change_list.add( UiTrackEntry(  self.gcmb_logging  ) )
+        return row+1
 
-        row += 1
-        return row
-    
-    def formatUsePdf( self, layout: QGridLayout, row:int)->int:
-        usePDF = self.settings.getValueBool(
-            DbKeys.SETTING_RENDER_PDF, DbKeys.VALUE_RENDER_PDF)
-        
-        self.btnUsePdfViewer = QRadioButton()
-        self.btnUsePdfViewer.setText(u"Render PDF pages using PDF Viewer")
-        self.btnUsePdfViewer.setObjectName('True')
+    def _format_use_pdf(self, layout: QGridLayout, row: int) -> int:
+        use_pdf = decode(
+            code=DbKeys.ENCODE_BOOL,
+            value=self.dilpref.get_value(
+                key=DbKeys.SETTING_RENDER_PDF,
+                default=DbKeys.VALUE_RENDER_PDF)
+        )
+        self.btn_use_pdf_viewer = QRadioButton()
+        self.btn_use_pdf_viewer.setText("Render PDF pages using PDF Viewer")
+        self.btn_use_pdf_viewer.setObjectName('True')
 
-        self.btnUseLabelViewer = QRadioButton()
-        self.btnUseLabelViewer.setText(u"Render PDF pages using images")
-        self.btnUseLabelViewer.setObjectName('False')
+        self.btn_use_label_viewer = QRadioButton()
+        self.btn_use_label_viewer.setText("Render PDF pages using images")
+        self.btn_use_label_viewer.setObjectName('False')
 
-        self.btnBox = QButtonGroup()
-        self.btnBox.addButton(self.btnUsePdfViewer)
-        self.btnBox.addButton(self.btnUseLabelViewer)
+        self.btn_box.addButton(self.btn_use_pdf_viewer)
+        self.btn_box.addButton(self.btn_use_label_viewer)
 
-        btnLayout = QGridLayout()
-        btnLayout.addWidget(self.btnUsePdfViewer,    0, 0)
-        btnLayout.addWidget(self.btnUseLabelViewer,  1, 0)
+        btn_layout = QGridLayout()
+        btn_layout.addWidget(self.btn_use_pdf_viewer,    0, 0)
+        btn_layout.addWidget(self.btn_use_label_viewer,  1, 0)
 
-        if usePDF :
-            self.btnUsePdfViewer.setChecked(True)
+        if use_pdf:
+            self.btn_use_pdf_viewer.setChecked(True)
         else:
-            self.btnUseLabelViewer.setChecked(True)
+            self.btn_use_label_viewer.setChecked(True)
 
-        layout.addLayout(btnLayout, row, 1)
-        self.btnBox.buttonClicked.connect(self.action_use_pdf)
+        layout.addLayout(btn_layout, row, 1)
+        return row+1
 
-        row += 1
-        return row
-
-
-    def formatFiletype(self, layout: QGridLayout, row: int) -> int:
-        self.cmbType = QComboBox()
-        self.cmbType.setObjectName(DbKeys.SETTING_FILE_TYPE)
-        ftype = self.settings.getValue(DbKeys.SETTING_FILE_TYPE)
+    def _format_filetype(self, layout: QGridLayout, row: int) -> int:
+        self.cmb_type = QComboBox()
+        self.cmb_type.setObjectName(DbKeys.SETTING_FILE_TYPE)
+        ftype = self.dilpref.get_value(DbKeys.SETTING_FILE_TYPE)
         for bvalue in QImageReader.supportedImageFormats():
             key = bvalue.data().decode()
             if key in self._typeDesc:
-                self.cmbType.addItem("{:4}: {}".format(
-                    key, self._typeDesc[key]), userData=key)
-        idx = self.cmbType.findData(ftype)
+                self.cmb_type.addItem(
+                    f"{key:4s}: {self._typeDesc[key]}",
+                    userData=key)
+        idx = self.cmb_type.findData(ftype)
         if idx > -1:
-            self.cmbType.setCurrentIndex(idx)
-        layout.addWidget(self.cmbType, row, 1)
-        self.cmbType.currentIndexChanged.connect(self.action_type_changed)
+            self.cmb_type.setCurrentIndex(idx)
+        layout.addWidget(self.cmb_type, row, 1)
+        self.cmb_type.currentIndexChanged.connect(self._action_type_changed)
+        self.change_list.add( UiTrackEntry(  self.cmb_type  ) )
         return row+1
 
-    def formatResolution(self, layout: QGridLayout, row: int) -> int:
-        self.cmbRes = QComboBox()
-        self.cmbRes.setObjectName(DbKeys.SETTING_FILE_RES)
-        fres = self.settings.getValue(
+    def _format_resolution(self, layout: QGridLayout, row: int) -> int:
+        self.cmb_res = QComboBox()
+        self.cmb_res.setObjectName(DbKeys.SETTING_FILE_RES)
+        fres = self.dilpref.get_value(
             DbKeys.SETTING_FILE_RES, default=DbKeys.VALUE_FILE_RES)
         for key, desc in self._resolution.items():
-            self.cmbRes.addItem("{:4}: {}".format(key, desc), userData=key)
-        idx = self.cmbRes.findData(fres)
+            self.cmb_res.addItem(f"{key:4s}: {desc}", userData=key)
+        idx = self.cmb_res.findData(fres)
         if idx > -1:
-            self.cmbRes.setCurrentIndex(idx)
-        layout.addWidget(self.cmbRes, row, 1)
-        self.cmbRes.currentIndexChanged.connect(self.action_res_changed)
+            self.cmb_res.setCurrentIndex(idx)
+        layout.addWidget(self.cmb_res, row, 1)
+        self.change_list.add( UiTrackEntry(  self.cmb_res  ) )
         return row+1
 
-    def formatDefaultGenre( self, layout:QGridLayout, row: int )->int:
-        self.cmbGenre = QComboBox()
-        self.cmbGenre.setObjectName(DbKeys.SETTING_BOOK_DEFAULT_GENRE)
-        self.cmbGenre.addItems( DbGenre().getall() )
-        default = self.settings.getValue(  DbKeys.SETTING_BOOK_DEFAULT_GENRE, DbKeys.VALUE_DEFAULT_GENRE)
-        idx = self.cmbGenre.findText( default )
-        if idx > -1 :
-            self.cmbGenre.setCurrentIndex( idx )
+    def _format_default_genre(self, layout: QGridLayout, row: int) -> int:
+        self.cmb_genre = QComboBox()
+        self.cmb_genre.setObjectName(DbKeys.SETTING_BOOK_DEFAULT_GENRE)
+        self.cmb_genre.addItems(DbGenre().get_all())
+        default = self.dilpref.get_value(
+            DbKeys.SETTING_BOOK_DEFAULT_GENRE,
+            DbKeys.VALUE_DEFAULT_GENRE)
+        idx = self.cmb_genre.findText(default)
+        if idx > -1:
+            self.cmb_genre.setCurrentIndex(idx)
         else:
-            self.cmbGenre.setCurrentIndex(0)
-        layout.addWidget(self.cmbGenre, row, 1)
-        self.cmbGenre.currentIndexChanged.connect(self.action_genre_changed)
-
+            self.cmb_genre.setCurrentIndex(0)
+        layout.addWidget(self.cmb_genre, row, 1)
+        self.change_list.add( UiTrackEntry(  self.cmb_genre  ) )
         return row+1
-    def formatFileDevice(self, layout: QGridLayout, row: int) -> int:
-        self.cmbDevice = QComboBox()
-        self.cmbDevice.setObjectName(DbKeys.SETTING_DEFAULT_IMGFORMAT)
-        layout.addWidget(self.cmbDevice, row, 1)
 
-        ftype = self.settings.getValue(
-            DbKeys.SETTING_DEFAULT_IMGFORMAT, DbKeys.SETTING_DEFAULT_IMGFORMAT)
-        type = self.cmbType.currentData()
-        self.cmbDevice.clear()
-        for key, value in self._device_settings[type].items():
-            self.cmbDevice.addItem("{:4}: {}".format(key, value), userData=key)
-        idx = self.cmbDevice.findData(ftype)
+    def _format_file_device(self, layout: QGridLayout, row: int) -> int:
+        self.cmb_device = QComboBox()
+        self.cmb_device.setObjectName(DbKeys.SETTING_DEFAULT_IMGFORMAT)
+
+        ftype = self.dilpref.get_value(
+            DbKeys.SETTING_DEFAULT_IMGFORMAT,
+            DbKeys.SETTING_DEFAULT_IMGFORMAT)
+        data_type = self.cmb_type.currentData()
+        self.cmb_device.clear()
+        for key, value in self._device_settings[data_type].items():
+            self.cmb_device.addItem(f"{key:4s}: {value}", userData=key)
+        idx = self.cmb_device.findData(ftype)
         if idx > -1:
-            self.cmbDevice.setCurrentIndex(idx)
-        self.cmbDevice.currentIndexChanged.connect(self.action_device_changed)
+            self.cmb_device.setCurrentIndex(idx)
+        layout.addWidget(self.cmb_device, row, 1)
+        self.change_list.add( UiTrackEntry(  self.cmb_device  ) )
         return row+1
 
-    def formatNameImport(self, layout: QGridLayout, row: int) -> int:
-        currentValue = self.settings.getValue(
+    def _format_import_name(self, layout: QGridLayout, row: int) -> int:
+        current_value = self.dilpref.get_value(
             DbKeys.SETTING_NAME_IMPORT, DbKeys.VALUE_NAME_IMPORT_FILE_1)
-        self.cmbNameImport = UiGenericCombo(False, ImportNameSetting(
-        ).forImportName, currentValue, name=DbKeys.SETTING_NAME_IMPORT)
-        layout.addWidget(self.cmbNameImport, row, 1)
-        self.cmbNameImport.currentTextChanged.connect(self.action_name_import)
+        self.gcmb_name_import = UiGenericCombo(False, ImportNameSetting(
+        ).forImportName, current_value, name=DbKeys.SETTING_NAME_IMPORT)
+        layout.addWidget(self.gcmb_name_import, row, 1)
+        self.change_list.add( UiTrackEntry(  self.gcmb_name_import  ) )
         return row+1
 
-    def formatReopenLastBook(self, layout: QGridLayout, row: int) -> int:
-        self.checkReopen = QCheckBox()
-        self.checkReopen.setObjectName(DbKeys.SETTING_LAST_BOOK_REOPEN)
-        self.checkReopen.setText("Reopen last book")
-        self.checkReopen.setCheckable(True)
+    def _format_reopen_lastbook(self, layout: QGridLayout, row: int) -> int:
+        checkbox = PreferenceCheckbox(
+            objname=DbKeys.SETTING_LAST_BOOK_REOPEN,
+            label="Reopen last book",
+            default=DbKeys.VALUE_REOPEN_LAST)
+        checkbox.callback(self.change_list.addtrack )
 
-        self.checkReopen.setChecked(self.settings.getValueBool(
-            DbKeys.SETTING_LAST_BOOK_REOPEN, DbKeys.VALUE_REOPEN_LAST))
-        layout.addWidget(self.checkReopen, row, 1)
-        self.checkReopen.stateChanged.connect(self.action_reopen_last_book)
-        return row+1
-    
-    def formatSaveConfig( self, layout: QGridLayout, row: int) -> int:
-        self.checkSaveConfig = QCheckBox()
-        self.checkSaveConfig.setObjectName(DbKeys.SETTING_USE_TOML_FILE)
-        self.checkSaveConfig.setText("Save configuration file with PDF (.cfg)")
-        self.checkSaveConfig.setCheckable(True)
-
-        self.checkSaveConfig.setChecked(self.settings.getValueBool(
-            DbKeys.SETTING_USE_TOML_FILE, DbKeys.VALUE_USE_TOML_FILE))
-        layout.addWidget(self.checkSaveConfig, row, 1)
-        self.checkSaveConfig.stateChanged.connect(self.action_save_config)
+        layout.addWidget(checkbox.widget , row, 1)
         return row+1
 
-    def formatAspectRatio(self, layout: QGridLayout, row: int) -> int:
-        self.checkAspect = QCheckBox()
-        self.checkAspect.setObjectName(DbKeys.SETTING_KEEP_ASPECT)
-        self.checkAspect.setText("Keep aspect ratio for pages")
-        self.checkAspect.setCheckable(True)
-        self.checkAspect.setChecked(self.settings.getValueBool(
-            DbKeys.SETTING_KEEP_ASPECT, DbKeys.VALUE_KEEP_ASPECT))
-        layout.addWidget(self.checkAspect, row, 1)
-        self.checkAspect.stateChanged.connect(self.action_aspect_ratio)
+    def _format_save_config(self, layout: QGridLayout, row: int) -> int:
+        checkbox = PreferenceCheckbox(
+            objname=DbKeys.SETTING_USE_TOML_FILE,
+            label="Save configuration file with PDF (.cfg)",
+            default=DbKeys.VALUE_USE_TOML_FILE)
+        checkbox.callback(self.change_list.addtrack )
+
+        layout.addWidget(checkbox.widget, row, 1)
         return row+1
 
-    def formatSmartPages(self, layout: QGridLayout, row: int) -> int:
-        self.checkSmartPages = QCheckBox()
-        self.checkSmartPages.setObjectName(DbKeys.SETTING_SMART_PAGES)
-        self.checkSmartPages.setText(
-            "Use smart page display( 1,2 -> 3,2 -> 3,4)")
-        self.checkSmartPages.setCheckable(True)
-        self.checkSmartPages.setChecked(self.settings.getValueBool(
-            DbKeys.SETTING_SMART_PAGES, DbKeys.VALUE_SMART_PAGES))
-        layout.addWidget(self.checkSmartPages, row, 1)
-        self.checkSmartPages.stateChanged.connect(self.action_smart_pages)
+    def _format_aspect_ratio(self, layout: QGridLayout, row: int) -> int:
+        checkbox = PreferenceCheckbox(
+            objname=DbKeys.SETTING_KEEP_ASPECT,
+            label="Keep aspect ratio for pages",
+            default=DbKeys.VALUE_KEEP_ASPECT)
+        checkbox.callback(self.change_list.addtrack )
+
+        layout.addWidget(checkbox.widget, row, 1)
         return row+1
 
-    def formatLayout(self, layout: QGridLayout, row: int) -> int:
-        pageLayout = self.settings.getValue(DbKeys.SETTING_PAGE_LAYOUT)
+    def _format_smart_pages(self, layout: QGridLayout, row: int) -> int:
+        checkbox = PreferenceCheckbox(
+            objname=DbKeys.SETTING_SMART_PAGES,
+            label="Use smart page display( 1,2 -> 3,2 -> 3,4)",
+            default=DbKeys.VALUE_SMART_PAGES)
+        checkbox.callback(self.change_list.addtrack )
 
-        self.btnOnePage = QRadioButton()
-        self.btnOnePage.setText(u"1 page")
-        self.btnOnePage.setObjectName(DbKeys.VALUE_PAGES_SINGLE)
-
-        self.btnTwoPage = QRadioButton()
-        self.btnTwoPage.setText(u"2 pages, side-by-side")
-        self.btnTwoPage.setObjectName(DbKeys.VALUE_PAGES_SIDE_2)
-
-        self.btnTwoStack = QRadioButton()
-        self.btnTwoStack.setText(u"2 pages, stacked")
-        self.btnTwoStack.setObjectName(DbKeys.VALUE_PAGES_STACK_2)
-
-        self.btnThreePage = QRadioButton()
-        self.btnThreePage.setText(u"3 pages, side-by-side")
-        self.btnThreePage.setObjectName(DbKeys.VALUE_PAGES_SIDE_3)
-
-        self.btnThreeStack = QRadioButton()
-        self.btnThreeStack.setText(u"3 pages, stacked")
-        self.btnThreeStack.setObjectName(DbKeys.VALUE_PAGES_STACK_3)
-
-        self.btnBox = QButtonGroup()
-        self.btnBox.addButton(self.btnOnePage)
-        self.btnBox.addButton(self.btnTwoPage)
-        self.btnBox.addButton(self.btnTwoStack)
-        self.btnBox.addButton(self.btnThreePage)
-        self.btnBox.addButton(self.btnThreeStack)
-        self.btnBox.setExclusive(True)
-
-        btnLayout = QGridLayout()
-        btnLayout.addWidget(self.btnOnePage,    0, 0)
-        btnLayout.addWidget(self.btnTwoPage,    1, 0)
-        btnLayout.addWidget(self.btnTwoStack,   1, 1)
-        btnLayout.addWidget(self.btnThreePage,  2, 0)
-        btnLayout.addWidget(self.btnThreeStack, 2, 1)
-
-        if pageLayout == DbKeys.VALUE_PAGES_SINGLE:
-            self.btnOnePage.setChecked(True)
-        elif pageLayout == DbKeys.VALUE_PAGES_SIDE_2:
-            self.btnTwoPage.setChecked(True)
-        elif pageLayout == DbKeys.VALUE_PAGES_STACK_2:
-            self.btnTwoStack.setChecked(True)
-        elif pageLayout == DbKeys.VALUE_PAGES_SIDE_3:
-            self.btnThreePage.setChecked(True)
-        elif pageLayout == DbKeys.VALUE_PAGES_STACK_3:
-            self.btnThreeStack.setChecked(True)
-
-        layout.addLayout(btnLayout, row, 1)
-        self.btnBox.buttonClicked.connect(self.action_layout)
+        layout.addWidget(checkbox.widget, row, 1)
         return row+1
 
-    def formatScript(self, layout: QGridLayout, row: int) -> int:
-        self.txtScriptShell = QLineEdit()
-        self.txtScriptShell.setObjectName(DbKeys.SETTING_DEFAULT_SCRIPT)
-        self.txtScriptShell.setText(
-            self.settings.getValue(DbKeys.SETTING_DEFAULT_SCRIPT))
-        layout.addWidget(self.txtScriptShell, row, 1)
+    def _format_layout(self, layout: QGridLayout, row: int) -> int:
+        page_layout = self.dilpref.get_value(DbKeys.SETTING_PAGE_LAYOUT)
+        self.layoutpg.setbutton( page_layout )
+
+        layout.addLayout( self.layoutpg.btn_layout, row, 1 )
+        self.layoutpg.btn_box.buttonClicked.connect( self._action_layout )
         return row+1
 
-    def formatScriptVars(self, layout: QGridLayout, row: int) -> int:
-        """ create the inputs for the script runner (system shell) and parms to pass to the runner"""
-        self.txtScriptVars = QLineEdit()
-        self.txtScriptVars.setObjectName(DbKeys.SETTING_DEFAULT_SCRIPT_VAR)
-        self.txtScriptVars.setText(self.settings.getValue(
+    def format_script(self, layout: QGridLayout, row: int) -> int:
+        """ Format the script for output in GUI """
+        initvalue = self.dilpref.get_value(DbKeys.SETTING_DEFAULT_SCRIPT)
+        self.txt_script_shell = QLineEdit()
+        self.txt_script_shell.setObjectName(DbKeys.SETTING_DEFAULT_SCRIPT)
+        self.txt_script_shell.setText( initvalue )
+        layout.addWidget(self.txt_script_shell, row, 1)
+        self.change_list.add( UiTrackEntry(  self.txt_script_shell  ) )
+        return row+1
+
+    def format_script_vars(self, layout: QGridLayout, row: int) -> int:
+        """ create the inputs for the script runner
+        (system shell) and parms to pass to the runner"""
+        self.txt_script_vars = QLineEdit()
+        self.txt_script_vars.setObjectName(DbKeys.SETTING_DEFAULT_SCRIPT_VAR)
+        self.txt_script_vars.setText(self.dilpref.get_value(
             DbKeys.SETTING_DEFAULT_SCRIPT_VAR))
-        layout.addWidget(self.txtScriptVars, row, 1)
-        lblHintScriptVar = QLabel()
-        lblHintScriptVar.setText(
+        layout.addWidget(self.txt_script_vars, row, 1)
+        lbl_hint_scriptvar = QLabel()
+        lbl_hint_scriptvar.setText(
             "Use a semicolon to separate options, e.g. -c;-d;-e")
-        layout.addWidget(lblHintScriptVar, row+1, 1)
+        layout.addWidget(lbl_hint_scriptvar, row+1, 1)
+        self.change_list.add( UiTrackEntry(  self.txt_script_vars  ) )
         return row+2
 
-    def formatData(self):
+    def format_data(self):
         """ Format all the directory inputs: music, database, scripts, etc."""
         #
-        row = self.formatDirectory(self.layoutFile, 0)
-        row = self.formatDatabaseDir(self.layoutFile, row)
-        row = self.formatUserScriptDir(self.layoutFile, row)
-        row = self.formatRecentFiles(self.layoutFile, row)
-        row = self.formatShowFilepath( self.layoutFile, row )
-        row = self.formatEditor(self.layoutFile, row)
-        row = self.formatLogLevel(self.layoutFile, row )
+        row = 0
+        row = self._format_sheetmusic_dir(self.layout_file, row)
+        row = self._format_db_dir(self.layout_file, row)
+        row = self._format_user_scriptdir(self.layout_file, row)
+        row = self._format_recent_files(self.layout_file, row)
+        row = self._format_show_filepath(self.layout_file, row)
+        row = self._format_editor(self.layout_file, row)
+        row = self._format_log_level(self.layout_file, row)
         #
-        row = self.formatFiletype(self.layoutBook, 0)
-        row = self.formatSaveConfig( self.layoutBook, row )
-        row = self.formatDefaultGenre( self.layoutBook, row )
-        row = self.formatLayout(self.layoutBook, row)
-        row = self.formatReopenLastBook(self.layoutBook, row)
-        row = self.formatAspectRatio(self.layoutBook, row)
-        row = self.formatSmartPages(self.layoutBook, row)
-        row = self.formatUsePdf( self.layoutBook, row )
+        row = self._format_filetype(self.layout_book, 0)
+        row = self._format_save_config(self.layout_book, row)
+        row = self._format_default_genre(self.layout_book, row)
+        row = self._format_layout(self.layout_book, row)
+        row = self._format_reopen_lastbook(self.layout_book, row)
+        row = self._format_aspect_ratio(self.layout_book, row)
+        row = self._format_smart_pages(self.layout_book, row)
+        row = self._format_use_pdf(self.layout_book, row)
         #
-        row = self.formatScript(self.layoutShellScript, 0)
-        row = self.formatScriptVars(self.layoutShellScript, row)
-        row = self.formatFileDevice(self.layoutShellScript, row)
-        row = self.formatResolution(self.layoutShellScript, row)
-        row = self.formatNameImport(self.layoutShellScript, row)
-        row = self.formatUserScriptDir(self.layoutShellScript, row)
+        row = self.format_script(self.layout_shellscript, 0)
+        row = self.format_script_vars(self.layout_shellscript, row)
+        row = self._format_file_device(self.layout_shellscript, row)
+        row = self._format_resolution(self.layout_shellscript, row)
+        row = self._format_import_name(self.layout_shellscript, row)
+        #row = self._format_user_scriptdir(self.layout_shellscript, row)
         #
-        self.formatKeyMods(self.layoutKeyboard, 0)
+        self._format_key_mods(self.layout_keyboard, 0)
 
-    def formatKeyMods(self, layout: QGridLayout, row: int):
+    def _format_key_mods(self, layout: QGridLayout, row: int):
         """
             Keymods takes up one tab page
         """
-        from keymodifiers import KeyModifiers
         km = KeyModifiers()
         row = 0
         col = 1
@@ -615,24 +763,32 @@ class UiPreferences(QDialog):
         layout.addWidget(lbl, row, 0, 1, 2, alignment=Qt.AlignCenter)
 
         row += 1
-        self.cmbPageBack = UiGenericCombo(
-            isEditable=False, fill=km.pageBack(), name='pageBack')
-        layout.addWidget(self.cmbPageBack, row, col)
+        self.gcmb_page_back = UiGenericCombo(
+            isEditable=False, fill=km.page_back(),
+            name=DbKeys.SETTING_PAGE_PREVIOUS)
+        layout.addWidget(self.gcmb_page_back, row, col)
+        self.change_list.add( self.gcmb_page_back )
 
         row += 1
-        self.cmbPageForward = UiGenericCombo(
-            isEditable=False, fill=km.pageForward(), name='pageForward')
-        layout.addWidget(self.cmbPageForward, row, col)
+        self.gcmb_page_forward = UiGenericCombo(
+            isEditable=False, fill=km.page_forward(),
+            name=DbKeys.SETTING_PAGE_NEXT)
+        layout.addWidget(self.gcmb_page_forward, row, col)
+        self.change_list.add( UiTrackEntry(  self.gcmb_page_forward  ) )
 
         row += 1
-        self.cmbFirstPageShown = UiGenericCombo(
-            isEditable=False, fill=km.firstPageShown(), name='firstPage')
-        layout.addWidget(self.cmbFirstPageShown, row, col)
+        self.gcmb_first_page_shown = UiGenericCombo(
+            isEditable=False, fill=km.first_page_shown(),
+            name=DbKeys.SETTING_FIRST_PAGE_SHOWN)
+        layout.addWidget(self.gcmb_first_page_shown, row, col)
+        self.change_list.add( UiTrackEntry(  self.gcmb_first_page_shown  ) )
 
         row += 1
-        self.cmbLastPageShown = UiGenericCombo(
-            isEditable=False, fill=km.lastPageShown(), name='lastPage')
-        layout.addWidget(self.cmbLastPageShown, row, col)
+        self.gcmb_last_page_shown = UiGenericCombo(
+            isEditable=False, fill=km.last_page_shown(),
+            name=DbKeys.SETTING_LAST_PAGE_SHOWN)
+        layout.addWidget(self.gcmb_last_page_shown, row, col)
+        self.change_list.add( UiTrackEntry(  self.gcmb_last_page_shown  ) )
 
         row += 1
         lbl = QLabel()
@@ -640,193 +796,89 @@ class UiPreferences(QDialog):
         layout.addWidget(lbl, row, 0, 1, 2, alignment=Qt.AlignCenter)
 
         row += 1
-        self.cmbPreviousBookmark = UiGenericCombo(
-            isEditable=False, fill=km.previousBookmark(), name='cmbPreviousBookmark')
-        layout.addWidget(self.cmbPreviousBookmark, row, col)
+        self.gcmb_previous_bookmark = UiGenericCombo(
+            isEditable=False, fill=km.previous_bookmark(),
+            name=DbKeys.SETTING_BOOKMARK_PREVIOUS)
+        layout.addWidget(self.gcmb_previous_bookmark, row, col)
+        self.change_list.add(   self.gcmb_previous_bookmark   )
 
         row += 1
-        self.cmbNextBookmark = UiGenericCombo(
-            isEditable=False, fill=km.nextBookmark(), name='cmbNextBookmark')
-        layout.addWidget(self.cmbNextBookmark, row, col)
+        self.cmb_next_bookmark = UiGenericCombo(
+            isEditable=False, fill=km.next_bookmark(),
+            name=DbKeys.SETTING_BOOKMARK_NEXT)
+        layout.addWidget(self.cmb_next_bookmark, row, col)
+        self.change_list.add(   self.cmb_next_bookmark   )
 
         # This will set the keyboard mods to what is stored in the database (if any)
-        self.setKeys()
+        self._set_keys()
 
         del km
 
-    def createMainButtons(self):
+    def _create_main_buttons(self):
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.Cancel | QDialogButtonBox.Save)
-        self.buttons.clicked.connect(self.action_main_button_clicked)
+        self.buttons.clicked.connect(self._action_main_button_clicked)
 
-    def editItem(self, item: QWidget):
-        self.settingsTable.blockSignals(True)
+    def edit_item(self, item: QWidget):
+        """An item has been edited.
+        Fetch the object name and save the text value
+
+        Args:
+            item (QWidget): object that has changed
+        """
+        #self.dilpref.Table.blockSignals(True)
         name = item.objectName()
         self.states[name] = item.text().strip()
-        self.settingsTable.blockSignals(False)
+        #self.dilpref.Table.blockSignals(False)
 
-    def editDatabaseDir(self, value):
-        if value != self.settings.getLocationDB():
-            self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB] = value
-        elif DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB in self.states:
-            self.states.pop(DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB)
 
-    def action_help(self):
-        helpLayout = QVBoxLayout()
-        helpDlg = QDialog()
-        helpDlg.setMinimumHeight(500)
+    def _action_help(self):
+        help_layout = QVBoxLayout()
+        help_dlg = QDialog()
+        help_dlg.setMinimumHeight(500)
 
-        def action_help_close(self):
-            helpDlg.reject()
+        def action_help_close():
+            help_dlg.reject()
 
-        helpPdf = QTextEdit()
-        helpPdf.setText(self._helpPdfCmd)
-        helpPdf.setReadOnly(True)
-        helpPdf.setMinimumWidth(500)
+        help_pdf = QTextEdit()
+        help_pdf.setText(self._help_pdfCmd)
+        help_pdf.setReadOnly(True)
+        help_pdf.setMinimumWidth(500)
 
-        helpLayout.addWidget(helpPdf)
-        btnPdf = QPushButton("Close")
-        helpLayout.addWidget(btnPdf)
-        btnPdf.clicked.connect(action_help_close)
+        help_layout.addWidget(help_pdf)
+        btn_pdf = QPushButton("Close")
+        help_layout.addWidget(btn_pdf)
+        btn_pdf.clicked.connect(action_help_close)
 
-        helpDlg.setLayout(helpLayout)
-        helpDlg.exec()
+        help_dlg.setLayout(help_layout)
+        help_dlg.exec()
 
-    def action_change_sheetmusic_dir(self):
-        cdir = self.lblSheetmusicDir.text()
-        new_directory_name = QFileDialog.getExistingDirectory(
-            self,
-            "Change Sheetmusic Directory",
-            dir=cdir,
-            options=QFileDialog.Option.ShowDirsOnly)
-        if new_directory_name:
-            self.lblSheetmusicDir.setText(new_directory_name)
-            self.lblSheetmusicDir.show()
-            self.flagChanged = True
-            self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC] = new_directory_name
-        self.btn_change_sheetmusic_dir.setDown(False)
+    def _action_editor_changed(self, _):
+        self.change_list.addtrack(
+            DbKeys.SETTING_PAGE_EDITOR,
+            self.gcmb_editor.currentText() )
+        self.change_list.addtrack(
+            DbKeys.SETTING_PAGE_EDITOR_SCRIPT,
+            self.gcmb_editor.currentData() )
 
-    def action_change_user_script_dir(self):
-        cdir = self.label_user_script_dir.text()
-        new_directory_name = QFileDialog.getExistingDirectory(
-            self,
-            "Change User Script Directory",
-            dir=cdir,
-            options=QFileDialog.Option.ShowDirsOnly)
-        if new_directory_name:
-            self.label_user_script_dir.setText(new_directory_name)
-            self.label_user_script_dir.show()
-            self.flagChanged = True
-            self.states[DbKeys.SETTING_PATH_USER_SCRIPT] = new_directory_name
-        self.btnChangeUserScriptDir.setDown(False)
+    def _action_type_changed(self, value):
+        del value
+        #self._format_file_device(self.layout_shellscript, 3)
 
-    def action_change_database_dir(self):
-        cdir = self.lbl_database_dir.text()
-        new_directory_name = QFileDialog.getExistingDirectory(
-            self,
-            "Change Database Directory",
-            dir=cdir,
-            options=QFileDialog.Option.ShowDirsOnly)
-        if new_directory_name:
-            self.lbl_database_dir.setText(new_directory_name)
-            self.lbl_database_dir.show()
-            self.flagChanged = True
-            self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB] = new_directory_name
-        self.btn_change_database_dir.setDown(False)
+    def _action_layout(self, btn: QButtonGroup):
+        """ Connect change to tracking object"""
+        self.change_list.addtrack( DbKeys.SETTING_PAGE_LAYOUT , btn.objectName )
 
-    def action_reset_sheetmusic_dir(self):
-        cdir = expanduser(DbKeys.VALUE_DEFAULT_DIR)
-        self.lblSheetmusicDir.setText(cdir)
-        self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC] = cdir
-        self.flagChanged = True
-
-    def action_reset_database_dir(self):
-        cdir = DbKeys.VALUE_DEFAULT_DIR
-        self.lbl_database_dir.setText(cdir)
-        self.states[DbKeys.SETTING_DEFAULT_PATH_MUSIC_DB] = cdir
-        self.flagChanged = True
-
-    def action_reset_user_script_dir(self):
-        new_directory_name = expanduser(DbKeys.VALUE_DEFAULT_USER_SCRIPT_DIR)
-        self.label_user_script_dir.setText(new_directory_name)
-        self.flagChanged = True
-        self.states[DbKeys.SETTING_PATH_USER_SCRIPT] = new_directory_name
-
-    def action_editor_changed(self, value):
-        self.states[DbKeys.SETTING_PAGE_EDITOR] = self.cmbEditor.currentText()
-        self.states[DbKeys.SETTING_PAGE_EDITOR_SCRIPT] = self.cmbEditor.currentData()
-        self.flagChanged = True
-
-    def action_log_changed( self, value ):
-        self.states[DbKeys.SETTING_LOGGING_ENABLED] = self.cmbLogging.currentData()
-        self.flagChanged = True
-
-    def action_use_pdf( self, buttonObject:QAbstractButton ):
-        self.states[ DbKeys.SETTING_RENDER_PDF] = ( buttonObject.objectName() == 'True' )
-        self.flagChanged = True
-
-    def action_type_changed(self, value):
-        self.states[DbKeys.SETTING_FILE_TYPE] = self.cmbType.currentData()
-        self.flagChanged = True
-        self.formatFileDevice(self.layoutShellScript, 3)
-
-    def action_res_changed(self, value):
-        newVal = self.cmbRes.currentData()
-        if newVal is not None:
-            self.states[DbKeys.SETTING_FILE_RES] = self.cmbRes.currentData()
-            self.flagChanged = True
-    
-    def action_genre_changed(self, value):
-        newVal = self.cmbGenre.currentData()
-        if newVal is not None:
-            self.states[DbKeys.SETTING_BOOK_DEFAULT_GENRE] = self.cmbRes.currentData()
-            self.flagChanged = True
-
-    def action_device_changed(self, value):
-        self.states[DbKeys.SETTING_DEFAULT_IMGFORMAT] = self.cmbDevice.currentData()
-        self.flagChanged = True
-
-    def action_name_import(self, value):
-        self.states[self.cmbNameImport.objectName()] = value
-        self.flagChanged = True
-
-    def action_recent_files(self, value):
-        self.states[self.cmbRecentFiles.objectName()] = value
-        self.flagChanged = True
-
-    def action_reopen_last_book(self, status):
-        '''Save the state of the 'ReopenLastBook checkbox '''
-
-        self.states[DbKeys.SETTING_LAST_BOOK_REOPEN] = self.checkReopen.isChecked()
-        self.flagChanged = True
-
-    def action_save_config( self, status ):
-        self.states[DbKeys.SETTING_USE_TOML_FILE] = self.checkSaveConfig.isChecked()
-        self.flagChanged = True
-
-    def action_show_filepath(self, status ):
-        self.states[DbKeys.SETTING_SHOW_FILEPATH ] = self.checkShowFilepath.isChecked()
-        self.flagChanged = True
-
-    def action_aspect_ratio(self, status):
-        self.states[DbKeys.SETTING_KEEP_ASPECT] = self.checkAspect.isChecked()
-        self.flagChanged = True
-
-    def action_smart_pages(self, status):
-        self.states[DbKeys.SETTING_SMART_PAGES] = self.checkSmartPages.isChecked()
-        self.flagChanged = True
-
-    def action_layout(self, buttonObject):
-        self.flagChanged = True
-        self.states[DbKeys.SETTING_PAGE_LAYOUT] = buttonObject.objectName()
-
-    def action_main_button_clicked(self, btn):
-        if btn.text() == "Save" and self.flagChanged:
+    def _action_main_button_clicked(self, btn):
+        """ If btn text is 'Save' and we detect changes
+            return 'accept()
+        """
+        if btn.text() == "Save" and self.change_list.haschanged():
             self.accept()
         else:
             self.reject()
 
-    _helpPdfCmd = """<h1>Script</h1>
+    _help_pdfCmd = """<h1>Script</h1>
 The script that comes with the system is based on UNIX/LINUX/MacOS rather
 than Windows. You may enter a Windows script, and one may be provided in the future.
 In the script, you have several 'variables' you can insert:
@@ -853,6 +905,6 @@ location
 #     app = QApplication()
 #     settings = MusicSettings()
 #     window = UiPreferences()
-#     window.formatData()
+#     window.format_data()
 #     window.show()
 #     sys.exit(app.exec())

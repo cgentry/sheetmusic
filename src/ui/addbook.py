@@ -1,77 +1,77 @@
-# This Python file uses the following encoding: utf-8
-# vim: ts=8:sts=8:sw=8:noexpandtab
-#
-# This file is part of SheetMusic
-# Copyright: 2022,2023 by Chrles Gentry
-#
-# This file is part of Sheetmusic. 
+"""
+User Interface : Adding books
 
-# Sheetmusic is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ This file is part of SheetMusic
+ Copyright: 2022,2023 by Chrles Gentry
+
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+ This file is part of Sheetmusic.
+
+"""
 
 from PySide6.QtWidgets  import QFileDialog, QMessageBox
 from qdil.book          import DilBook
 from qdil.preferences   import DilPreferences
-from qdb.keys           import DbKeys, BOOK
-from qdb.mixin.tomlbook  import MixinTomlBook
-from ui.properties      import UiPropertiesImages
+from qdb.keys           import DbKeys
+from qdb.fields.book import BookField
+from qdb.mixin.tomlbook import MixinTomlBook
+from ui.properties      import UiPropertiesImages, UiProperties
 
 class UiAddBook( MixinTomlBook ):
-    def __init__(self):
-        pass
+    """ Handle all the QT interface requirements for books
 
+    Args:
+        MixinTomlBook (class): Interface to TOML file handler
+    """
 
     def import_book( self )->bool:
-        """ Prompt user for a book directory and import into the system
-        
+        """Prompt user for a book directory and import into the system
+
             This will also write out a TOML file with properties, in case
             they want to re-import the file
+
+        Returns:
+            bool: True if imported, False if not
         """
-        book = DilBook()
+        dlbook = DilBook()
         book_dir = UiAddBook.prompt_import_directory('Existing Book')
-        ( book_info , error ) = book.import_one_book( book_dir )
+        ( book_info , error ) = dlbook.import_one_book( book_dir )
         if error:
             UiAddBook.error_message( error )
             return False
-        
-        book.open( book_info[ BOOK.book ])
-        property_editor = UiPropertiesImages()
-        property_editor.set_properties(book.get_properties())
-        if property_editor.exec():
-            book.update_properties( property_editor.changes )
-        if property_editor.save_toml_file():
-            self.write_toml_properties( book_dir , book.get_properties() )
 
-    def import_directory(self, newdir ):
+        dlbook.open( book_info[ BookField.BOOK ])
+        property_editor = UiPropertiesImages()
+        property_editor.set_properties(dlbook.get_properties())
+        if property_editor.exec():
+            dlbook.update_properties( property_editor.changes )
+        if property_editor.save_toml_file():
+            self.write_toml_properties( book_dir , dlbook.get_properties() )
+        return True
+
+    def import_directory(self ):
         """
         Import a directory of directories holding PNG images into the database
-            
+
         This will interface with:
             import_directory:   get the directory to check out
             prompt_add_detail:  Confirm they want to add detail
             Prompt to see if they want us to correct new entries.
             Get all the book information
         """
-        book = DilBook()
-        ( status , books_added , msg ) = book.import_directory( UiAddBook.prompt_import_directory() )
+        dlbook = DilBook()
+        ( status , books_added , msg ) = dlbook.import_directory(
+                    UiAddBook.prompt_import_directory() )
         if len( books_added ) > 0:
-            if UiAddBook.prompt_add_detail( 'Added {} books'.format( len( books_added )) ):
+            if UiAddBook.prompt_add_detail( f'Added {len( books_added )} books' ):
                 for book_info in books_added:
-                    book.open( book_info[ BOOK.book ])
+                    dlbook.open( book_info[ BookField.BOOK ])
                     property_editor = UiProperties()
-                    property_editor.set_properties(book.get_properties())
+                    property_editor.set_properties(dlbook.get_properties())
                     if property_editor.exec():
-                        self.book.update_properties( property_editor.changes )
+                        dlbook.update_properties( property_editor.changes )
         else:
             if not status:
                 UiAddBook.error_message( msg )
@@ -83,30 +83,29 @@ class UiAddBook( MixinTomlBook ):
             Prompt the user for a directory to scan for new/recover books
             Returns directory name
         """
-        defaultMusic = DilPreferences().getValue( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
-        type = DilPreferences().getValue(DbKeys.SETTING_FILE_TYPE, 'png')
-        new_directory_name = QFileDialog.getExistingDirectory(
+        default_music_path = DilPreferences().get_value( DbKeys.SETTING_DEFAULT_PATH_MUSIC )
+        return QFileDialog.getExistingDirectory(
             None,
-            "Scan Directory for Music",
-            dir=defaultMusic ,
-            options=QFileDialog.Option.ShowDirsOnly)
-        return new_directory_name
-    
+            header,
+            dir=default_music_path ,
+            options=QFileDialog.Option.ShowDirsOnly )
+
     @staticmethod
     def error_message( message:str , info:str=None, retry=False, error=False)->int:
-        qmsg = QMessageBox()
-        qmsg.setText( message )
+        """ Format a general error message text box on the screen"""
+        qmsg_box = QMessageBox()
+        qmsg_box.setText( message )
 
         if error:
-            qmsg.setIcon(QMessageBox.Critical)
+            qmsg_box.setIcon(QMessageBox.Critical)
         else:
-            qmsg.setIcon(QMessageBox.Warning)
+            qmsg_box.setIcon(QMessageBox.Warning)
         if info:
-            qmsg.setInformativeText( info )
-        qmsg.addButton( QMessageBox.Cancel )
+            qmsg_box.setInformativeText( info )
+        qmsg_box.addButton( QMessageBox.Cancel )
         if retry:
-            qmsg.addButton( QMessageBox.Retry)
-        return qmsg.exec()
+            qmsg_box.addButton( QMessageBox.Retry)
+        return qmsg_box.exec()
 
 
     @staticmethod
@@ -114,16 +113,16 @@ class UiAddBook( MixinTomlBook ):
         """
             Prompt the user to see if he wants to add detail
         """
-        msg = "{}\nUpdate properties?".format( message )
         return (
             QMessageBox.Yes == QMessageBox.question(
                 None,
                 "",
-                msg,
+                f"{message}\nUpdate properties?",
                 QMessageBox.StandardButton.Yes,
                 QMessageBox.StandardButton.No)
         )
 
-    def getDetail( self, newBookList ):
-        pass
-
+    # def get_detail( self, new_book_list ):
+    #     """ dummy function"""
+    #     new_book_list = new_book_list
+    #     pass
